@@ -1,0 +1,578 @@
+import { decode } from 'base64-arraybuffer';
+import Constants from 'expo-constants';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { SymbolView } from 'expo-symbols';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
+import { useI18n } from '@/hooks/use-i18n';
+import { useTheme } from '@/hooks/use-theme';
+import type { Locale } from '@/lib/i18n/locale';
+import { translateServerError } from '@/lib/i18n/server-errors';
+import { supabase } from '@/lib/supabase';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <ThemedView style={[styles.infoRow, styles.transparent]}>
+      <ThemedText type="small" themeColor="textSecondary">
+        {label}
+      </ThemedText>
+      <ThemedText type="small">{value}</ThemedText>
+    </ThemedView>
+  );
+}
+
+function LinkRow({
+  label,
+  note,
+  onPress,
+}: {
+  label: string;
+  note: string | null;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <ThemedView style={styles.transparent}>
+      <Pressable
+        style={({ pressed }) => [styles.infoRow, pressed && styles.pressed]}
+        onPress={onPress}>
+        <ThemedText type="small">{label}</ThemedText>
+        <SymbolView
+          name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+          size={13}
+          weight="semibold"
+          tintColor={theme.textSecondary}
+        />
+      </Pressable>
+      {note && (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.linkNote}>
+          {note}
+        </ThemedText>
+      )}
+    </ThemedView>
+  );
+}
+
+const LANGUAGE_OPTIONS: { key: Locale; label: (t: ReturnType<typeof useI18n>['t']) => string }[] = [
+  { key: 'fr', label: (t) => t.account.language.french },
+  { key: 'en', label: (t) => t.account.language.english },
+];
+
+function LanguageRow() {
+  const theme = useTheme();
+  const { t, locale, setLocale } = useI18n();
+
+  return (
+    <ThemedView style={[styles.section, styles.transparent]}>
+      <ThemedText type="smallBold">{t.account.language.title}</ThemedText>
+      <ThemedView style={[styles.languageRow, styles.transparent]}>
+        {LANGUAGE_OPTIONS.map((option) => {
+          const selected = option.key === locale;
+          return (
+            <Pressable
+              key={option.key}
+              style={({ pressed }) => pressed && styles.pressed}
+              onPress={() => setLocale(option.key)}>
+              <ThemedView
+                style={[
+                  styles.languagePill,
+                  {
+                    backgroundColor: 'transparent',
+                    borderColor: selected ? theme.text : theme.backgroundSelected,
+                  },
+                ]}>
+                <ThemedText type="small" themeColor={selected ? 'text' : 'textSecondary'}>
+                  {option.label(t)}
+                </ThemedText>
+              </ThemedView>
+            </Pressable>
+          );
+        })}
+      </ThemedView>
+    </ThemedView>
+  );
+}
+
+export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
+  const theme = useTheme();
+  const { t, locale } = useI18n();
+  const { profile, signOut, refreshProfile } = useAuth();
+
+  const [firstName, setFirstName] = useState(profile?.first_name ?? '');
+  const [lastName, setLastName] = useState(profile?.last_name ?? '');
+  const [phone, setPhone] = useState(profile?.phone ?? '');
+  const [companyName, setCompanyName] = useState('');
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [infoError, setInfoError] = useState<string | null>(null);
+  const [infoSaved, setInfoSaved] = useState(false);
+
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordChanged, setPasswordChanged] = useState(false);
+
+  const [openLegalNote, setOpenLegalNote] = useState<'privacy' | 'terms' | null>(null);
+
+  const fetchCompany = useCallback(async () => {
+    if (!profile || profile.role !== 'chef') return;
+    const { data } = await supabase
+      .from('companies')
+      .select('name')
+      .eq('id', profile.company_id)
+      .single();
+    if (data) setCompanyName(data.name);
+  }, [profile]);
+
+  useEffect(() => {
+    fetchCompany();
+  }, [fetchCompany]);
+
+  async function handleSaveInfo() {
+    if (!profile) return;
+    setInfoError(null);
+    setInfoSaved(false);
+    setSavingInfo(true);
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone: phone.trim() || null,
+      })
+      .eq('id', profile.id);
+
+    if (profileError) {
+      setSavingInfo(false);
+      setInfoError(translateServerError(profileError.message, locale));
+      return;
+    }
+
+    if (profile.role === 'chef') {
+      const { error: companyError } = await supabase
+        .from('companies')
+        .update({ name: companyName.trim() })
+        .eq('id', profile.company_id);
+
+      if (companyError) {
+        setSavingInfo(false);
+        setInfoError(translateServerError(companyError.message, locale));
+        return;
+      }
+    }
+
+    setSavingInfo(false);
+    setInfoSaved(true);
+    await refreshProfile();
+  }
+
+  async function handlePickPhoto() {
+    if (!profile) return;
+    setPhotoError(null);
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setPhotoError(t.account.photoPermissionDenied);
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets[0]?.base64) return;
+
+    setUploadingPhoto(true);
+
+    const path = `${profile.id}/avatar.jpg`;
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, decode(result.assets[0].base64), {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      setUploadingPhoto(false);
+      setPhotoError(translateServerError(uploadError.message, locale));
+      return;
+    }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    const avatarUrl = `${data.publicUrl}?updated=${Date.now()}`;
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', profile.id);
+
+    setUploadingPhoto(false);
+
+    if (updateError) {
+      setPhotoError(translateServerError(updateError.message, locale));
+      return;
+    }
+
+    await refreshProfile();
+  }
+
+  async function handleChangePassword() {
+    setPasswordError(null);
+    setPasswordChanged(false);
+
+    if (newPassword.length < 6) {
+      setPasswordError(t.account.security.passwordTooShort);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t.account.security.passwordsDoNotMatch);
+      return;
+    }
+
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setChangingPassword(false);
+
+    if (error) {
+      setPasswordError(translateServerError(error.message, locale));
+      return;
+    }
+
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordChanged(true);
+  }
+
+  if (!profile) return null;
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={topInset ? undefined : ['bottom', 'left', 'right']}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ThemedView style={[styles.header, styles.transparent]}>
+            <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
+              {profile.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              ) : (
+                <ThemedView
+                  style={[
+                    styles.avatar,
+                    styles.avatarPlaceholder,
+                    { borderWidth: 1, borderColor: theme.backgroundSelected },
+                  ]}>
+                  <SymbolView
+                    name={{ ios: 'person.fill', android: 'person', web: 'person' }}
+                    size={32}
+                    tintColor={theme.textSecondary}
+                  />
+                </ThemedView>
+              )}
+            </Pressable>
+
+            <ThemedText type="subtitle" style={styles.centerText}>
+              {profile.first_name} {profile.last_name}
+            </ThemedText>
+            <ThemedView
+              style={[styles.roleBadge, { borderWidth: 1, borderColor: theme.backgroundSelected }]}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.account.role[profile.role]}
+              </ThemedText>
+            </ThemedView>
+
+            <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
+              <ThemedText type="linkPrimary">
+                {uploadingPhoto ? t.account.uploadingPhoto : t.account.changePhoto}
+              </ThemedText>
+            </Pressable>
+
+            {photoError && (
+              <ThemedText type="small" style={styles.error}>
+                {photoError}
+              </ThemedText>
+            )}
+          </ThemedView>
+
+          <ThemedView style={[styles.section, styles.transparent]}>
+            <ThemedText type="smallBold">{t.account.profile.title}</ThemedText>
+            <TextInput
+              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
+              placeholder={t.account.profile.firstNamePlaceholder}
+              placeholderTextColor={theme.textSecondary}
+              value={firstName}
+              onChangeText={(value) => {
+                setFirstName(value);
+                setInfoSaved(false);
+              }}
+            />
+            <TextInput
+              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
+              placeholder={t.account.profile.lastNamePlaceholder}
+              placeholderTextColor={theme.textSecondary}
+              value={lastName}
+              onChangeText={(value) => {
+                setLastName(value);
+                setInfoSaved(false);
+              }}
+            />
+            <TextInput
+              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
+              placeholder={t.account.profile.phonePlaceholder}
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="phone-pad"
+              value={phone ?? ''}
+              onChangeText={(value) => {
+                setPhone(value);
+                setInfoSaved(false);
+              }}
+            />
+
+            {profile.role === 'chef' && (
+              <TextInput
+                style={[
+                  styles.input,
+                  { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
+                ]}
+                placeholder={t.account.profile.companyNamePlaceholder}
+                placeholderTextColor={theme.textSecondary}
+                value={companyName}
+                onChangeText={(value) => {
+                  setCompanyName(value);
+                  setInfoSaved(false);
+                }}
+              />
+            )}
+
+            {infoError && (
+              <ThemedText type="small" style={styles.error}>
+                {infoError}
+              </ThemedText>
+            )}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                { backgroundColor: theme.text, opacity: pressed || savingInfo ? 0.7 : 1 },
+              ]}
+              disabled={savingInfo}
+              onPress={handleSaveInfo}>
+              <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                {savingInfo
+                  ? t.account.profile.saving
+                  : infoSaved
+                    ? t.account.profile.saved
+                    : t.account.profile.save}
+              </ThemedText>
+            </Pressable>
+          </ThemedView>
+
+          {profile.role === 'chef' && (
+            <ThemedView style={[styles.section, styles.transparent]}>
+              <ThemedText type="smallBold">{t.account.security.title}</ThemedText>
+
+              <LinkRow
+                label={t.account.security.changePassword}
+                note={null}
+                onPress={() => setShowPasswordForm((value) => !value)}
+              />
+
+              {showPasswordForm && (
+                <ThemedView style={[styles.expandedForm, styles.transparent]}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
+                    ]}
+                    placeholder={t.account.security.newPasswordPlaceholder}
+                    placeholderTextColor={theme.textSecondary}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                    value={newPassword}
+                    onChangeText={(value) => {
+                      setNewPassword(value);
+                      setPasswordChanged(false);
+                    }}
+                  />
+                  <TextInput
+                    style={[
+                      styles.input,
+                      { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
+                    ]}
+                    placeholder={t.account.security.confirmPasswordPlaceholder}
+                    placeholderTextColor={theme.textSecondary}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                    value={confirmPassword}
+                    onChangeText={(value) => {
+                      setConfirmPassword(value);
+                      setPasswordChanged(false);
+                    }}
+                  />
+
+                  {passwordError && (
+                    <ThemedText type="small" style={styles.error}>
+                      {passwordError}
+                    </ThemedText>
+                  )}
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.button,
+                      { backgroundColor: theme.text, opacity: pressed || changingPassword ? 0.7 : 1 },
+                    ]}
+                    disabled={changingPassword || !newPassword || !confirmPassword}
+                    onPress={handleChangePassword}>
+                    <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                      {changingPassword
+                        ? t.account.security.updating
+                        : passwordChanged
+                          ? t.account.security.updated
+                          : t.account.security.update}
+                    </ThemedText>
+                  </Pressable>
+                </ThemedView>
+              )}
+            </ThemedView>
+          )}
+
+          <LanguageRow />
+
+          <ThemedView style={[styles.section, styles.transparent]}>
+            <ThemedText type="smallBold">{t.account.about.title}</ThemedText>
+            <InfoRow label={t.account.about.version} value={APP_VERSION} />
+            <LinkRow
+              label={t.account.about.privacyPolicy}
+              note={openLegalNote === 'privacy' ? t.account.about.notAvailableYet : null}
+              onPress={() => setOpenLegalNote((current) => (current === 'privacy' ? null : 'privacy'))}
+            />
+            <LinkRow
+              label={t.account.about.termsOfService}
+              note={openLegalNote === 'terms' ? t.account.about.notAvailableYet : null}
+              onPress={() => setOpenLegalNote((current) => (current === 'terms' ? null : 'terms'))}
+            />
+          </ThemedView>
+
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+            {t.account.signedInAs(t.account.role[profile.role])}
+          </ThemedText>
+
+          <Pressable onPress={signOut}>
+            <ThemedText type="linkPrimary" style={styles.centerText}>
+              {t.common.signOut}
+            </ThemedText>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  safeArea: {
+    flex: 1,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.six,
+    gap: Spacing.five,
+  },
+  centerText: {
+    textAlign: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  avatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  avatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  roleBadge: {
+    borderRadius: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.half,
+  },
+  section: {
+    gap: Spacing.three,
+  },
+  languageRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  languagePill: {
+    borderRadius: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  input: {
+    borderRadius: Spacing.two,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    fontSize: 16,
+  },
+  button: {
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.three,
+    alignItems: 'center',
+  },
+  error: {
+    color: '#e5484d',
+    textAlign: 'center',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.two,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+  linkNote: {
+    paddingBottom: Spacing.two,
+  },
+  expandedForm: {
+    gap: Spacing.three,
+    paddingTop: Spacing.one,
+  },
+  transparent: {
+    backgroundColor: 'transparent',
+  },
+});

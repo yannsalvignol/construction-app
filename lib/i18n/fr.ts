@@ -1,0 +1,321 @@
+import type { Translations } from './en';
+
+const fr = {
+  common: {
+    appName: 'Casprod',
+    cancel: 'Annuler',
+    signOut: 'Se déconnecter',
+    notSignedIn: 'Non connecté',
+  },
+
+  chefTabs: {
+    home: 'Accueil',
+    employees: 'Employés',
+    sites: 'Chantiers',
+    schedule: 'Planning',
+  },
+
+  employeeTabs: {
+    today: "Aujourd'hui",
+    instructions: 'Instructions',
+    map: 'Carte',
+    report: 'Signaler',
+    account: 'Compte',
+  },
+
+  webTabBar: {
+    docs: 'Documentation',
+  },
+
+  signIn: {
+    title: 'Connexion',
+    identifierPlaceholder: "E-mail ou nom d'utilisateur",
+    passwordPlaceholder: 'Mot de passe',
+    submit: 'Se connecter',
+    submitting: 'Connexion…',
+    ownerLink: 'Vous êtes chef de chantier ? Inscrivez-vous',
+    joinLink: 'Nouveau ici ? Rejoignez votre équipe avec un code',
+  },
+
+  signUp: {
+    title: 'Vous êtes chef de chantier ?',
+    subtitle: 'Créez le compte de votre entreprise pour commencer.',
+    emailPlaceholder: 'E-mail',
+    passwordPlaceholder: 'Mot de passe',
+    submit: "Créer le compte de l'entreprise",
+    submitting: 'Création du compte…',
+    signInLink: 'Vous avez déjà un compte ? Connectez-vous',
+  },
+
+  join: {
+    title: 'Rejoindre votre équipe',
+    codeSubtitle: "Demandez à votre chef le code d'invitation de votre entreprise.",
+    codePlaceholder: "Code d'invitation",
+    continue: 'Continuer',
+    checking: 'Vérification…',
+    signInLink: 'Vous avez déjà un compte ? Connectez-vous',
+    joiningPrefix: 'Vous rejoignez',
+    joiningSuffix: ". Choisissez un nom d'utilisateur et un mot de passe.",
+    usernamePlaceholder: "Choisissez un nom d'utilisateur",
+    passwordPlaceholder: 'Choisissez un mot de passe',
+    createAccount: 'Créer le compte',
+    creatingAccount: 'Création du compte…',
+    changeCode: "Ce n'est pas la bonne entreprise ? Changer de code",
+    usernamePatternError:
+      "Le nom d'utilisateur doit contenir 3 à 20 caractères : lettres minuscules, chiffres, « _ » ou « . »",
+    codeNotFound: 'Ce code ne correspond à aucune entreprise.',
+  },
+
+  onboarding: {
+    chef: {
+      title: 'Configurez votre entreprise',
+      subtitle: 'Vous êtes la première personne ici, vous serez donc le chef de chantier.',
+      companyNamePlaceholder: "Nom de l'entreprise",
+      firstNamePlaceholder: 'Votre prénom',
+      lastNamePlaceholder: 'Votre nom',
+      phonePlaceholder: 'Téléphone (facultatif)',
+      submit: "Créer l'entreprise",
+      submitting: 'Configuration…',
+    },
+    employee: {
+      title: 'Presque terminé',
+      willSignInAs: (username: string) => `Vous vous connecterez en tant que @${username}. `,
+      subtitle: 'Encore quelques informations et vous serez connecté à votre entreprise.',
+      missingCodeError:
+        "Nous avons perdu votre code d'invitation. Déconnectez-vous et rejoignez à nouveau depuis l'écran de connexion.",
+      firstNamePlaceholder: 'Votre prénom',
+      lastNamePlaceholder: 'Votre nom',
+      phonePlaceholder: 'Téléphone (facultatif)',
+      submit: "Rejoindre l'entreprise",
+      submitting: 'Adhésion…',
+    },
+  },
+
+  chefHome: {
+    periods: { today: "Aujourd'hui", week: 'Semaine', month: 'Mois', year: 'Année' },
+    periodPhrase: { today: "aujourd'hui", week: 'cette semaine', month: 'ce mois-ci', year: 'cette année' },
+    site: 'Chantier',
+    allSites: 'Tous les chantiers',
+    siteFilterNote:
+      "Aucun chantier pour le moment — ce filtre s'appliquera par chantier une fois les chantiers configurés.",
+    stats: {
+      employees: 'Employés',
+      onSiteNow: 'Sur site actuellement',
+      late: 'En retard',
+      absent: 'Absents',
+      hoursLogged: 'Heures enregistrées',
+      openIssues: 'Problèmes ouverts',
+    },
+    onSiteNow: { title: 'Sur site actuellement', empty: 'Personne sur site pour le moment.' },
+    attendance: {
+      title: 'Présence',
+      empty: (phrase: string) => `Aucun employé en retard ou absent ${phrase}.`,
+    },
+    hoursWorked: { title: 'Heures travaillées', empty: (phrase: string) => `Aucune heure enregistrée ${phrase}.` },
+    recentActivity: { title: 'Activité récente', empty: (phrase: string) => `Aucune activité ${phrase}.` },
+    reportedIssues: { title: 'Problèmes signalés', empty: 'Aucun problème signalé.' },
+    sites: { title: 'Chantiers', empty: 'Aucun chantier pour le moment.' },
+  },
+
+  schedule: {
+    title: 'Planning',
+    scopes: { me: 'Mon planning', team: 'Équipe' },
+    addShift: 'Ajouter un créneau',
+    assignShift: 'Assigner un créneau',
+    employee: 'Employé',
+    allEmployees: 'Tous les employés',
+    today: "Aujourd'hui",
+    noShiftsToday: "Aucun créneau aujourd'hui",
+    noShiftsOnDay: (dayLabel: string) => `Aucun créneau le ${dayLabel}`,
+    emptyMe: "Vous n'avez aucun créneau prévu pour ce jour.",
+    emptyTeam: "Rien n'est assigné à votre équipe pour ce jour pour le moment.",
+    weekdayLetters: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
+    months: [
+      'janv.',
+      'févr.',
+      'mars',
+      'avr.',
+      'mai',
+      'juin',
+      'juil.',
+      'août',
+      'sept.',
+      'oct.',
+      'nov.',
+      'déc.',
+    ],
+    weekdaysFull: ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'],
+    formatDate: (weekday: string, day: number, month: string) => `${weekday} ${day} ${month}`,
+  },
+
+  employees: {
+    joinCode: {
+      title: "Code d'invitation de l'équipe",
+      description:
+        "Partagez ce code pour que les employés puissent créer leur propre compte et rejoindre automatiquement — plus besoin de les ajouter un par un.",
+      copy: 'Copier le code',
+      copied: 'Copié !',
+      share: 'Partager',
+      regenerate: 'Régénérer',
+      regenerating: 'Régénération…',
+      confirmMessage: 'Le code actuel cessera de fonctionner immédiatement. Continuer ?',
+      shareMessage: (companyName: string, code: string) =>
+        `Rejoignez ${companyName} sur Casprod : téléchargez l'application, appuyez sur « Rejoindre votre équipe avec un code », puis entrez ${code}.`,
+    },
+    noEmployees: 'Aucun employé pour le moment.',
+    manualAddNote: 'Ou ajoutez un employé à la fois et remettez-lui ses identifiants vous-même.',
+    addManually: 'Ajouter un employé manuellement',
+    form: {
+      firstNamePlaceholder: 'Prénom',
+      lastNamePlaceholder: 'Nom',
+      phonePlaceholder: 'Téléphone (facultatif)',
+      usernamePlaceholder: "Nom d'utilisateur",
+      passwordPlaceholder: 'Mot de passe',
+      generateRandomly: 'Générer aléatoirement',
+      submit: 'Ajouter un employé',
+      submitting: 'Ajout…',
+      cancel: 'Annuler',
+    },
+  },
+
+  employeeDetail: {
+    credentials: {
+      title: 'Identifiants de connexion',
+      username: "Nom d'utilisateur",
+      password: 'Mot de passe',
+      regenerate: 'Régénérer le mot de passe',
+      regenerating: 'Génération…',
+      sendToPhone: 'Envoyer les identifiants par SMS',
+      sendPreview: (phone: string, username: string | null, password: string | null) =>
+        `Pas encore connecté — ceci enverra un SMS au ${phone} :\nNom d'utilisateur : ${username} · Mot de passe : ${password}`,
+      defaultPhone: 'son téléphone',
+    },
+    form: {
+      firstNamePlaceholder: 'Prénom',
+      lastNamePlaceholder: 'Nom',
+      phonePlaceholder: 'Téléphone',
+      saving: 'Enregistrement…',
+      saved: 'Enregistré',
+      save: 'Enregistrer les modifications',
+    },
+    settings: 'Paramètres',
+    toggles: {
+      isActive: { label: 'Actif', description: 'Désactivez pour suspendre cet employé sans le supprimer.' },
+      locationTracking: { label: 'Suivi de localisation', description: 'Partage la position pendant le service.' },
+      equipmentPhoto: {
+        label: "Preuve d'équipement",
+        description: "Exiger une photo de l'équipement de sécurité avant de commencer un service.",
+      },
+      clockInPhoto: { label: 'Photo de pointage', description: 'Exiger une photo lors du pointage.' },
+      notifications: {
+        label: 'Notifications',
+        description: 'Recevoir les instructions et alertes du chef.',
+      },
+    },
+  },
+
+  employeeHome: {
+    title: "Aujourd'hui",
+    subtitle: 'Pointez, consultez votre planning et votre chantier assigné.',
+  },
+
+  instructions: {
+    title: 'Instructions',
+    subtitle: 'Messages de votre chef de chantier.',
+  },
+
+  report: {
+    title: 'Signaler',
+    subtitle: 'Signalez un problème et envoyez des photos.',
+  },
+
+  map: {
+    switchToSatellite: 'Passer en vue satellite',
+    switchToStandard: 'Passer en vue standard',
+    showWholeTeam: "Afficher toute l'équipe",
+    showMorocco: 'Afficher le Maroc',
+    centerOnMe: 'Centrer sur moi',
+    nobodySharing: 'Personne ne partage sa position',
+    live: (count: number) => `${count} en direct`,
+    idle: (count: number) => `· ${count} inactif${count > 1 ? 's' : ''}`,
+    lastSeen: 'Vu pour la dernière fois',
+    liveLabel: 'En direct',
+    noLiveLocations: 'Aucune position en direct',
+    turnOnSharingNote: "Activez le partage de position d'un employé pour le voir ici.",
+    you: 'Vous',
+    justNow: "À l'instant",
+    minutesAgo: (minutes: number) => `il y a ${minutes} min`,
+    hoursAgo: (hours: number) => `il y a ${hours} h`,
+    webUnavailable: 'Disponible sur les applications iOS et Android.',
+    liveTeamMap: "Carte de l'équipe en direct",
+    yourLocation: 'Votre position',
+    myLocation: {
+      sharingOff: {
+        pill: 'Partage désactivé',
+        title: 'Le partage de position est désactivé',
+        body: "Votre chef ne peut pas voir où vous êtes. Lui seul peut l'activer.",
+      },
+      permissionDenied: {
+        pill: 'Autorisation requise',
+        title: 'Autorisation de localisation refusée',
+        body:
+          "Autorisez l'accès à la position dans les réglages de votre appareil pour que votre chef puisse vous voir sur le chantier.",
+      },
+      sendError: {
+        pill: 'Non envoyé',
+        title: "Impossible d'envoyer votre position",
+        body: 'Vérifiez votre connexion — votre position reprendra automatiquement.',
+      },
+      locating: {
+        pill: 'Localisation…',
+        title: 'Recherche de votre position',
+        body: 'Cela prend généralement quelques secondes.',
+      },
+      live: { pill: 'Partage en direct', title: 'Votre chef peut vous voir ici', body: 'Mis à jour' },
+      paused: { pill: 'En pause', title: 'Votre dernière position connue', body: 'Dernière mise à jour' },
+    },
+  },
+
+  account: {
+    role: { chef: 'Chef', employee: 'Employé' },
+    changePhoto: 'Changer la photo',
+    uploadingPhoto: 'Envoi…',
+    photoPermissionDenied: "L'accès à la photothèque a été refusé",
+    profile: {
+      title: 'Profil',
+      firstNamePlaceholder: 'Prénom',
+      lastNamePlaceholder: 'Nom',
+      phonePlaceholder: 'Téléphone',
+      companyNamePlaceholder: "Nom de l'entreprise",
+      saving: 'Enregistrement…',
+      saved: 'Enregistré',
+      save: 'Enregistrer les modifications',
+    },
+    security: {
+      title: 'Sécurité',
+      changePassword: 'Changer le mot de passe',
+      newPasswordPlaceholder: 'Nouveau mot de passe',
+      confirmPasswordPlaceholder: 'Confirmer le nouveau mot de passe',
+      passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères',
+      passwordsDoNotMatch: 'Les mots de passe ne correspondent pas',
+      updating: 'Mise à jour…',
+      updated: 'Mis à jour',
+      update: 'Mettre à jour le mot de passe',
+    },
+    language: {
+      title: 'Langue',
+      french: 'Français',
+      english: 'English',
+    },
+    about: {
+      title: 'À propos',
+      version: 'Version',
+      privacyPolicy: 'Politique de confidentialité',
+      termsOfService: "Conditions d'utilisation",
+      notAvailableYet: 'Pas encore disponible.',
+    },
+    signedInAs: (role: string) => `Connecté en tant que ${role}`,
+  },
+} satisfies Translations;
+
+export default fr;
