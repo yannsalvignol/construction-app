@@ -86,11 +86,20 @@ function checkLockfileSync() {
     fs.copyFileSync(pkgJson, path.join(tmpDir, 'package.json'));
     fs.copyFileSync(lockJson, path.join(tmpDir, 'package-lock.json'));
 
-    execFileSync('npm', ['ci', '--include=dev', '--ignore-scripts'], {
+    // Pinned to npm 10 (what EAS Build's current macOS image bundles with
+    // Node 22) rather than whatever npm happens to be on the local PATH.
+    // This check exists specifically to catch package-lock.json entries
+    // that are incomplete for optional/platform-specific transitive deps
+    // (seen in practice with @emnapi/core, @emnapi/runtime) -- and that
+    // exact incompleteness is npm-version-dependent: a lockfile npm 11
+    // considers complete can still be rejected by npm 10's `ci`. Using the
+    // local npm here silently stopped catching the bug it was written for
+    // the moment local npm was upgraded past EAS's version.
+    execFileSync('npx', ['--yes', 'npm@10', 'ci', '--include=dev', '--ignore-scripts'], {
       cwd: tmpDir,
       stdio: 'pipe',
     });
-    pass('npm ci --include=dev succeeds in a clean install.');
+    pass('npm@10 ci --include=dev succeeds in a clean install.');
   } catch (error) {
     fail('npm ci fails against a clean install -- this WILL fail on EAS Build.');
     const output = (error.stderr || error.stdout || String(error)).toString();
