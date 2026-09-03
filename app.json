@@ -8,7 +8,7 @@
     "scheme": "constructionapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/ios-icon.png",
       "bundleIdentifier": "com.casprod.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
