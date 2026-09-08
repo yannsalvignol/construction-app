@@ -1,5 +1,6 @@
 import EmployeeTabs from '@/components/employee-tabs';
+import { ConsentGate } from '@/components/consent-gate';
 
 export default function EmployeeLayout() {
-  return <EmployeeTabs />;
+  return <ConsentGate><EmployeeTabs /></ConsentGate>;
 }

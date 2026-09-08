@@ -56,7 +56,9 @@ test('presence and productivity database contracts', async t => {
     insert into public.profiles(id, company_id, first_name, last_name, role) values
       ('${ids.chef}', '${ids.company}', 'Chef', 'A', 'chef'), ('${ids.worker}', '${ids.company}', 'Worker', 'A', 'employee'),
       ('${ids.other}', '${ids.otherCompany}', 'Worker', 'B', 'employee'), ('${ids.otherChef}', '${ids.otherCompany}', 'Chef', 'B', 'chef');
-    insert into public.sites(id,company_id,name) values ('${ids.site}', '${ids.company}', 'Site A'), ('${ids.otherSite}', '${ids.otherCompany}', 'Site B');
+    insert into public.sites(id,company_id,name,address,latitude,longitude) values
+      ('${ids.site}', '${ids.company}', 'Site A', '1 rue A, Casablanca', 33.5731, -7.5898),
+      ('${ids.otherSite}', '${ids.otherCompany}', 'Site B', '2 rue B, Rabat', 34.0209, -6.8416);
   `);
 
   await t.test('catalogue is a read-only, category-keyed list of coded tasks', async () => {
@@ -87,8 +89,8 @@ test('presence and productivity database contracts', async t => {
   await t.test('site and tenant restrictions apply to direct API calls', async () => {
     assert.equal((await as(ids.worker, 'select * from public.sites')).length, 1);
     await assert.rejects(as(ids.worker, 'select public.start_work_day($1, 8)', [ids.otherSite]), /active site/);
-    await assert.rejects(as(ids.worker, "insert into public.sites(company_id,name) values ($1,'Fake')", [ids.company]), /row-level security/);
-    await assert.rejects(as(ids.chef, "insert into public.sites(company_id,name) values ($1,'Foreign')", [ids.otherCompany]), /row-level security/);
+    await assert.rejects(as(ids.worker, "insert into public.sites(company_id,name,address,latitude,longitude) values ($1,'Fake','1 rue X, Casablanca',33.5,-7.6)", [ids.company]), /row-level security/);
+    await assert.rejects(as(ids.chef, "insert into public.sites(company_id,name,address,latitude,longitude) values ($1,'Foreign','2 rue Y, Rabat',34.0,-6.8)", [ids.otherCompany]), /row-level security/);
     await assert.rejects(as(ids.worker, "update public.profiles set location_tracking_enabled = true where id = $1", [ids.worker]), /permission denied/);
     await assert.rejects(as(ids.worker, 'select public.update_own_employee_location(0::float8,0::float8)'), /does not exist/);
     await assert.rejects(db.query('update public.profiles set location_tracking_enabled=true where id=$1', [ids.worker]), /profiles_legacy_location_unused/);
@@ -168,6 +170,52 @@ test('presence and productivity database contracts', async t => {
     await assert.rejects(as(ids.worker, 'select public.chef_dashboard()'), /Chef account/);
     assert.equal((await scalar(ids.otherChef, 'select public.chef_dashboard()')).confirmed, 0);
   });
+  await t.test('a new site needs a located address, legacy sites stay updatable', async () => {
+    await assert.rejects(as(ids.chef, "insert into public.sites(company_id,name) values ($1,'No address')", [ids.company]), /recognised by the map/);
+    await assert.rejects(as(ids.chef, "insert into public.sites(company_id,name,address) values ($1,'No coords','12 rue Test')", [ids.company]), /recognised by the map/);
+    await assert.rejects(as(ids.chef, "insert into public.sites(company_id,name,address,latitude,longitude) values ($1,'Blank','   ',33.5,-7.6)", [ids.company]), /recognised by the map/);
+    await as(ids.chef, "insert into public.sites(company_id,name,address,latitude,longitude) values ($1,'Located','12 rue Test, Casablanca',33.5,-7.6)", [ids.company]);
+    assert.equal(Number((await as(ids.chef, "select * from public.sites where name = 'Located'"))[0].latitude), 33.5);
+    // A located site cannot silently lose its position.
+    await assert.rejects(as(ids.chef, "update public.sites set latitude = null where name = 'Located'"), /recognised by the map/);
+    // A site predating the rule keeps working: deactivating it must not start failing.
+    // The trigger is lifted to create it exactly as it would exist from before the migration.
+    await db.exec('alter table public.sites disable trigger sites_enforce_site_address');
+    await db.query("insert into public.sites(id,company_id,name) values ('30000000-0000-0000-0000-000000000009',$1,'Legacy')", [ids.company]);
+    await db.exec('alter table public.sites enable trigger sites_enforce_site_address');
+    await as(ids.chef, "update public.sites set is_active = false where name = 'Legacy'");
+    assert.equal((await as(ids.chef, "select * from public.sites where name = 'Legacy'"))[0].is_active, false);
+    // Coordinates stay inside the company boundary like every other site column.
+    assert.equal((await as(ids.other, "select * from public.sites where name = 'Located'")).length, 0);
+    await db.query("delete from public.sites where name in ('Located','Legacy')");
+  });
+  await t.test('site roster lists who declared days there, scoped to the company', async () => {
+    const roster = await scalar(ids.chef, 'select public.site_team($1)', [ids.site]);
+    assert.equal(roster.length, 1);
+    assert.equal(roster[0].employee_name, 'Worker A');
+    assert.equal(roster[0].present_today, true);
+    assert.equal(Number(roster[0].days), 1);
+    // A site with no declared day yields an empty roster, not an error.
+    assert.equal((await scalar(ids.otherChef, 'select public.site_team($1)', [ids.otherSite])).length, 0);
+    // Another company's site is not readable, and employees cannot call this at all.
+    await assert.rejects(as(ids.otherChef, 'select public.site_team($1)', [ids.site]), /Site not found/);
+    await assert.rejects(as(ids.worker, 'select public.site_team($1)', [ids.site]), /Chef account/);
+  });
+  await t.test('an employee can only be removed before they declare anything', async () => {
+    const fresh = '10000000-0000-0000-0000-000000000007';
+    await db.query("insert into auth.users values ($1,'fresh@employee.local')", [fresh]);
+    await db.query("insert into public.profiles(id,company_id,first_name,last_name,role) values ($1,$2,'Fresh','Hire','employee')", [fresh, ids.company]);
+    // Employees cannot remove anyone, and a chef cannot reach another company.
+    await assert.rejects(as(ids.worker, 'select public.remove_employee($1)', [fresh]), /Chef account/);
+    await assert.rejects(as(ids.otherChef, 'select public.remove_employee($1)', [fresh]), /Employee not found/);
+    await assert.rejects(as(ids.chef, 'select public.remove_employee($1)', [ids.chef]), /Only an employee/);
+    // Declared work belongs to the company, so the worker with a work day is kept.
+    await assert.rejects(as(ids.chef, 'select public.remove_employee($1)', [ids.worker]), /declared work/);
+    // The untouched hire goes, and the sign-in goes with them.
+    await as(ids.chef, 'select public.remove_employee($1)', [fresh]);
+    assert.equal((await db.query('select * from public.profiles where id=$1', [fresh])).rows.length, 0);
+    assert.equal((await db.query('select * from auth.users where id=$1', [fresh])).rows.length, 0);
+  });
   await t.test('live location needs the chef to enable it, the employee to agree, and an open day', async () => {
     // The chef's switch alone shares nothing: agreement is a separate, explicit act.
     await assert.rejects(as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)'), /not enabled/);
@@ -183,6 +231,11 @@ test('presence and productivity database contracts', async t => {
     await assert.rejects(as(ids.worker, "select public.set_live_location_consent(true, 'old')"), /current live location notice/);
     await as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)');
     assert.equal((await as(ids.chef, 'select public.live_team()'))[0].live_team.length, 1);
+    // A stationary worker stops emitting, so an old position must keep showing:
+    // vanishing from the map reads as "gone" and is worse than a dated pin.
+    await db.query("update public.live_positions set recorded_at = now() - interval '3 hours' where employee_id = $1", [ids.worker]);
+    assert.equal((await as(ids.chef, 'select public.live_team()'))[0].live_team.length, 1);
+    assert.equal((await as(ids.worker, 'select * from public.live_positions')).length, 1);
     // Another company's chef never sees these positions.
     assert.equal((await as(ids.otherChef, 'select public.live_team()'))[0].live_team.length, 0);
     await assert.rejects(as(ids.other, 'select public.live_team()'), /Chef account/);
@@ -196,6 +249,7 @@ test('presence and productivity database contracts', async t => {
     // Ending the day erases the position too, so nothing lingers after work.
     await as(ids.worker, 'select public.end_work_day($1)', [day.id]);
     assert.equal((await db.query('select * from public.live_positions')).rows.length, 0);
+    assert.equal((await as(ids.chef, 'select public.live_team()'))[0].live_team.length, 0);
     await assert.rejects(as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)'), /Start a work day/);
     // Reopen the shared fixture: end_work_day also cancels pending requests, which
     // later tests in this file rely on being live.

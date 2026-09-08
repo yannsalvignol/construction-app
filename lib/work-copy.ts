@@ -12,8 +12,9 @@ const fr = {
   liveNoticeTitle: 'Partage de position en direct', liveNoticeIntro: 'Votre chef a activé le suivi en direct pour votre compte. Il ne démarrera qu’avec votre accord.',
   liveNoticeCollection: 'Pendant vos journées de travail déclarées uniquement, votre position est transmise environ toutes les 2 minutes, y compris lorsque l’application est en arrière-plan. Le partage s’arrête dès que vous terminez votre journée.',
   liveNoticePrivacy: 'Seule votre position la plus récente est conservée : aucun historique de déplacement n’est constitué. Elle disparaît de l’écran de votre chef après 15 minutes sans mise à jour, et est effacée à la fin de la journée.',
-  liveNoticeRights: 'Vous pouvez retirer votre accord à tout moment dans cet écran : le partage s’arrête immédiatement et votre dernière position est effacée. Le refus n’empêche pas l’accès à votre compte ni la déclaration de vos tâches.',
+  liveNoticeRights: 'Vous pouvez retirer votre accord à tout moment : le partage s’arrête immédiatement et votre dernière position est effacée. Votre chef ayant activé le suivi pour votre poste, vous ne pourrez pas déclarer de journée tant que vous n’aurez pas répondu. Vous gardez l’accès à votre compte et pouvez vous déconnecter à tout moment.',
   liveAgree: 'J’accepte de partager ma position en direct pendant mes journées déclarées.', liveAccept: 'Activer le partage', liveWithdraw: 'Retirer mon accord',
+  gateTitle: 'Avant de commencer', gateHint: 'Votre accord est nécessaire pour utiliser l’application. Vous pouvez vous déconnecter si vous préférez ne pas répondre maintenant.', signOut: 'Se déconnecter',
   liveOn: 'Partage en direct actif', liveOff: 'Partage en direct en attente de votre accord', livePermissionDenied: 'Autorisez la position « Toujours » pour partager en direct pendant votre journée.',
   noTasks: 'Aucune tâche déclarée pour le moment.', consistency: 'Points de cohérence', consistencyHint: 'Même tâche, même chantier et même quantité sur les 3 dernières journées travaillées. À discuter avec l’équipe ; aucun blocage.',
   dayTitle: 'Ma journée', daySubtitle: 'Un chantier. Des tâches. Quelques vérifications ponctuelles.', site: 'Chantier', chooseSite: 'Choisir un chantier', noSites: 'Votre chef doit d’abord ajouter un chantier.',
@@ -28,13 +29,24 @@ const fr = {
   noticePrivacy: 'Aucun suivi continu ni accès à votre position en arrière-plan. La caméra et le GPS ne s’activent qu’après votre appui. Évitez les visages et les informations personnelles dans la photo. Aucune reconnaissance faciale.',
   noticeAccess: 'Les preuves sont accessibles à vous et aux chefs de votre entreprise pour vérifier la présence sur le chantier. Les photos et coordonnées sont conservées au maximum 30 jours. Les journées et tâches déclarées restent dans l’historique de l’entreprise.',
   noticeRights: 'Votre entreprise est responsable de cette utilisation. Contactez votre chef pour obtenir ses coordonnées, exercer vos droits d’accès, de rectification ou d’opposition, ou signaler une difficulté. Vous pouvez retirer votre accord dans cet écran ; les nouvelles demandes cessent alors.',
-  noticeChoice: 'Refuser ou retirer votre accord n’empêche pas l’accès au compte. Une vérification non réalisée n’est pas une preuve d’absence. Les démarches et la base légale applicables doivent être précisées par votre employeur.',
+  noticeChoice: 'Tant que vous n’avez pas accepté, vous ne pouvez pas déclarer de journée ni de tâches : ces fonctions reposent sur ces vérifications. Vous gardez l’accès à votre compte et pouvez vous déconnecter à tout moment. Une vérification non réalisée n’est pas une preuve d’absence. Les démarches et la base légale applicables doivent être précisées par votre employeur.',
   agreeLabel: 'J’ai lu ces informations et j’accepte les vérifications ponctuelles avec photo et GPS.', accept: 'Activer les vérifications', later: 'Plus tard', withdraw: 'Retirer mon accord', withdrawConfirm: 'Retirer votre accord terminera la journée en cours et arrêtera les nouvelles demandes.', info: 'Information et accord',
   taskTitle: 'Mes tâches', taskHint: 'Choisissez une tâche et indiquez la quantité totale réalisée aujourd’hui. Une nouvelle saisie remplace la quantité précédente.',
   category: 'Métier', task: 'Tâche', chooseTask: 'Choisir une tâche', quantity: 'Quantité réalisée', unit: 'unité(s)', metres: 'mètres', taskSaved: 'Déclaration enregistrée', startForTasks: 'Commencez votre journée pour déclarer vos tâches.',
   unitLong: { unit: 'unité(s)', m: 'mètres', m2: 'mètres carrés', m3: 'mètres cubes', kg: 'kilogrammes' }, unitShort: { unit: 'u', m: 'm', m2: 'm²', m3: 'm³', kg: 'kg' },
   whole: 'Nombre entier', decimal: 'Décimales', useKeyboard: 'Saisir au clavier', useWheel: 'Utiliser la molette',
-  sitesTitle: 'Chantiers', sitesHint: 'Les chantiers que votre équipe peut déclarer.', addSite: 'Ajouter un chantier', siteName: 'Nom du chantier', siteAddress: 'Adresse (facultative)',
+  sitesTitle: 'Chantiers', sitesHint: 'Les chantiers que votre équipe peut déclarer. Chaque chantier est placé sur la carte à partir de son adresse.', addSite: 'Ajouter un chantier', siteName: 'Nom du chantier', siteAddress: 'Adresse du chantier',
+  siteAddressHint: 'Déplacez la carte pour placer le repère sur le chantier. L’adresse se met à jour toute seule.',
+  pinLocating: 'Recherche de l’adresse…', pinNoAddress: 'Aucune adresse à cet endroit. Déplacez le repère.', pinUseMyLocation: 'Revenir à ma position',
+  pinPermission: 'Position refusée : la carte démarre sur le Maroc, déplacez le repère jusqu’au chantier.',
+  addressUnknown: 'Adresse introuvable dans Plans. Précisez la rue et la ville, puis réessayez.', addressNeeded: 'L’adresse est obligatoire.',
+  geocodeUnavailable: 'Utilisez l’application mobile pour ajouter un chantier : la validation d’adresse n’est pas disponible sur le web.',
+  siteNoCoords: 'Chantier sans adresse localisée, absent de la carte.', siteLegend: 'Chantiers',
+  noSitesLocated: 'Aucun chantier localisé. Ajoutez-en un depuis l’onglet Chantiers.',
+  notLocatable: 'Position non partagée', locateOnMap: 'Voir sur la carte',
+  justNow: 'à l’instant', minutesAgo: (n: number) => `il y a ${n} min`, hoursAgo: (n: number) => `il y a ${n} h`, stalePosition: 'Position non rafraîchie : l’employé n’a pas bougé ou son app est fermée.',
+  siteTeam: 'Employés du chantier', siteTeamHint: 'Les employés qui ont déclaré des journées sur ce chantier.', siteTeamEmpty: 'Aucun employé n’a encore déclaré de journée ici.',
+  presentToday: 'Sur le chantier aujourd’hui', lastDay: 'Dernière journée', daysWorked: 'journée(s)', suspended: 'Compte suspendu', liveOnBadge: 'Direct',
   history: 'Vérifications', historyHint: 'Des preuves ponctuelles, avec l’heure et le chantier déclaré. Aucune position en direct.', noChecks: 'Aucune vérification enregistrée.', viewProof: 'Voir la preuve', close: 'Fermer', accuracy: 'Précision GPS',
   pushUnavailable: 'Notifications indisponibles sur cet appareil. Gardez l’écran Aujourd’hui ouvert et actualisez-le pour voir les demandes.',
   nativeOnly: 'Utilisez l’application mobile pour prendre une photo sur place et relever votre position.',
@@ -54,8 +66,9 @@ const en: typeof fr = {
   liveNoticeTitle: 'Live location sharing', liveNoticeIntro: 'Your chef enabled live tracking for your account. It only starts once you agree.',
   liveNoticeCollection: 'During your declared work days only, your position is sent roughly every 2 minutes, including while the app is in the background. Sharing stops as soon as you finish your day.',
   liveNoticePrivacy: 'Only your most recent position is kept: no movement history is built. It disappears from your chef’s screen after 15 minutes without an update, and is erased when the day ends.',
-  liveNoticeRights: 'You can withdraw at any time in this screen: sharing stops immediately and your last position is erased. Declining never prevents account access or task declarations.',
+  liveNoticeRights: 'You can withdraw at any time: sharing stops immediately and your last position is erased. Because your chef enabled tracking for your role, you cannot declare a work day until you answer. You keep access to your account and can sign out at any time.',
   liveAgree: 'I agree to share my live location during my declared work days.', liveAccept: 'Enable sharing', liveWithdraw: 'Withdraw agreement',
+  gateTitle: 'Before you start', gateHint: 'Your agreement is required to use the app. You can sign out if you would rather not answer now.', signOut: 'Sign out',
   liveOn: 'Live sharing active', liveOff: 'Live sharing waiting for your agreement', livePermissionDenied: 'Allow "Always" location to share live during your day.',
   noTasks: 'No tasks declared yet.', consistency: 'Consistency notes', consistencyHint: 'Same task, site and quantity on the last 3 work days. Discuss with the team; this never blocks a declaration.',
   dayTitle: 'My day', daySubtitle: 'One site. Your tasks. A few occasional checks.', site: 'Site', chooseSite: 'Choose a site', noSites: 'Your chef needs to add a site first.',
@@ -70,13 +83,24 @@ const en: typeof fr = {
   noticePrivacy: 'No continuous tracking or background location access. The camera and GPS only activate after you tap. Avoid faces and personal information in the photo. No facial recognition.',
   noticeAccess: 'Proofs are available to you and your company’s chefs to check site presence. Photos and coordinates are retained for at most 30 days. Declared days and tasks remain in the company history.',
   noticeRights: 'Your company is responsible for this use. Contact your chef for its contact details, to exercise access, correction or objection rights, or to report a difficulty. You can withdraw agreement here to stop new requests.',
-  noticeChoice: 'Declining or withdrawing does not prevent account access. A missed check is not proof of absence. Your employer must specify the applicable legal basis and requirements.',
+  noticeChoice: 'Until you accept, you cannot declare a work day or tasks: those features rest on these checks. You keep access to your account and can sign out at any time. A missed check is not proof of absence. Your employer must specify the applicable legal basis and requirements.',
   agreeLabel: 'I have read this information and agree to occasional checks with a photo and GPS.', accept: 'Enable checks', later: 'Later', withdraw: 'Withdraw agreement', withdrawConfirm: 'Withdrawing agreement will finish the current day and stop new requests.', info: 'Information and agreement',
   taskTitle: 'My tasks', taskHint: 'Choose a task and enter the total quantity completed today. Saving again replaces the previous quantity.',
   category: 'Trade', task: 'Task', chooseTask: 'Choose a task', quantity: 'Quantity completed', unit: 'unit(s)', metres: 'metres', taskSaved: 'Declaration saved', startForTasks: 'Start your day to declare tasks.',
   unitLong: { unit: 'unit(s)', m: 'metres', m2: 'square metres', m3: 'cubic metres', kg: 'kilograms' }, unitShort: { unit: 'u', m: 'm', m2: 'm²', m3: 'm³', kg: 'kg' },
   whole: 'Whole number', decimal: 'Decimals', useKeyboard: 'Type on keyboard', useWheel: 'Use the wheel',
-  sitesTitle: 'Sites', sitesHint: 'Sites your team can declare.', addSite: 'Add a site', siteName: 'Site name', siteAddress: 'Address (optional)',
+  sitesTitle: 'Sites', sitesHint: 'Sites your team can declare. Each site is placed on the map from its address.', addSite: 'Add a site', siteName: 'Site name', siteAddress: 'Site address',
+  siteAddressHint: 'Move the map to place the pin on the site. The address updates on its own.',
+  pinLocating: 'Looking up the address…', pinNoAddress: 'No address here. Move the pin.', pinUseMyLocation: 'Back to my location',
+  pinPermission: 'Location denied: the map starts on Morocco, move the pin to the site.',
+  addressUnknown: 'Maps could not find that address. Add the street and city, then try again.', addressNeeded: 'The address is required.',
+  geocodeUnavailable: 'Use the mobile app to add a site: address validation is unavailable on web.',
+  siteNoCoords: 'Site without a located address, missing from the map.', siteLegend: 'Sites',
+  noSitesLocated: 'No located site yet. Add one from the Sites tab.',
+  notLocatable: 'Position not shared', locateOnMap: 'Show on the map',
+  justNow: 'just now', minutesAgo: (n: number) => `${n} min ago`, hoursAgo: (n: number) => `${n} h ago`, stalePosition: 'Position not refreshed: the employee has not moved, or their app is closed.',
+  siteTeam: 'Site team', siteTeamHint: 'Employees who have declared work days on this site.', siteTeamEmpty: 'No employee has declared a day here yet.',
+  presentToday: 'On site today', lastDay: 'Last work day', daysWorked: 'day(s)', suspended: 'Account suspended', liveOnBadge: 'Live',
   history: 'Checks', historyHint: 'Occasional proofs with time and declared site. No live locations.', noChecks: 'No checks recorded yet.', viewProof: 'View proof', close: 'Close', accuracy: 'GPS accuracy',
   pushUnavailable: 'Notifications are unavailable on this device. Keep Today open and refresh to see requests.',
   nativeOnly: 'Use the mobile app to take an on-site photo and capture your position.',
@@ -86,6 +110,17 @@ const en: typeof fr = {
   inactive: 'This account is suspended. Contact your chef.',
 };
 export function workCopy(locale: Locale) { return locale === 'en' ? en : fr; }
+
+/** A position older than this is shown as dated rather than treated as current. */
+export const STALE_AFTER_MS = 15 * 60 * 1000;
+
+export function positionAge(recordedAt: string, copy: typeof fr, now = Date.now()) {
+  const elapsed = Math.max(0, now - Date.parse(recordedAt));
+  const minutes = Math.floor(elapsed / 60_000);
+  if (minutes < 1) return copy.justNow;
+  if (minutes < 60) return copy.minutesAgo(minutes);
+  return copy.hoursAgo(Math.floor(minutes / 60));
+}
 
 /** Only whole units can be declared for countable tasks; every measured unit accepts decimals. */
 export function isWholeUnit(unit: TaskUnit) { return unit === 'unit'; }

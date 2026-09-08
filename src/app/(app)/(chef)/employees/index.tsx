@@ -1,10 +1,11 @@
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, Share, StyleSheet, TextInput } from 'react-native';
+import { Alert, Keyboard, Pressable, ScrollView, Share, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { SwipeToDelete } from '@/components/swipe-to-delete';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -154,6 +155,8 @@ export default function EmployeesScreen() {
   const { profile } = useAuth();
 
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -179,6 +182,32 @@ export default function EmployeesScreen() {
     setEmployees(data ?? []);
     setLoading(false);
   }, [profile]);
+
+  async function removeEmployee(employee: Employee) {
+    setRemoving(employee.id); setRemoveError(null);
+    const { error } = await supabase.rpc('remove_employee', { employee: employee.id });
+    setRemoving(null);
+    if (error) {
+      // The server refuses an employee who has declared work; say so plainly rather
+      // than leaving the row looking as if the swipe simply failed.
+      setRemoveError(/declared work/.test(error.message)
+        ? t.employees.remove.hasWork
+        : t.employees.remove.failed);
+      return;
+    }
+    await fetchEmployees();
+  }
+
+  function confirmRemove(employee: Employee) {
+    Alert.alert(
+      `${employee.first_name} ${employee.last_name}`,
+      t.employees.remove.confirm,
+      [
+        { text: t.employees.remove.cancel, style: 'cancel' },
+        { text: t.employees.remove.action, style: 'destructive', onPress: () => { void removeEmployee(employee); } },
+      ],
+    );
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -242,6 +271,12 @@ export default function EmployeesScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <JoinCodeCard />
 
+          {removeError && (
+            <ThemedText type="small" style={[styles.centerText, { color: theme.danger }]}>
+              {removeError}
+            </ThemedText>
+          )}
+
           {!loading && employees.length === 0 && !showAddForm && (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
               {t.employees.noEmployees}
@@ -249,25 +284,31 @@ export default function EmployeesScreen() {
           )}
 
           {employees.map((employee) => (
-            <Pressable
+            <SwipeToDelete
               key={employee.id}
-              style={({ pressed }) => pressed && styles.pressed}
-              onPress={() => router.push(`/employees/${employee.id}`)}>
-              <ThemedView
-                style={[
-                  styles.employeeRow,
-                  styles.transparent,
-                  { borderColor: theme.backgroundSelected },
-                ]}>
-                <ThemedText type="smallBold">
-                  {employee.first_name} {employee.last_name}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  @{employee.username}
-                  {employee.phone ? ` · ${employee.phone}` : ''}
-                </ThemedText>
-              </ThemedView>
-            </Pressable>
+              label={t.employees.remove.action}
+              radius={Spacing.three}
+              busy={removing === employee.id}
+              onDelete={() => confirmRemove(employee)}>
+              <Pressable
+                style={({ pressed }) => pressed && styles.pressed}
+                onPress={() => router.push(`/employees/${employee.id}`)}>
+                <ThemedView
+                  style={[
+                    styles.employeeRow,
+                    styles.transparent,
+                    { borderColor: theme.backgroundSelected },
+                  ]}>
+                  <ThemedText type="smallBold">
+                    {employee.first_name} {employee.last_name}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    @{employee.username}
+                    {employee.phone ? ` · ${employee.phone}` : ''}
+                  </ThemedText>
+                </ThemedView>
+              </Pressable>
+            </SwipeToDelete>
           ))}
 
           {showAddForm ? (

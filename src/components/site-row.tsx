@@ -1,0 +1,94 @@
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Card } from './work-ui';
+import { ThemedText } from './themed-text';
+import { useI18n } from '@/hooks/use-i18n';
+import { useTheme } from '@/hooks/use-theme';
+import { supabase } from '@/lib/supabase';
+import { workCopy } from '@/lib/work-copy';
+import type { Site } from '@/lib/presence';
+
+type Member = {
+  employee_id: string; employee_name: string; is_active: boolean;
+  location_mode: 'checkpoint' | 'live'; last_day: string; days: number; present_today: boolean;
+};
+
+/**
+ * A site that expands in place to reveal its team, so the roster reads as part of
+ * the list rather than covering it. The roster loads on the press that opens it,
+ * then stays cached for as long as the screen lives.
+ */
+export function SiteRow({ site, onPressSite, onLocate, locatable }: {
+  site: Site;
+  /** Runs alongside the expand toggle, so one press can also move a map. */
+  onPressSite?: () => void;
+  /** When given, a member with a shared position becomes pressable. */
+  onLocate?: (employeeId: string) => void;
+  locatable?: Set<string>;
+}) {
+  const { locale } = useI18n();
+  const copy = workCopy(locale);
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  const [team, setTeam] = useState<Member[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const loading = useRef(false);
+
+  async function load() {
+    if (loading.current) return;
+    loading.current = true; setError(null);
+    const { data, error: failure } = await supabase.rpc('site_team', { site: site.id });
+    if (failure) setError(copy.failed);
+    else setTeam((data ?? []) as Member[]);
+    loading.current = false;
+  }
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && !team) void load();
+    onPressSite?.();
+  }
+
+  return <Card>
+    <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={site.name}
+      onPress={toggle} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+      <View style={{ gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <ThemedText style={{ flex: 1, fontSize: 20, fontWeight: '700' }}>{site.name}</ThemedText>
+          <ThemedText style={{ color: theme.textSecondary, fontSize: 18 }}>{open ? '⌄' : '›'}</ThemedText>
+        </View>
+        {site.address && <ThemedText themeColor="textSecondary">{site.address}</ThemedText>}
+        {site.latitude == null && <ThemedText type="small" themeColor="warning">{copy.siteNoCoords}</ThemedText>}
+      </View>
+    </Pressable>
+
+    {open && <View style={{ gap: 14, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.backgroundSelected }}>
+      <ThemedText type="smallBold">{copy.siteTeam}</ThemedText>
+      {!team && !error && <ActivityIndicator color={theme.accent} />}
+      {error && <ThemedText type="small" themeColor="danger">{error}</ThemedText>}
+      {team && !team.length && <ThemedText type="small" themeColor="textSecondary">{copy.siteTeamEmpty}</ThemedText>}
+      {team?.map(member => {
+        // Only somebody currently sharing a position can be pointed at on a map.
+        const canLocate = !!onLocate && !!locatable?.has(member.employee_id);
+        const body = <View style={{ gap: 4, paddingLeft: 14, borderLeftWidth: 3, borderLeftColor: member.present_today ? theme.accent : theme.backgroundSelected }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ThemedText type="smallBold" style={{ flex: 1 }}>{member.employee_name}</ThemedText>
+            {member.location_mode === 'live' && <ThemedText type="small" themeColor="accentText">{copy.liveOnBadge}</ThemedText>}
+          </View>
+          {member.present_today
+            ? <ThemedText type="small" themeColor="accentText">{copy.presentToday}</ThemedText>
+            : <ThemedText type="small" themeColor="textSecondary">{copy.lastDay} : {member.last_day}</ThemedText>}
+          <ThemedText type="small" themeColor="textSecondary">{member.days} {copy.daysWorked}</ThemedText>
+          {!member.is_active && <ThemedText type="small" themeColor="warning">{copy.suspended}</ThemedText>}
+          {onLocate && <ThemedText type="small" themeColor={canLocate ? 'accentText' : 'textSecondary'}>
+            {canLocate ? copy.locateOnMap : copy.notLocatable}</ThemedText>}
+        </View>;
+        return canLocate
+          ? <Pressable key={member.employee_id} accessibilityRole="button" accessibilityLabel={member.employee_name}
+              onPress={() => onLocate(member.employee_id)} style={({ pressed }) => pressed && { opacity: 0.6 }}>{body}</Pressable>
+          : <View key={member.employee_id}>{body}</View>;
+      })}
+    </View>}
+  </Card>;
+}

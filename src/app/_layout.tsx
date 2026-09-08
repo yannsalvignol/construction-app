@@ -13,6 +13,9 @@ import { Colors } from '@/constants/theme';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { I18nProvider } from '@/hooks/use-i18n';
+// Registers the live-location background task at startup: a background wake
+// after the app was terminated must find the task already defined.
+import '@/lib/live-location';
 
 SplashScreen.preventAutoHideAsync();
 

@@ -151,6 +151,13 @@ const fr = {
   },
 
   employees: {
+    remove: {
+      action: 'Supprimer',
+      confirm: 'Supprimer définitivement cet employé ? Son compte et son accès seront effacés.',
+      cancel: 'Annuler',
+      hasWork: 'Impossible : cet employé a déjà déclaré du travail. Suspendez son compte depuis sa fiche.',
+      failed: 'La suppression a échoué. Réessayez.',
+    },
     joinCode: {
       title: "Code d'invitation de l'équipe",
       description:

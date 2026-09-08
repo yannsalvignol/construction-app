@@ -30,6 +30,23 @@ TaskManager.defineTask(LIVE_TASK, async ({ data, error }) => {
   if (failure) await stopLiveLocation();
 });
 
+/**
+ * Sends one position immediately. Background updates alone are not enough: on iOS
+ * `timeInterval` is ignored and only `distanceInterval` applies, so somebody who
+ * stays put on a site would never emit a point and would never reach the map.
+ */
+export async function pushCurrentPosition() {
+  try {
+    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    const { error } = await supabase.rpc('update_live_position', {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+      accuracy: position.coords.accuracy ?? 0,
+    });
+    return !error;
+  } catch { return false; }
+}
+
 export async function isLiveLocationRunning() {
   try { return await Location.hasStartedLocationUpdatesAsync(LIVE_TASK); }
   catch { return false; }
@@ -43,20 +60,25 @@ export async function startLiveLocation() {
     // Background permission must be requested after foreground on both platforms.
     const background = await Location.requestBackgroundPermissionsAsync();
     if (!background.granted) return false;
-    if (await isLiveLocationRunning()) return true;
-    await Location.startLocationUpdatesAsync(LIVE_TASK, {
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: 120_000,
-      distanceInterval: 50,
-      pausesUpdatesAutomatically: false,
-      // The iOS status-bar indicator stays on so the employee can always see that
-      // sharing is active; the Android notification serves the same purpose.
-      showsBackgroundLocationIndicator: true,
-      foregroundService: {
-        notificationTitle: 'Partage de position actif',
-        notificationBody: 'Votre position est partagée avec votre chef pendant votre journée déclarée.',
-      },
-    });
+    if (!await isLiveLocationRunning()) {
+      await Location.startLocationUpdatesAsync(LIVE_TASK, {
+        accuracy: Location.Accuracy.Balanced,
+        // Android honours timeInterval; iOS only reacts to distance, hence the
+        // foreground heartbeat that keeps a stationary worker on the map.
+        timeInterval: 120_000,
+        distanceInterval: 25,
+        pausesUpdatesAutomatically: false,
+        // The iOS status-bar indicator stays on so the employee can always see
+        // that sharing is active; the Android notification does the same.
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+          notificationTitle: 'Partage de position actif',
+          notificationBody: 'Votre position est partagée avec votre chef pendant votre journée déclarée.',
+        },
+      });
+    }
+    // Appear on the chef's map straight away rather than at the first 25 m moved.
+    await pushCurrentPosition();
     return true;
   } catch { return false; }
 }

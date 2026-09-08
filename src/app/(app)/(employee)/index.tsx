@@ -63,7 +63,7 @@ export default function EmployeeHomeScreen() {
           }); }} />
         </> : <ThemedText>{copy.noSites}</ThemedText>}
       </Card>}
-      {consented && data.location_mode === 'live' && <LiveNotice accepted={!!liveConsented} busy={busy}
+      {liveConsented && data.location_mode === 'live' && <LiveNotice accepted busy={busy}
         onAccept={() => { void act(() => liveConsent(true)); }}
         onWithdraw={() => { void act(() => liveConsent(false)); }} />}
       {data.day && <Card accent>

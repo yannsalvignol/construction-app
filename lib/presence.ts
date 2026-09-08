@@ -6,7 +6,7 @@ import { supabase } from './supabase';
 import { workCopy } from './work-copy';
 import type { Locale } from './i18n/locale';
 
-export type Site = { id: string; name: string; address: string | null; is_active: boolean };
+export type Site = { id: string; name: string; address: string | null; is_active: boolean; latitude: number | null; longitude: number | null };
 export type WorkDay = { id: string; site_id: string; work_date: string; started_at: string; planned_end_at: string; ended_at: string | null };
 export type PresenceRequest = { id: string; due_at: string; expires_at: string };
 export type CheckIn = { id: string; request_id: string; site_id: string; employee_id: string; photo_path: string; submitted_at: string; latitude: number; longitude: number; accuracy_meters: number };

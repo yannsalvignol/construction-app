@@ -5,11 +5,16 @@ import { useAuth } from './use-auth';
 import { useI18n } from './use-i18n';
 import { supabase } from '@/lib/supabase';
 import { NOTICE_VERSION, type Workspace } from '@/lib/presence';
-import { LIVE_NOTICE_VERSION, startLiveLocation, stopLiveLocation } from '@/lib/live-location';
+import { LIVE_NOTICE_VERSION, pushCurrentPosition, startLiveLocation, stopLiveLocation } from '@/lib/live-location';
 import { enablePresenceNotifications, onPresenceNotification } from '@/lib/presence-notifications';
 import { workCopy } from '@/lib/work-copy';
 
-export function useWorkspace() {
+/**
+ * `manageSharing` is false for callers that only need to read the workspace, so the
+ * live-sharing lifecycle is driven by exactly one instance even when the gate and a
+ * screen are mounted together.
+ */
+export function useWorkspace({ manageSharing = true }: { manageSharing?: boolean } = {}) {
   const { profile } = useAuth();
   const { locale } = useI18n();
   const [data, setData] = useState<Workspace | null>(null);
@@ -50,8 +55,16 @@ export function useWorkspace() {
   // Sharing is bound to the declared day: it starts with the day and is torn down
   // the moment the day closes, the chef turns the mode off, or agreement is pulled.
   useEffect(() => {
-    if (liveEligible && dayOpen) void startLiveLocation();
-    else void stopLiveLocation();
-  }, [liveEligible, dayOpen]);
+    if (!manageSharing) return;
+    if (!(liveEligible && dayOpen)) { void stopLiveLocation(); return; }
+    void startLiveLocation();
+    // iOS only emits background updates on movement, so a worker standing on a
+    // site would age out of the chef's map. While the app is open, refresh the
+    // position on a timer so they stay visible without moving.
+    const beat = setInterval(() => {
+      if (AppState.currentState === 'active') void pushCurrentPosition();
+    }, 120_000);
+    return () => clearInterval(beat);
+  }, [liveEligible, dayOpen, manageSharing]);
   return { data, error, loading, refresh, now, consented, liveConsented, liveEligible };
 }

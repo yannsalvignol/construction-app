@@ -156,6 +156,13 @@ const en = {
   },
 
   employees: {
+    remove: {
+      action: 'Delete',
+      confirm: 'Delete this employee for good? Their account and access are erased.',
+      cancel: 'Cancel',
+      hasWork: 'Not possible: this employee has already declared work. Suspend the account from their page instead.',
+      failed: 'Deleting failed. Please try again.',
+    },
     joinCode: {
       title: 'Team join code',
       description:
