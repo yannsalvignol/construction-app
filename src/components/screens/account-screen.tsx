@@ -1,12 +1,14 @@
+import { useFocusEffect } from 'expo-router';
 import { decode } from 'base64-arraybuffer';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Keyboard, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -16,6 +18,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { Locale } from '@/lib/i18n/locale';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
+import { workCopy } from '@/lib/work-copy';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -87,10 +90,10 @@ function LanguageRow() {
                   styles.languagePill,
                   {
                     backgroundColor: 'transparent',
-                    borderColor: selected ? theme.text : theme.backgroundSelected,
+                    borderColor: selected ? theme.accent : theme.backgroundSelected,
                   },
                 ]}>
-                <ThemedText type="small" themeColor={selected ? 'text' : 'textSecondary'}>
+                <ThemedText type="small" themeColor={selected ? 'accentText' : 'textSecondary'}>
                   {option.label(t)}
                 </ThemedText>
               </ThemedView>
@@ -137,9 +140,9 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
     if (data) setCompanyName(data.name);
   }, [profile]);
 
-  useEffect(() => {
-    fetchCompany();
-  }, [fetchCompany]);
+  useFocusEffect(useCallback(() => {
+    void fetchCompany();
+  }, [fetchCompany]));
 
   async function handleSaveInfo() {
     if (!profile) return;
@@ -268,7 +271,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
       <SafeAreaView
         style={styles.safeArea}
         edges={topInset ? undefined : ['bottom', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <ThemedView style={[styles.header, styles.transparent]}>
             <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
               {profile.avatar_url ? (
@@ -306,7 +309,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
             </Pressable>
 
             {photoError && (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                 {photoError}
               </ThemedText>
             )}
@@ -318,32 +321,39 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
               placeholder={t.account.profile.firstNamePlaceholder}
               placeholderTextColor={theme.textSecondary}
+              returnKeyType="next"
               value={firstName}
               onChangeText={(value) => {
                 setFirstName(value);
                 setInfoSaved(false);
               }}
+              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
             <TextInput
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
               placeholder={t.account.profile.lastNamePlaceholder}
               placeholderTextColor={theme.textSecondary}
+              returnKeyType="next"
               value={lastName}
               onChangeText={(value) => {
                 setLastName(value);
                 setInfoSaved(false);
               }}
+              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
             <TextInput
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
               placeholder={t.account.profile.phonePlaceholder}
               placeholderTextColor={theme.textSecondary}
               keyboardType="phone-pad"
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
               value={phone ?? ''}
               onChangeText={(value) => {
                 setPhone(value);
                 setInfoSaved(false);
               }}
+              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
 
             {profile.role === 'chef' && (
@@ -354,16 +364,19 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                 ]}
                 placeholder={t.account.profile.companyNamePlaceholder}
                 placeholderTextColor={theme.textSecondary}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
                 value={companyName}
                 onChangeText={(value) => {
                   setCompanyName(value);
                   setInfoSaved(false);
                 }}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
             )}
 
             {infoError && (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                 {infoError}
               </ThemedText>
             )}
@@ -371,7 +384,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
             <Pressable
               style={({ pressed }) => [
                 styles.button,
-                { backgroundColor: theme.text, opacity: pressed || savingInfo ? 0.7 : 1 },
+                { backgroundColor: theme.accent, opacity: pressed || savingInfo ? 0.7 : 1 },
               ]}
               disabled={savingInfo}
               onPress={handleSaveInfo}>
@@ -407,11 +420,13 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                     autoCapitalize="none"
                     autoCorrect={false}
                     secureTextEntry
+                    returnKeyType="next"
                     value={newPassword}
                     onChangeText={(value) => {
                       setNewPassword(value);
                       setPasswordChanged(false);
                     }}
+                    inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
                   />
                   <TextInput
                     style={[
@@ -423,15 +438,18 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                     autoCapitalize="none"
                     autoCorrect={false}
                     secureTextEntry
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
                     value={confirmPassword}
                     onChangeText={(value) => {
                       setConfirmPassword(value);
                       setPasswordChanged(false);
                     }}
+                    inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
                   />
 
                   {passwordError && (
-                    <ThemedText type="small" style={styles.error}>
+                    <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                       {passwordError}
                     </ThemedText>
                   )}
@@ -439,7 +457,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                   <Pressable
                     style={({ pressed }) => [
                       styles.button,
-                      { backgroundColor: theme.text, opacity: pressed || changingPassword ? 0.7 : 1 },
+                      { backgroundColor: theme.accent, opacity: pressed || changingPassword ? 0.7 : 1 },
                     ]}
                     disabled={changingPassword || !newPassword || !confirmPassword}
                     onPress={handleChangePassword}>
@@ -463,7 +481,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
             <InfoRow label={t.account.about.version} value={APP_VERSION} />
             <LinkRow
               label={t.account.about.privacyPolicy}
-              note={openLegalNote === 'privacy' ? t.account.about.notAvailableYet : null}
+              note={openLegalNote === 'privacy' ? [workCopy(locale).noticePrivacy, workCopy(locale).noticeAccess, workCopy(locale).noticeRights].join('\n\n') : null}
               onPress={() => setOpenLegalNote((current) => (current === 'privacy' ? null : 'privacy'))}
             />
             <LinkRow
@@ -484,6 +502,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
           </Pressable>
         </ScrollView>
       </SafeAreaView>
+      <KeyboardDoneBar />
     </ThemedView>
   );
 }
@@ -553,7 +572,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   error: {
-    color: '#e5484d',
+    
     textAlign: 'center',
   },
   infoRow: {

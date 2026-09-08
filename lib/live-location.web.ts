@@ -1,0 +1,21 @@
+import { supabase } from './supabase';
+
+export const LIVE_TASK = 'casprod-live-location';
+export const LIVE_NOTICE_VERSION = '2026-09-08';
+
+export type LivePosition = {
+  employee_id: string; employee_name: string;
+  latitude: number; longitude: number; accuracy_meters: number; recorded_at: string; site_name: string;
+};
+
+// Background location needs a native task runner, so the web build never shares.
+// A chef can still read the team's positions from a browser.
+export async function isLiveLocationRunning() { return false; }
+export async function startLiveLocation() { return false; }
+export async function stopLiveLocation() { /* nothing runs on web */ }
+
+export async function fetchLiveTeam(): Promise<LivePosition[]> {
+  const { data, error } = await supabase.rpc('live_team');
+  if (error) throw error;
+  return (data ?? []) as LivePosition[];
+}

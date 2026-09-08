@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "construction-app",
+    "name": "CASPROD",
     "slug": "construction-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,17 +15,20 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#2c5aa0",
+        "backgroundColor": "#7238CE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
-      ]
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ],
+      "package": "com.casprod.app"
     },
     "web": {
       "output": "static",
@@ -36,7 +39,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#2c5aa0",
+          "backgroundColor": "#7238CE",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -45,15 +48,22 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow access to your photos to set a profile picture."
+          "photosPermission": "Allow access to your photos to set a profile picture.",
+          "cameraPermission": "CASPROD utilise la caméra uniquement pour la photo de votre vérification de présence.",
+          "microphonePermission": false
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Casprod uses your location to show your chef where you are while you're sharing it during a shift."
+          "locationWhenInUsePermission": "CASPROD relève votre position une seule fois lorsque vous validez une vérification de présence.",
+          "locationAlwaysAndWhenInUsePermission": "Si votre chef active le partage en direct, CASPROD transmet votre position pendant vos journées de travail déclarées, jusqu'à ce que vous terminiez la journée.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

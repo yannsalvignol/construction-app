@@ -7,6 +7,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { StatusBar } from 'expo-status-bar';
+import { Colors } from '@/constants/theme';
+
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { I18nProvider } from '@/hooks/use-i18n';
@@ -38,9 +41,13 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const palette = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const base = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navigationTheme = { ...base, colors: { ...base.colors, background: palette.background, card: palette.backgroundElement, text: palette.text, border: palette.backgroundSelected, primary: palette.accentText, notification: palette.accent } };
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={navigationTheme}>
+        <StatusBar style={palette.isDark ? 'light' : 'dark'} />
         <I18nProvider>
           <AuthProvider>
             <AnimatedSplashOverlay />

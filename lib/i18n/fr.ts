@@ -2,10 +2,11 @@ import type { Translations } from './en';
 
 const fr = {
   common: {
-    appName: 'Casprod',
+    appName: 'CASPROD',
     cancel: 'Annuler',
     signOut: 'Se déconnecter',
     notSignedIn: 'Non connecté',
+    done: 'Terminé',
   },
 
   chefTabs: {
@@ -13,13 +14,14 @@ const fr = {
     employees: 'Employés',
     sites: 'Chantiers',
     schedule: 'Planning',
+    live: 'En direct',
   },
 
   employeeTabs: {
     today: "Aujourd'hui",
     instructions: 'Instructions',
-    map: 'Carte',
-    report: 'Signaler',
+    map: 'Présence',
+    report: 'Tâches',
     account: 'Compte',
   },
 
@@ -152,7 +154,7 @@ const fr = {
     joinCode: {
       title: "Code d'invitation de l'équipe",
       description:
-        "Partagez ce code pour que les employés puissent créer leur propre compte et rejoindre automatiquement — plus besoin de les ajouter un par un.",
+        "Partagez ce code pour que les employés puissent créer leur propre compte et rejoindre automatiquement",
       copy: 'Copier le code',
       copied: 'Copié !',
       share: 'Partager',
@@ -201,7 +203,6 @@ const fr = {
     settings: 'Paramètres',
     toggles: {
       isActive: { label: 'Actif', description: 'Désactivez pour suspendre cet employé sans le supprimer.' },
-      locationTracking: { label: 'Suivi de localisation', description: 'Partage la position pendant le service.' },
       equipmentPhoto: {
         label: "Preuve d'équipement",
         description: "Exiger une photo de l'équipement de sécurité avant de commencer un service.",
@@ -210,6 +211,11 @@ const fr = {
       notifications: {
         label: 'Notifications',
         description: 'Recevoir les instructions et alertes du chef.',
+      },
+      liveLocation: {
+        label: 'Localisation en direct',
+        description:
+          'Suivre cet employé sur la carte pendant ses journées déclarées. Sinon, sa position n’est relevée qu’aux vérifications ponctuelles. L’employé doit donner son accord dans l’app.',
       },
     },
   },
@@ -227,53 +233,6 @@ const fr = {
   report: {
     title: 'Signaler',
     subtitle: 'Signalez un problème et envoyez des photos.',
-  },
-
-  map: {
-    switchToSatellite: 'Passer en vue satellite',
-    switchToStandard: 'Passer en vue standard',
-    showWholeTeam: "Afficher toute l'équipe",
-    showMorocco: 'Afficher le Maroc',
-    centerOnMe: 'Centrer sur moi',
-    nobodySharing: 'Personne ne partage sa position',
-    live: (count: number) => `${count} en direct`,
-    idle: (count: number) => `· ${count} inactif${count > 1 ? 's' : ''}`,
-    lastSeen: 'Vu pour la dernière fois',
-    liveLabel: 'En direct',
-    noLiveLocations: 'Aucune position en direct',
-    turnOnSharingNote: "Activez le partage de position d'un employé pour le voir ici.",
-    you: 'Vous',
-    justNow: "À l'instant",
-    minutesAgo: (minutes: number) => `il y a ${minutes} min`,
-    hoursAgo: (hours: number) => `il y a ${hours} h`,
-    webUnavailable: 'Disponible sur les applications iOS et Android.',
-    liveTeamMap: "Carte de l'équipe en direct",
-    yourLocation: 'Votre position',
-    myLocation: {
-      sharingOff: {
-        pill: 'Partage désactivé',
-        title: 'Le partage de position est désactivé',
-        body: "Votre chef ne peut pas voir où vous êtes. Lui seul peut l'activer.",
-      },
-      permissionDenied: {
-        pill: 'Autorisation requise',
-        title: 'Autorisation de localisation refusée',
-        body:
-          "Autorisez l'accès à la position dans les réglages de votre appareil pour que votre chef puisse vous voir sur le chantier.",
-      },
-      sendError: {
-        pill: 'Non envoyé',
-        title: "Impossible d'envoyer votre position",
-        body: 'Vérifiez votre connexion — votre position reprendra automatiquement.',
-      },
-      locating: {
-        pill: 'Localisation…',
-        title: 'Recherche de votre position',
-        body: 'Cela prend généralement quelques secondes.',
-      },
-      live: { pill: 'Partage en direct', title: 'Votre chef peut vous voir ici', body: 'Mis à jour' },
-      paused: { pill: 'En pause', title: 'Votre dernière position connue', body: 'Dernière mise à jour' },
-    },
   },
 
   account: {

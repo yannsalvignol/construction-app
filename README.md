@@ -1,3 +1,5 @@
+> **État actuel (septembre 2026)** : le suivi GPS continu est remplacé par des vérifications ponctuelles. Voir [le suivi du projet](PROJECT_STATUS.md) et [les contrats et la mise en service du backend](docs/BACKEND.md). Le document historique ci-dessous contient aussi des objectifs non encore réalisés.
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).

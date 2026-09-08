@@ -14,7 +14,7 @@ type ChefTabButtonProps = TabTriggerSlotProps & {
 
 export function ChefTabButton({ children, isFocused, icon, ...props }: ChefTabButtonProps) {
   const theme = useTheme();
-  const color = isFocused ? theme.text : theme.textSecondary;
+  const color = isFocused ? theme.accentText : theme.textSecondary;
 
   return (
     <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
@@ -22,12 +22,12 @@ export function ChefTabButton({ children, isFocused, icon, ...props }: ChefTabBu
         style={[
           styles.pill,
           {
-            backgroundColor: 'transparent',
-            borderColor: isFocused ? theme.text : theme.backgroundSelected,
+            backgroundColor: isFocused ? theme.accentSoft : theme.backgroundElement,
+            borderColor: isFocused ? theme.accent : theme.backgroundSelected,
           },
         ]}>
         <SymbolView name={icon} size={16} tintColor={color} />
-        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+        <ThemedText type="small" themeColor={isFocused ? 'accentText' : 'textSecondary'}>
           {children}
         </ThemedText>
       </ThemedView>

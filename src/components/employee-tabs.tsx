@@ -7,13 +7,14 @@ import { useI18n } from '@/hooks/use-i18n';
 export default function EmployeeTabs() {
   const { t } = useI18n();
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
   return (
     <NativeTabs
       backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      indicatorColor={colors.accentSoft}
+      tintColor={colors.accentText}
+      labelStyle={{ selected: { color: colors.accentText } }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>{t.employeeTabs.today}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="house" md="home" />
@@ -26,12 +27,12 @@ export default function EmployeeTabs() {
 
       <NativeTabs.Trigger name="map">
         <NativeTabs.Trigger.Label>{t.employeeTabs.map}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="map" md="map" />
+        <NativeTabs.Trigger.Icon sf="checkmark.shield" md="verified_user" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="report">
         <NativeTabs.Trigger.Label>{t.employeeTabs.report}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="exclamationmark.bubble" md="report_problem" />
+        <NativeTabs.Trigger.Icon sf="checklist" md="checklist" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="account">

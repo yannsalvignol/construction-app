@@ -1,9 +1,10 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, TextInput } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Keyboard, Pressable, ScrollView, StyleSheet, Switch, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -22,15 +23,14 @@ type EmployeeDetail = {
   phone: string | null;
   username: string | null;
   employee_password: string | null;
-  location_tracking_enabled: boolean;
   equipment_photo_required: boolean;
   clock_in_photo_required: boolean;
   notifications_enabled: boolean;
   is_active: boolean;
+  location_mode: 'checkpoint' | 'live';
 };
 
 type ToggleKey =
-  | 'location_tracking_enabled'
   | 'equipment_photo_required'
   | 'clock_in_photo_required'
   | 'notifications_enabled'
@@ -39,7 +39,6 @@ type ToggleKey =
 function toggles(t: Translations): { key: ToggleKey; label: string; description: string }[] {
   return [
     { key: 'is_active', ...t.employeeDetail.toggles.isActive },
-    { key: 'location_tracking_enabled', ...t.employeeDetail.toggles.locationTracking },
     { key: 'equipment_photo_required', ...t.employeeDetail.toggles.equipmentPhoto },
     { key: 'clock_in_photo_required', ...t.employeeDetail.toggles.clockInPhoto },
     { key: 'notifications_enabled', ...t.employeeDetail.toggles.notifications },
@@ -73,7 +72,7 @@ export default function EmployeeDetailScreen() {
     const { data } = await supabase
       .from('profiles')
       .select(
-        'id, first_name, last_name, phone, username, employee_password, location_tracking_enabled, equipment_photo_required, clock_in_photo_required, notifications_enabled, is_active'
+        'id, first_name, last_name, phone, username, employee_password, equipment_photo_required, clock_in_photo_required, notifications_enabled, is_active, location_mode'
       )
       .eq('id', id)
       .single();
@@ -87,9 +86,9 @@ export default function EmployeeDetailScreen() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => {
-    fetchEmployee();
-  }, [fetchEmployee]);
+  useFocusEffect(useCallback(() => {
+    void fetchEmployee();
+  }, [fetchEmployee]));
 
   async function handleSaveInfo() {
     setInfoError(null);
@@ -156,6 +155,20 @@ export default function EmployeeDetailScreen() {
     }
   }
 
+  async function handleLiveLocation(value: boolean) {
+    if (!employee) return;
+    const mode = value ? 'live' : 'checkpoint';
+    setToggleError(null);
+    setEmployee({ ...employee, location_mode: mode });
+
+    const { error } = await supabase.from('profiles').update({ location_mode: mode }).eq('id', id);
+
+    if (error) {
+      setEmployee((current) => (current ? { ...current, location_mode: employee.location_mode } : current));
+      setToggleError(translateServerError(error.message, locale));
+    }
+  }
+
   if (loading || !employee) {
     return (
       <ThemedView style={styles.container}>
@@ -168,7 +181,7 @@ export default function EmployeeDetailScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: `${employee.first_name} ${employee.last_name}` }} />
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <ThemedView style={[styles.credentialsCard, styles.transparent]}>
             <ThemedText type="smallBold">{t.employeeDetail.credentials.title}</ThemedText>
 
@@ -205,7 +218,7 @@ export default function EmployeeDetailScreen() {
             </ThemedView>
 
             {passwordError && (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                 {passwordError}
               </ThemedText>
             )}
@@ -248,36 +261,43 @@ export default function EmployeeDetailScreen() {
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
               placeholder={t.employeeDetail.form.firstNamePlaceholder}
               placeholderTextColor={theme.textSecondary}
+              returnKeyType="next"
               value={firstName}
               onChangeText={(value) => {
                 setFirstName(value);
                 setInfoSaved(false);
               }}
+              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
             <TextInput
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
               placeholder={t.employeeDetail.form.lastNamePlaceholder}
               placeholderTextColor={theme.textSecondary}
+              returnKeyType="next"
               value={lastName}
               onChangeText={(value) => {
                 setLastName(value);
                 setInfoSaved(false);
               }}
+              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
             <TextInput
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
               placeholder={t.employeeDetail.form.phonePlaceholder}
               placeholderTextColor={theme.textSecondary}
               keyboardType="phone-pad"
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
               value={phone}
               onChangeText={(value) => {
                 setPhone(value);
                 setInfoSaved(false);
               }}
+              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
 
             {infoError && (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                 {infoError}
               </ThemedText>
             )}
@@ -285,7 +305,7 @@ export default function EmployeeDetailScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.button,
-                { backgroundColor: theme.text, opacity: pressed || savingInfo ? 0.7 : 1 },
+                { backgroundColor: theme.accent, opacity: pressed || savingInfo ? 0.7 : 1 },
               ]}
               disabled={savingInfo}
               onPress={handleSaveInfo}>
@@ -303,7 +323,7 @@ export default function EmployeeDetailScreen() {
             <ThemedText type="smallBold">{t.employeeDetail.settings}</ThemedText>
 
             {toggleError && (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                 {toggleError}
               </ThemedText>
             )}
@@ -319,14 +339,30 @@ export default function EmployeeDetailScreen() {
                 <Switch
                   value={employee[toggle.key]}
                   onValueChange={(value) => handleToggle(toggle.key, value)}
-                  trackColor={{ false: theme.backgroundElement, true: theme.text }}
+                  trackColor={{ false: theme.backgroundElement, true: theme.accent }}
                   ios_backgroundColor={theme.backgroundElement}
                 />
               </ThemedView>
             ))}
+
+            <ThemedView style={[styles.toggleRow, styles.transparent]}>
+              <ThemedView style={[styles.toggleText, styles.transparent]}>
+                <ThemedText type="smallBold">{t.employeeDetail.toggles.liveLocation.label}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.employeeDetail.toggles.liveLocation.description}
+                </ThemedText>
+              </ThemedView>
+              <Switch
+                value={employee.location_mode === 'live'}
+                onValueChange={handleLiveLocation}
+                trackColor={{ false: theme.backgroundElement, true: theme.accent }}
+                ios_backgroundColor={theme.backgroundElement}
+              />
+            </ThemedView>
           </ThemedView>
         </ScrollView>
       </SafeAreaView>
+      <KeyboardDoneBar />
     </ThemedView>
   );
 }
@@ -361,7 +397,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   error: {
-    color: '#e5484d',
+    
     textAlign: 'center',
   },
   togglesCard: {

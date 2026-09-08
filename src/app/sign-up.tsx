@@ -1,8 +1,10 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -29,7 +31,7 @@ export default function SignUpScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="title" style={styles.title}>
           {t.signUp.title}
@@ -46,8 +48,10 @@ export default function SignUpScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
+            returnKeyType="next"
             value={email}
             onChangeText={setEmail}
+            inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
 
           <TextInput
@@ -55,12 +59,15 @@ export default function SignUpScreen() {
             placeholder={t.signUp.passwordPlaceholder}
             placeholderTextColor={theme.textSecondary}
             secureTextEntry
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
             value={password}
             onChangeText={setPassword}
+            inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
 
           {error && (
-            <ThemedText type="small" style={styles.error}>
+            <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
               {error}
             </ThemedText>
           )}
@@ -68,7 +75,7 @@ export default function SignUpScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.button,
-              { backgroundColor: theme.text, opacity: pressed || submitting ? 0.7 : 1 },
+              { backgroundColor: theme.accent, opacity: pressed || submitting ? 0.7 : 1 },
             ]}
             disabled={submitting || !email || !password}
             onPress={handleSubmit}>
@@ -82,7 +89,8 @@ export default function SignUpScreen() {
           </Link>
         </ThemedView>
       </SafeAreaView>
-    </ThemedView>
+      <KeyboardDoneBar />
+    </DismissKeyboardView>
   );
 }
 
@@ -126,6 +134,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   error: {
-    color: '#e5484d',
+    
   },
 });

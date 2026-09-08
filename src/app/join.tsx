@@ -1,8 +1,10 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -83,7 +85,7 @@ export default function JoinScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="title" style={styles.title}>
           {t.join.title}
@@ -102,12 +104,15 @@ export default function JoinScreen() {
                 placeholderTextColor={theme.textSecondary}
                 autoCapitalize="characters"
                 autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
                 value={joinCode}
                 onChangeText={setJoinCode}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
 
               {codeError && (
-                <ThemedText type="small" style={styles.error}>
+                <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                   {codeError}
                 </ThemedText>
               )}
@@ -115,7 +120,7 @@ export default function JoinScreen() {
               <Pressable
                 style={({ pressed }) => [
                   styles.button,
-                  { backgroundColor: theme.text, opacity: pressed || !canSubmitCode ? 0.7 : 1 },
+                  { backgroundColor: theme.accent, opacity: pressed || !canSubmitCode ? 0.7 : 1 },
                 ]}
                 disabled={!canSubmitCode}
                 onPress={handleCheckCode}>
@@ -143,8 +148,10 @@ export default function JoinScreen() {
                 placeholderTextColor={theme.textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="next"
                 value={username}
                 onChangeText={setUsername}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
 
               <TextInput
@@ -154,12 +161,15 @@ export default function JoinScreen() {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
                 value={password}
                 onChangeText={setPassword}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
 
               {signupError && (
-                <ThemedText type="small" style={styles.error}>
+                <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                   {signupError}
                 </ThemedText>
               )}
@@ -168,7 +178,7 @@ export default function JoinScreen() {
                 style={({ pressed }) => [
                   styles.button,
                   {
-                    backgroundColor: theme.text,
+                    backgroundColor: theme.accent,
                     opacity: pressed || submitting || !canSubmitSignup ? 0.7 : 1,
                   },
                 ]}
@@ -188,7 +198,8 @@ export default function JoinScreen() {
           </>
         )}
       </SafeAreaView>
-    </ThemedView>
+      <KeyboardDoneBar />
+    </DismissKeyboardView>
   );
 }
 
@@ -232,6 +243,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   error: {
-    color: '#e5484d',
+    
   },
 });

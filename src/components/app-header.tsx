@@ -26,7 +26,7 @@ export function AppHeader() {
             hitSlop={8}
             style={({ pressed }) => pressed && styles.pressed}>
             <Image
-              source={require('@/assets/images/logo_dark.png')}
+              source={require('@/assets/images/official_icon.png')}
               style={styles.logo}
               contentFit="contain"
             />

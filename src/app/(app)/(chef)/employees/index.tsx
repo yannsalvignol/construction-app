@@ -1,9 +1,10 @@
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, TextInput } from 'react-native';
+import { Keyboard, Pressable, ScrollView, Share, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -98,7 +99,7 @@ function JoinCodeCard() {
       </ThemedText>
 
       {codeError && (
-        <ThemedText type="small" style={styles.error}>
+        <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
           {codeError}
         </ThemedText>
       )}
@@ -113,7 +114,7 @@ function JoinCodeCard() {
               <ThemedText type="linkPrimary">{t.common.cancel}</ThemedText>
             </Pressable>
             <Pressable onPress={handleRegenerate} disabled={regenerating}>
-              <ThemedText type="linkPrimary" style={styles.error}>
+              <ThemedText type="linkPrimary" style={[styles.error, { color: theme.danger }]}>
                 {regenerating ? t.employees.joinCode.regenerating : t.employees.joinCode.regenerate}
               </ThemedText>
             </Pressable>
@@ -238,7 +239,7 @@ export default function EmployeesScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <JoinCodeCard />
 
           {!loading && employees.length === 0 && !showAddForm && (
@@ -278,8 +279,10 @@ export default function EmployeesScreen() {
                 ]}
                 placeholder={t.employees.form.firstNamePlaceholder}
                 placeholderTextColor={theme.textSecondary}
+                returnKeyType="next"
                 value={firstName}
                 onChangeText={setFirstName}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
               <TextInput
                 style={[
@@ -288,8 +291,10 @@ export default function EmployeesScreen() {
                 ]}
                 placeholder={t.employees.form.lastNamePlaceholder}
                 placeholderTextColor={theme.textSecondary}
+                returnKeyType="next"
                 value={lastName}
                 onChangeText={setLastName}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
               <TextInput
                 style={[
@@ -301,6 +306,7 @@ export default function EmployeesScreen() {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
               <TextInput
                 style={[
@@ -311,8 +317,10 @@ export default function EmployeesScreen() {
                 placeholderTextColor={theme.textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="next"
                 value={username}
                 onChangeText={setUsername}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
               <TextInput
                 style={[
@@ -323,8 +331,11 @@ export default function EmployeesScreen() {
                 placeholderTextColor={theme.textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
                 value={password}
                 onChangeText={setPassword}
+                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
 
               <Pressable
@@ -338,7 +349,7 @@ export default function EmployeesScreen() {
               </Pressable>
 
               {formError && (
-                <ThemedText type="small" style={styles.error}>
+                <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                   {formError}
                 </ThemedText>
               )}
@@ -346,7 +357,7 @@ export default function EmployeesScreen() {
               <Pressable
                 style={({ pressed }) => [
                   styles.button,
-                  { backgroundColor: theme.text, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
+                  { backgroundColor: theme.accent, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
                 ]}
                 disabled={submitting || !canSubmit}
                 onPress={handleAddEmployee}>
@@ -373,7 +384,7 @@ export default function EmployeesScreen() {
               <Pressable
                 style={({ pressed }) => [
                   styles.button,
-                  { backgroundColor: theme.text, opacity: pressed ? 0.7 : 1 },
+                  { backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => setShowAddForm(true)}>
                 <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
@@ -384,6 +395,7 @@ export default function EmployeesScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+      <KeyboardDoneBar />
     </ThemedView>
   );
 }
@@ -468,7 +480,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   error: {
-    color: '#e5484d',
+    
     textAlign: 'center',
   },
   transparent: {

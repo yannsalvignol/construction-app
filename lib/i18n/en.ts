@@ -5,10 +5,11 @@
  */
 const en = {
   common: {
-    appName: 'Casprod',
+    appName: 'CASPROD',
     cancel: 'Cancel',
     signOut: 'Sign out',
     notSignedIn: 'Not signed in',
+    done: 'Done',
   },
 
   chefTabs: {
@@ -16,13 +17,14 @@ const en = {
     employees: 'Employees',
     sites: 'Sites',
     schedule: 'Schedule',
+    live: 'Live',
   },
 
   employeeTabs: {
     today: 'Today',
     instructions: 'Instructions',
-    map: 'Map',
-    report: 'Report',
+    map: 'Presence',
+    report: 'Tasks',
     account: 'Account',
   },
 
@@ -206,7 +208,6 @@ const en = {
     settings: 'Settings',
     toggles: {
       isActive: { label: 'Active', description: 'Turn off to suspend this employee without deleting them.' },
-      locationTracking: { label: 'Location tracking', description: 'Share location while on shift.' },
       equipmentPhoto: {
         label: 'Proof of equipment',
         description: 'Require a photo of safety equipment before starting a shift.',
@@ -215,6 +216,11 @@ const en = {
       notifications: {
         label: 'Notifications',
         description: 'Receive instructions and alerts from the chef.',
+      },
+      liveLocation: {
+        label: 'Live location',
+        description:
+          'Follow this employee on the map during declared work days. Otherwise their position is only captured at occasional checks. The employee must agree in the app.',
       },
     },
   },
@@ -232,44 +238,6 @@ const en = {
   report: {
     title: 'Report',
     subtitle: 'Report an issue and upload photos.',
-  },
-
-  map: {
-    switchToSatellite: 'Switch to satellite',
-    switchToStandard: 'Switch to standard',
-    showWholeTeam: 'Show the whole team',
-    showMorocco: 'Show Morocco',
-    centerOnMe: 'Center on me',
-    nobodySharing: 'Nobody sharing',
-    live: (count: number) => `${count} live`,
-    idle: (count: number) => `· ${count} idle`,
-    lastSeen: 'Last seen',
-    liveLabel: 'Live',
-    noLiveLocations: 'No live locations',
-    turnOnSharingNote: 'Turn on location sharing for an employee to see them here.',
-    you: 'You',
-    justNow: 'Just now',
-    minutesAgo: (minutes: number) => `${minutes} min ago`,
-    hoursAgo: (hours: number) => `${hours}h ago`,
-    webUnavailable: 'Available in the iOS and Android apps.',
-    liveTeamMap: 'Live team map',
-    yourLocation: 'Your location',
-    myLocation: {
-      sharingOff: { pill: 'Sharing off', title: 'Location sharing is off', body: 'Your chef can’t see where you are. Only they can turn this on.' },
-      permissionDenied: {
-        pill: 'Permission needed',
-        title: 'Location permission denied',
-        body: 'Allow location access in your device settings so your chef can see you on site.',
-      },
-      sendError: {
-        pill: 'Not sending',
-        title: 'Couldn’t send your location',
-        body: 'Check your connection — your position will resume automatically.',
-      },
-      locating: { pill: 'Locating…', title: 'Finding your location', body: 'This usually takes a few seconds.' },
-      live: { pill: 'Sharing live', title: 'Your chef can see you here', body: 'Updated' },
-      paused: { pill: 'Paused', title: 'Your last known position', body: 'Last updated' },
-    },
   },
 
   account: {

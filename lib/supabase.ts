@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import 'expo-sqlite/localStorage/install'
+import './sqlite-local-storage'
 import 'react-native-url-polyfill/auto'
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!

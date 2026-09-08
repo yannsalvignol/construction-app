@@ -1,0 +1,297 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+
+// Real PostgreSQL execution in memory. Only the Supabase-managed auth/storage
+// schemas and old, unused PostGIS columns are adapted for this test engine.
+// All application migrations, functions, grants and RLS policies run unchanged.
+const db = new PGlite();
+const ids = {
+  chef: '10000000-0000-0000-0000-000000000001', worker: '10000000-0000-0000-0000-000000000002',
+  other: '10000000-0000-0000-0000-000000000003', otherChef: '10000000-0000-0000-0000-000000000004',
+  company: '20000000-0000-0000-0000-000000000001', otherCompany: '20000000-0000-0000-0000-000000000002',
+  site: '30000000-0000-0000-0000-000000000001', otherSite: '30000000-0000-0000-0000-000000000002',
+};
+async function as(user, sql, params = [], role = 'authenticated') {
+  await db.exec('begin');
+  try {
+    await db.query("select set_config('request.jwt.claim.sub', $1, true)", [user ?? '']);
+    await db.exec('set local role ' + role);
+    const result = await db.query(sql, params);
+    await db.exec('commit');
+    return result.rows;
+  } catch (error) { await db.exec('rollback'); throw error; }
+}
+async function scalar(user, sql, params, role) { return Object.values((await as(user, sql, params, role))[0])[0]; }
+
+test('presence and productivity database contracts', async t => {
+  t.after(() => db.close());
+  await db.exec(`
+    create role anon; create role authenticated; create role service_role bypassrls;
+    create schema auth; create schema storage;
+    create table auth.users(id uuid primary key, email text);
+    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+    grant usage on schema public, auth, storage to authenticated, anon, service_role;
+    grant execute on function auth.uid() to authenticated, anon, service_role;
+    create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+    create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, created_at timestamptz default now(), unique(bucket_id,name));
+    alter table storage.objects enable row level security;
+    grant select, insert, update, delete on storage.objects to authenticated;
+    create function storage.foldername(name text) returns text[] language sql immutable as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1)-1] $$;
+    create publication supabase_realtime;
+  `);
+  for (const name of (await readdir(new URL('../supabase/migrations/', import.meta.url))).sort()) {
+    let sql = await readFile(new URL('../supabase/migrations/' + name, import.meta.url), 'utf8');
+    if (name.includes('initial_schema')) {
+      sql = sql.replace(/create extension if not exists postgis\s+schema extensions;/, '')
+        .replaceAll('extensions.geography(Point, 4326)', 'text')
+        .replace(/create index \w+\s+on public\.\w+\s+using gist \(location\);/g, '');
+    }
+    try { await db.exec(sql); } catch (error) { throw new Error(name + ': ' + error.message); }
+  }
+  await db.exec(`
+    insert into auth.users values ('${ids.chef}', 'chef@example.test'), ('${ids.worker}', 'worker@employee.local'), ('${ids.other}', 'other@employee.local'), ('${ids.otherChef}', 'other-chef@example.test');
+    insert into public.companies(id,name) values ('${ids.company}', 'Company A'), ('${ids.otherCompany}', 'Company B');
+    insert into public.profiles(id, company_id, first_name, last_name, role) values
+      ('${ids.chef}', '${ids.company}', 'Chef', 'A', 'chef'), ('${ids.worker}', '${ids.company}', 'Worker', 'A', 'employee'),
+      ('${ids.other}', '${ids.otherCompany}', 'Worker', 'B', 'employee'), ('${ids.otherChef}', '${ids.otherCompany}', 'Chef', 'B', 'chef');
+    insert into public.sites(id,company_id,name) values ('${ids.site}', '${ids.company}', 'Site A'), ('${ids.otherSite}', '${ids.otherCompany}', 'Site B');
+  `);
+
+  await t.test('catalogue is a read-only, category-keyed list of coded tasks', async () => {
+    const codes = await as(ids.worker, 'select * from public.task_codes');
+    const categories = await as(ids.worker, 'select * from public.task_categories');
+    // Several trades, each carrying tasks: the catalogue must stay a tree, not a flat list.
+    assert.ok(categories.length > 1);
+    assert.ok(codes.length > categories.length);
+    const known = new Set(categories.map(c => c.code));
+    assert.ok(codes.every(c => known.has(c.category_code)));
+    assert.ok(codes.every(c => ['unit', 'm', 'm2', 'm3', 'kg'].includes(c.unit)));
+    assert.ok(codes.every(c => c.label_fr && c.label_en));
+    // The plumbing seed the catalogue started from is still addressable by its code.
+    assert.equal(codes.filter(c => c.code === 'SAN_LAVABO' && c.unit === 'unit').length, 1);
+    // Employees pick from the catalogue; they can never add a free-text task to it.
+    await assert.rejects(as(ids.worker, "insert into public.task_codes values ('FREE','plumbing_hvac','Free','Free','unit',true,1)"), /permission denied/);
+  });
+  await t.test('consent is mandatory, versioned and cannot be supplied by another role', async () => {
+    await assert.rejects(as(ids.worker, 'select public.start_work_day($1, 8)', [ids.site]), /agreement required/);
+    await assert.rejects(as(ids.chef, 'select public.set_presence_consent(true)'), /Employee account required/);
+    await assert.rejects(as(ids.worker, "select public.set_presence_consent(true, 'old')"), /current presence notice/);
+    await assert.rejects(as(null, 'select public.set_presence_consent(true)', [], 'anon'), /permission denied/);
+    await as(ids.worker, 'select public.set_presence_consent(true)');
+    await assert.rejects(as(ids.worker, 'select public.set_presence_consent(null)'), /Explicit agreement/);
+    assert.equal((await as(ids.worker, 'select * from public.presence_consent_events')).length, 1);
+    await assert.rejects(as(ids.worker, 'delete from public.presence_consent_events'), /permission denied/);
+  });
+  await t.test('site and tenant restrictions apply to direct API calls', async () => {
+    assert.equal((await as(ids.worker, 'select * from public.sites')).length, 1);
+    await assert.rejects(as(ids.worker, 'select public.start_work_day($1, 8)', [ids.otherSite]), /active site/);
+    await assert.rejects(as(ids.worker, "insert into public.sites(company_id,name) values ($1,'Fake')", [ids.company]), /row-level security/);
+    await assert.rejects(as(ids.chef, "insert into public.sites(company_id,name) values ($1,'Foreign')", [ids.otherCompany]), /row-level security/);
+    await assert.rejects(as(ids.worker, "update public.profiles set location_tracking_enabled = true where id = $1", [ids.worker]), /permission denied/);
+    await assert.rejects(as(ids.worker, 'select public.update_own_employee_location(0::float8,0::float8)'), /does not exist/);
+    await assert.rejects(db.query('update public.profiles set location_tracking_enabled=true where id=$1', [ids.worker]), /profiles_legacy_location_unused/);
+  });
+
+  const day = (await as(ids.worker, 'select * from public.start_work_day($1, 8)', [ids.site]))[0];
+  const requests = (await db.query('select * from public.presence_requests order by due_at')).rows;
+  const request = requests[0];
+  await t.test('2–3 requests are spaced inside the day and future times stay private', async () => {
+    assert.ok(requests.length === 2 || requests.length === 3);
+    for (let i = 0; i < requests.length; i++) {
+      assert.ok(new Date(requests[i].due_at) > new Date(day.started_at));
+      assert.ok(new Date(requests[i].expires_at) < new Date(day.planned_end_at));
+      if (i) assert.ok(new Date(requests[i].due_at) >= new Date(requests[i - 1].expires_at));
+    }
+    assert.equal((await as(ids.worker, 'select * from public.presence_requests')).length, 0);
+    const workspace = await scalar(ids.worker, 'select public.employee_workspace()');
+    assert.equal(workspace.requests.length, 0);
+    assert.equal(workspace.day.id, day.id);
+    await assert.rejects(as(ids.worker, 'select * from private.push_tokens'), /permission denied/);
+    await assert.rejects(as(ids.worker, 'select public.start_work_day($1, 8)', [ids.site]), /already been declared/);
+  });
+  await t.test('future and expired requests cannot be submitted', async () => {
+    await assert.rejects(as(ids.worker, "select public.submit_presence_check($1,'fake',now(),1,1,10)", [request.id]), /no longer active/);
+    await db.query("update public.presence_requests set due_at = now() - interval '40 minutes', expires_at = now() - interval '10 minutes' where id = $1", [request.id]);
+    await assert.rejects(as(ids.worker, "select public.submit_presence_check($1,'fake',now(),1,1,10)", [request.id]), /no longer active/);
+    assert.equal((await scalar(ids.chef, 'select public.chef_dashboard()')).to_review, 1);
+    await db.query("update public.presence_requests set due_at = now() - interval '1 minute', expires_at = now() + interval '29 minutes' where id = $1", [request.id]);
+  });
+  const photo = ids.worker + '/' + request.id + '/proof.jpg';
+  await t.test('fresh photo and GPS are required and attached to the declared site', async () => {
+    await assert.rejects(as(ids.worker, 'select public.submit_presence_check($1,$2,now(),1,1,10)', [request.id, photo]), /photo is missing/);
+    await as(ids.worker, "insert into storage.objects(bucket_id,name) values ('presence-proofs',$1)", [photo]);
+    await assert.rejects(as(ids.worker, "select public.submit_presence_check($1,$2,now()-interval '5 minutes',1,1,10)", [request.id, photo]), /new photo/);
+    await assert.rejects(as(ids.other, 'select public.submit_presence_check($1,$2,now(),1,1,10)', [request.id, photo]), /not found/);
+    await assert.rejects(as(ids.worker, 'select public.submit_presence_check($1,$2,now(),91,1,10)', [request.id, photo]), /check constraint/);
+    await as(ids.worker, 'select public.submit_presence_check($1,$2,now(),33.5,-7.6,12)', [request.id, photo]);
+    const check = (await as(ids.worker, 'select * from public.presence_check_ins'))[0];
+    assert.equal(check.site_id, ids.site);
+    assert.equal(check.employee_id, ids.worker);
+    await assert.rejects(as(ids.worker, 'select public.submit_presence_check($1,$2,now(),1,1,10)', [request.id, photo]), /unique constraint/);
+  });
+  await t.test('proofs are private across companies and immutable for employees', async () => {
+    assert.equal((await as(ids.otherChef, 'select * from public.presence_check_ins')).length, 0);
+    assert.equal((await as(ids.otherChef, "select * from storage.objects where bucket_id='presence-proofs'")).length, 0);
+    assert.equal((await as(ids.chef, "select * from storage.objects where bucket_id='presence-proofs'")).length, 1);
+    assert.equal((await as(ids.worker, 'delete from storage.objects where name=$1 returning name', [photo])).length, 0);
+    await assert.rejects(as(ids.worker, 'delete from public.presence_check_ins'), /permission denied/);
+  });
+  await t.test('declarations use catalogue codes, validate quantities and save idempotently', async () => {
+    await assert.rejects(as(ids.worker, "select public.declare_task($1,'some free text',1)", [day.id]), /catalogue/);
+    await assert.rejects(as(ids.worker, "select public.declare_task($1,'SAN_WC',-1)", [day.id]), /valid quantity/);
+    await assert.rejects(as(ids.worker, "select public.declare_task($1,'SAN_WC',1.5)", [day.id]), /whole number/);
+    await assert.rejects(as(ids.worker, "select public.declare_task($1,'PLB_PPR_DN25',0.001)", [day.id]), /valid quantity/);
+    await assert.rejects(as(ids.worker, "select public.declare_task($1,'PLB_PPR_DN25','NaN'::numeric)", [day.id]), /valid quantity/);
+    await assert.rejects(as(ids.other, "select public.declare_task($1,'SAN_WC',2)", [day.id]), /Start a work day/);
+    await as(ids.worker, "select public.declare_task($1,'SAN_WC',2)", [day.id]);
+    await as(ids.worker, "select public.declare_task($1,'SAN_WC',3)", [day.id]);
+    const rows = await as(ids.worker, 'select * from public.task_declarations');
+    assert.equal(rows.length, 1); assert.equal(Number(rows[0].quantity), 3);
+  });
+  await t.test('dashboard returns actual company data, including joined employees', async () => {
+    const joined = '10000000-0000-0000-0000-000000000005';
+    await db.query("insert into auth.users values ($1,'joined@employee.local')", [joined]);
+    const code = (await db.query('select join_code from public.companies where id=$1', [ids.company])).rows[0].join_code;
+    await as(joined, "select public.redeem_employee_join_code($1,'Joined','Worker')", [code]);
+    const data = await scalar(ids.chef, 'select public.chef_dashboard()');
+    // The home screen leads with this absolute headcount, so a code-joined employee must land in it.
+    assert.equal(data.employees, 2); assert.equal(data.active_employees, 2); assert.equal(data.confirmed, 1);
+    assert.equal(data.declarations, 1); assert.equal(data.productivity[0].quantity, 3);
+    assert.equal(data.flags.length, 0);
+    // Suspending an employee leaves the total untouched and only moves the active count.
+    await db.query('update public.profiles set is_active = false where id = $1', [joined]);
+    const suspended = await scalar(ids.chef, 'select public.chef_dashboard()');
+    assert.equal(suspended.employees, 2); assert.equal(suspended.active_employees, 1);
+    await db.query('update public.profiles set is_active = true where id = $1', [joined]);
+    await assert.rejects(as(ids.worker, 'select public.chef_dashboard()'), /Chef account/);
+    assert.equal((await scalar(ids.otherChef, 'select public.chef_dashboard()')).confirmed, 0);
+  });
+  await t.test('live location needs the chef to enable it, the employee to agree, and an open day', async () => {
+    // The chef's switch alone shares nothing: agreement is a separate, explicit act.
+    await assert.rejects(as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)'), /not enabled/);
+    // A self-edit is not rejected, it is reverted by the trigger: the statement
+    // reports success while the column keeps the chef's value.
+    await as(ids.worker, "update public.profiles set location_mode = 'live' where id = $1", [ids.worker]);
+    assert.equal((await as(ids.worker, 'select location_mode from public.profiles where id = $1', [ids.worker]))[0].location_mode, 'checkpoint');
+    await db.query("update public.profiles set location_mode = 'live' where id = $1", [ids.worker]);
+    await assert.rejects(as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)'), /agreement required/);
+    // Presence consent is a different purpose and must not unlock being followed.
+    assert.equal((await as(ids.worker, 'select * from public.live_location_consents')).length, 0);
+    await as(ids.worker, 'select public.set_live_location_consent(true)');
+    await assert.rejects(as(ids.worker, "select public.set_live_location_consent(true, 'old')"), /current live location notice/);
+    await as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)');
+    assert.equal((await as(ids.chef, 'select public.live_team()'))[0].live_team.length, 1);
+    // Another company's chef never sees these positions.
+    assert.equal((await as(ids.otherChef, 'select public.live_team()'))[0].live_team.length, 0);
+    await assert.rejects(as(ids.other, 'select public.live_team()'), /Chef account/);
+    assert.equal((await as(ids.other, 'select * from public.live_positions')).length, 0);
+    // Withdrawal stops sharing and erases the last position, it does not merely hide it.
+    await as(ids.worker, 'select public.set_live_location_consent(false)');
+    assert.equal((await db.query('select * from public.live_positions')).rows.length, 0);
+    await assert.rejects(as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)'), /agreement required/);
+    await as(ids.worker, 'select public.set_live_location_consent(true)');
+    await as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)');
+    // Ending the day erases the position too, so nothing lingers after work.
+    await as(ids.worker, 'select public.end_work_day($1)', [day.id]);
+    assert.equal((await db.query('select * from public.live_positions')).rows.length, 0);
+    await assert.rejects(as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)'), /Start a work day/);
+    // Reopen the shared fixture: end_work_day also cancels pending requests, which
+    // later tests in this file rely on being live.
+    await db.query('update public.work_days set ended_at = null where id = $1', [day.id]);
+    await db.query('update public.presence_requests set cancelled_at = null where work_day_id = $1', [day.id]);
+    await db.query("update public.profiles set location_mode = 'checkpoint' where id = $1", [ids.worker]);
+  });
+  await t.test('same task/site/quantity over three worked days flags without blocking', async () => {
+    for (const offset of [1, 3]) {
+      const prior = (await db.query(`insert into public.work_days(employee_id, company_id, site_id, work_date, started_at, planned_end_at, ended_at)
+        select employee_id,company_id,site_id,work_date-$2::int,started_at-make_interval(days=>$2),planned_end_at-make_interval(days=>$2),planned_end_at-make_interval(days=>$2)
+        from public.work_days where id=$1 returning id`, [day.id, offset])).rows[0].id;
+      await db.query("insert into public.task_declarations(work_day_id,employee_id,company_id,site_id,task_code,quantity) values ($1,$2,$3,$4,'SAN_WC',3)", [prior, ids.worker, ids.company, ids.site]);
+    }
+    assert.equal((await scalar(ids.chef, 'select public.chef_dashboard()')).flags.length, 1);
+    await as(ids.worker, "select public.declare_task($1,'SAN_WC',4)", [day.id]);
+    assert.equal((await scalar(ids.chef, 'select public.chef_dashboard()')).flags.length, 0);
+  });
+  await t.test('push outbox is server-only and withdrawal stops new work and capture', async () => {
+    await assert.rejects(as(ids.worker, 'select * from public.claim_presence_notifications()'), /permission denied/);
+    await assert.rejects(as(ids.worker, 'select * from public.claim_presence_receipts()'), /permission denied/);
+    await assert.rejects(as(null, 'select public.redact_expired_presence_evidence()', [], 'anon'), /permission denied/);
+    await as(ids.worker, "select public.register_presence_push('ExpoPushToken[testtoken]', 'fr')");
+    const second = requests[1];
+    await db.query("update public.presence_requests set due_at=now()-interval '1 minute', expires_at=now()+interval '29 minutes' where id=$1", [second.id]);
+    const jobs = await as(null, 'select * from public.claim_presence_notifications()', [], 'service_role');
+    assert.equal(jobs.length, 1); assert.equal(jobs[0].request_id, second.id);
+    assert.equal((await as(null, 'select * from public.claim_presence_notifications()', [], 'service_role')).length, 0, 'leased jobs cannot be claimed twice');
+    await as(null, 'select public.finish_presence_notification($1,$2,$3)', [second.id, 'ExpoPushToken[testtoken]', 'ticket-1'], 'service_role');
+    await db.exec("update private.presence_push_receipts set check_after=now()-interval '1 second'");
+    assert.equal((await as(null, 'select * from public.claim_presence_receipts()', [], 'service_role')).length, 1);
+    await as(null, "select public.resolve_presence_receipt('ticket-1','DeviceNotRegistered')", [], 'service_role');
+    assert.equal((await db.query('select * from private.push_tokens')).rows.length, 0);
+    assert.equal((await db.query('select notified_at from public.presence_requests where id=$1', [second.id])).rows[0].notified_at, null);
+    await as(ids.worker, "select public.register_presence_push('ExpoPushToken[newtoken]', 'en')");
+    await db.query('update public.profiles set is_active=false where id=$1', [ids.worker]);
+    await db.exec('update public.presence_requests set notification_attempted_at=null');
+    assert.equal((await as(null, 'select * from public.claim_presence_notifications()', [], 'service_role')).length, 0, 'suspended employees are not notified');
+    // Withdrawal is still allowed while suspended.
+    await as(ids.worker, 'select public.set_presence_consent(false)');
+    assert.equal((await scalar(ids.worker, 'select public.employee_workspace()')).consent.revoked_at !== null, true);
+    assert.equal((await db.query('select * from private.push_tokens')).rows.length, 0);
+    assert.equal((await db.query('select * from public.presence_requests where cancelled_at is null and due_at>now()')).rows.length, 0);
+    await assert.rejects(as(ids.worker, "select public.declare_task($1,'SAN_WC',1)", [day.id]), /Start a work day/);
+    await assert.rejects(as(ids.worker, 'select public.submit_presence_check($1,$2,now(),1,1,10)', [request.id, photo]), /no longer active/);
+    const events = await as(ids.worker, 'select * from public.presence_consent_events order by recorded_at');
+    assert.deepEqual(events.map(e => e.accepted), [true, false]);
+    assert.equal((await as(ids.other, 'select * from public.presence_consent_events')).length, 0);
+  });
+  await t.test('expired evidence becomes inaccessible and is redacted after file deletion', async () => {
+    await db.exec("update public.presence_check_ins set submitted_at=now()-interval '31 days'");
+    assert.equal((await as(ids.chef, 'select * from public.presence_check_ins')).length, 0);
+    assert.equal((await as(ids.worker, "select * from storage.objects where bucket_id='presence-proofs'")).length, 0);
+    const expired = await as(null, 'select * from public.expired_presence_photos()', [], 'service_role');
+    assert.equal(expired[0].path, photo);
+    assert.equal(await scalar(null, 'select public.redact_expired_presence_evidence()', [], 'service_role'), 0, 'do not lose the path before Storage deletes the file');
+    await db.query("delete from storage.objects where bucket_id='presence-proofs' and name=$1", [photo]);
+    assert.equal(await scalar(null, 'select public.redact_expired_presence_evidence()', [], 'service_role'), 1);
+    const proof = (await db.query('select * from public.presence_check_ins')).rows[0];
+    assert.equal(proof.photo_path, null); assert.equal(proof.latitude, null); assert.equal(proof.longitude, null);
+    assert.ok(proof.redacted_at); assert.equal(proof.request_id, request.id, 'keep the historical fact that the request was completed');
+    assert.equal(await scalar(null, 'select public.redact_expired_presence_evidence()', [], 'service_role'), 0, 'redaction is idempotent');
+  });
+  await t.test('random schedules remain separated and bounded for all supported durations', async () => {
+    const offsets = new Set();
+    for (let i = 0; i < 24; i++) {
+      const employee = '40000000-0000-0000-0000-' + String(i).padStart(12, '0');
+      await db.query('insert into auth.users(id,email) values ($1,$2)', [employee, 'random' + i + '@employee.local']);
+      await db.query("insert into public.profiles(id,company_id,first_name,last_name,role) values ($1,$2,'Test','Worker','employee')", [employee, ids.company]);
+      await as(employee, 'select public.set_presence_consent(true)');
+      const hours = [4, 8, 10][i % 3];
+      const work = (await as(employee, 'select * from public.start_work_day($1,$2)', [ids.site, hours]))[0];
+      const planned = (await db.query('select * from public.presence_requests where employee_id=$1 order by due_at', [employee])).rows;
+      assert.ok(planned.length >= 2 && planned.length <= 3);
+      for (let index = 0; index < planned.length; index++) {
+        const row = planned[index];
+        const delay = +new Date(row.due_at) - +new Date(work.started_at);
+        offsets.add(Math.round(delay));
+        assert.ok(delay >= 20 * 60_000);
+        assert.ok(+new Date(row.expires_at) <= +new Date(work.planned_end_at));
+        if (index) assert.ok(+new Date(row.due_at) >= +new Date(planned[index - 1].expires_at));
+      }
+      await as(employee, 'select public.end_work_day($1)', [work.id]);
+      assert.equal((await db.query('select * from public.presence_requests where employee_id=$1 and cancelled_at is null', [employee])).rows.length, 0);
+      await assert.rejects(as(employee, 'select * from public.start_work_day($1,$2)', [ids.site, hours]), /already been declared/);
+    }
+    assert.ok(offsets.size > 24, 'request times must vary between workers and days');
+  });
+  await t.test('validated company onboarding still works after direct inserts are revoked', async () => {
+    const user = '50000000-0000-0000-0000-000000000001';
+    await db.query("insert into auth.users(id,email) values ($1,'new-chef@example.test')", [user]);
+    await assert.rejects(as(user, "insert into public.profiles(id,company_id,first_name,last_name,role) values ($1,$2,'Fake','Chef','chef')", [user, ids.company]), /permission denied/);
+    const created = (await as(user, "select * from public.create_company_and_chef_profile('New Company','New','Chef')"))[0];
+    assert.equal(created.id, user);
+    assert.equal(created.role, 'chef');
+    assert.notEqual(created.company_id, ids.company);
+    assert.equal((await scalar(user, 'select public.chef_dashboard()')).employees, 0);
+  });
+});

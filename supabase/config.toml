@@ -412,3 +412,7 @@ enabled = true
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+[functions.presence-dispatch]
+# Dedicated bearer secret is checked inside this server-only function.
+verify_jwt = false

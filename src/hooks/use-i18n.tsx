@@ -1,4 +1,4 @@
-import 'expo-sqlite/localStorage/install';
+import '@/lib/sqlite-local-storage';
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 

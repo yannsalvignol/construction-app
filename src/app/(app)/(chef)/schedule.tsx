@@ -86,9 +86,9 @@ export default function ScheduleScreen() {
                     style={[
                       styles.pill,
                       styles.transparent,
-                      { borderColor: selected ? theme.text : theme.backgroundSelected },
+                      { borderColor: selected ? theme.accent : theme.backgroundSelected },
                     ]}>
-                    <ThemedText type="small" themeColor={selected ? 'text' : 'textSecondary'}>
+                    <ThemedText type="small" themeColor={selected ? 'accentText' : 'textSecondary'}>
                       {option.label}
                     </ThemedText>
                   </ThemedView>
@@ -110,8 +110,8 @@ export default function ScheduleScreen() {
                     style={[
                       styles.weekDay,
                       {
-                        backgroundColor: selected ? theme.text : 'transparent',
-                        borderColor: isToday && !selected ? theme.text : theme.backgroundSelected,
+                        backgroundColor: selected ? theme.accent : 'transparent',
+                        borderColor: isToday && !selected ? theme.accent : theme.backgroundSelected,
                       },
                     ]}>
                     <ThemedText type="small" themeColor={selected ? 'buttonText' : 'textSecondary'}>
@@ -129,7 +129,7 @@ export default function ScheduleScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.button,
-              { backgroundColor: theme.text, opacity: pressed ? 0.7 : 1 },
+              { backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
             ]}>
             <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
               {scope === 'me' ? t.schedule.addShift : t.schedule.assignShift}

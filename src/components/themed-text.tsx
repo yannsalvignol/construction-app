@@ -10,11 +10,19 @@ export type ThemedTextProps = TextProps & {
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  // A caller that overrides fontSize but not lineHeight would otherwise keep the
+  // preset's line height (24 for `default`) and get its glyphs clipped, so scale
+  // the line box to match. An explicit lineHeight always wins.
+  const custom = StyleSheet.flatten(style);
+  const scaled =
+    custom?.fontSize != null && custom.lineHeight == null
+      ? { lineHeight: Math.ceil(custom.fontSize * 1.25) }
+      : null;
 
   return (
     <Text
       style={[
-        { color: theme[themeColor ?? 'text'] },
+        { color: theme[themeColor ?? (type === 'linkPrimary' ? 'accentText' : 'text')] },
         type === 'default' && styles.default,
         type === 'title' && styles.title,
         type === 'small' && styles.small,
@@ -24,6 +32,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
         style,
+        scaled,
       ]}
       {...rest}
     />
@@ -63,7 +72,6 @@ const styles = StyleSheet.create({
   linkPrimary: {
     lineHeight: 30,
     fontSize: 14,
-    color: '#3c87f7',
   },
   code: {
     fontFamily: Fonts.mono,

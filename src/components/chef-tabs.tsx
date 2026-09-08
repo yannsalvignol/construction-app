@@ -115,6 +115,11 @@ export default function ChefTabs() {
                 {t.chefTabs.sites}
               </ChefTabButton>
             </TabTrigger>
+            <TabTrigger name="live" href="/live" asChild>
+              <ChefTabButton icon={{ ios: 'dot.radiowaves.left.and.right', android: 'my_location', web: 'my_location' }}>
+                {t.chefTabs.live}
+              </ChefTabButton>
+            </TabTrigger>
             <TabTrigger name="schedule" href="/schedule" asChild>
               <ChefTabButton
                 icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}>

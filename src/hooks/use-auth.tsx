@@ -1,9 +1,10 @@
 import { Session } from '@supabase/supabase-js';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useI18n } from '@/hooks/use-i18n';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
+import { unregisterPresenceNotifications } from '@/lib/presence-notifications';
 
 const EMPLOYEE_EMAIL_DOMAIN = 'employee.local';
 
@@ -27,10 +28,7 @@ export type Profile = {
   role: 'employee' | 'chef';
   phone: string | null;
   avatar_url: string | null;
-  location_tracking_enabled: boolean;
-  last_latitude: number | null;
-  last_longitude: number | null;
-  location_updated_at: string | null;
+  is_active: boolean;
 };
 
 /**
@@ -81,56 +79,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setSessionLoading(false);
-    });
-
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-    });
-
-    return () => subscription.subscription.unsubscribe();
-  }, []);
-
+  const profileRequest = useRef(0);
+  const currentUser = useRef<string | null>(null);
   const fetchProfile = useCallback(async (userId: string) => {
-    setProfileLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(
-        'id, company_id, first_name, last_name, role, phone, avatar_url, location_tracking_enabled, last_latitude, last_longitude, location_updated_at'
-      )
-      .eq('id', userId)
-      .maybeSingle();
-    if (error) {
-      console.error('[auth] fetchProfile failed', { userId, error });
-    } else if (!data) {
-      console.warn(
-        '[auth] fetchProfile found no profiles row for this authenticated user — they are signed in but have no profile',
-        { userId }
-      );
-    } else {
-      console.log('[auth] fetchProfile loaded', { userId, role: data.role });
+    const request = ++profileRequest.current;
+    try {
+      const { data, error } = await supabase.from('profiles')
+        .select('id, company_id, first_name, last_name, role, phone, avatar_url, is_active')
+        .eq('id', userId).maybeSingle();
+      if (request !== profileRequest.current || currentUser.current !== userId) return;
+      if (error) console.error('[auth] profile lookup failed', error.message);
+      setProfile(data);
+    } finally {
+      if (request === profileRequest.current) setProfileLoading(false);
     }
-    setProfile(data);
-    setProfileLoading(false);
   }, []);
 
   useEffect(() => {
-    if (!session) {
-      setProfile(null);
-      return;
+    let active = true;
+    let authEventSeen = false;
+    function applySession(next: Session | null) {
+      if (!active) return;
+      const nextId = next?.user.id ?? null;
+      setSession(next);
+      setSessionLoading(false);
+      if (nextId !== currentUser.current) {
+        currentUser.current = nextId;
+        profileRequest.current++;
+        setProfile(null);
+        setProfileLoading(!!nextId);
+        if (nextId) void fetchProfile(nextId);
+      }
     }
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+      authEventSeen = true;
+      // Avoid issuing a Supabase query while the auth callback holds its lock.
+      queueMicrotask(() => applySession(next));
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      if (!authEventSeen) applySession(data.session);
+    }).catch(() => { if (active) setSessionLoading(false); });
+    return () => { active = false; listener.subscription.unsubscribe(); };
+  }, [fetchProfile]);
 
-    fetchProfile(session.user.id);
-  }, [session, fetchProfile]);
-
-  // Keep the signed-in user's own row live. Without this an employee only learns
-  // that their chef switched location tracking on when they restart the app, so
-  // they would silently never start sharing. Applied straight from the realtime
-  // payload rather than via fetchProfile() so it never raises the loading flag —
-  // RootNavigator unmounts the whole tree while `loading` is true.
+  // Apply profile edits without unmounting an active form or camera flow.
   useEffect(() => {
     if (!session) return;
     const userId = session.user.id;
@@ -147,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session]);
+  }, [session?.user.id]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -236,6 +228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error ? translateServerError(error.message, locale) : null };
       },
       signOut: async () => {
+        await unregisterPresenceNotifications().catch(() => {});
         await supabase.auth.signOut();
       },
       refreshProfile: async () => {

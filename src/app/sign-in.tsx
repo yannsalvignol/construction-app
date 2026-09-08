@@ -1,8 +1,10 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { useRef, useState } from 'react';
+import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -19,8 +21,12 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const passwordInput = useRef<TextInput>(null);
 
   async function handleSubmit() {
+    Keyboard.dismiss();
+    passwordInput.current?.blur();
+    if (submitting || !identifier.trim() || !password) return;
     setError(null);
     setSubmitting(true);
     const { error } = await signIn(identifier.trim(), password);
@@ -29,7 +35,7 @@ export default function SignInScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="title" style={styles.title}>
           {t.signIn.title}
@@ -42,21 +48,34 @@ export default function SignInScreen() {
             placeholderTextColor={theme.textSecondary}
             autoCapitalize="none"
             autoCorrect={false}
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => passwordInput.current?.focus()}
+            autoComplete="username"
+            textContentType="username"
             value={identifier}
             onChangeText={setIdentifier}
+            inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
 
           <TextInput
+            ref={passwordInput}
             style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
             placeholder={t.signIn.passwordPlaceholder}
             placeholderTextColor={theme.textSecondary}
             secureTextEntry
+            returnKeyType="done"
+            submitBehavior="blurAndSubmit"
+            onSubmitEditing={handleSubmit}
+            autoComplete="current-password"
+            textContentType="password"
             value={password}
             onChangeText={setPassword}
+            inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
 
           {error && (
-            <ThemedText type="small" style={styles.error}>
+            <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
               {error}
             </ThemedText>
           )}
@@ -64,7 +83,7 @@ export default function SignInScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.button,
-              { backgroundColor: theme.text, opacity: pressed || submitting ? 0.7 : 1 },
+              { backgroundColor: theme.accent, opacity: pressed || submitting ? 0.7 : 1 },
             ]}
             disabled={submitting || !identifier || !password}
             onPress={handleSubmit}>
@@ -82,7 +101,8 @@ export default function SignInScreen() {
           </Link>
         </ThemedView>
       </SafeAreaView>
-    </ThemedView>
+      <KeyboardDoneBar />
+    </DismissKeyboardView>
   );
 }
 
@@ -123,6 +143,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   error: {
-    color: '#e5484d',
+    
   },
 });

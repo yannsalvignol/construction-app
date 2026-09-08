@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -55,34 +57,43 @@ function ChefOnboarding() {
           style={inputStyle(theme)}
           placeholder={t.onboarding.chef.companyNamePlaceholder}
           placeholderTextColor={theme.textSecondary}
+          returnKeyType="next"
           value={companyName}
           onChangeText={setCompanyName}
+          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.chef.firstNamePlaceholder}
           placeholderTextColor={theme.textSecondary}
+          returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
+          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.chef.lastNamePlaceholder}
           placeholderTextColor={theme.textSecondary}
+          returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
+          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.chef.phonePlaceholder}
           placeholderTextColor={theme.textSecondary}
           keyboardType="phone-pad"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           value={phone}
           onChangeText={setPhone}
+          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
 
         {error && (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
             {error}
           </ThemedText>
         )}
@@ -90,7 +101,7 @@ function ChefOnboarding() {
         <Pressable
           style={({ pressed }) => [
             styles.button,
-            { backgroundColor: theme.text, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
+            { backgroundColor: theme.accent, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
           ]}
           disabled={submitting || !canSubmit}
           onPress={handleSubmit}>
@@ -155,7 +166,7 @@ function EmployeeOnboarding({
 
       <ThemedView style={styles.form}>
         {!joinCode && (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
             {t.onboarding.employee.missingCodeError}
           </ThemedText>
         )}
@@ -163,27 +174,34 @@ function EmployeeOnboarding({
           style={inputStyle(theme)}
           placeholder={t.onboarding.employee.firstNamePlaceholder}
           placeholderTextColor={theme.textSecondary}
+          returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
+          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.employee.lastNamePlaceholder}
           placeholderTextColor={theme.textSecondary}
+          returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
+          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.employee.phonePlaceholder}
           placeholderTextColor={theme.textSecondary}
           keyboardType="phone-pad"
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           value={phone}
           onChangeText={setPhone}
+          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
 
         {error && (
-          <ThemedText type="small" style={styles.error}>
+          <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
             {error}
           </ThemedText>
         )}
@@ -191,7 +209,7 @@ function EmployeeOnboarding({
         <Pressable
           style={({ pressed }) => [
             styles.button,
-            { backgroundColor: theme.text, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
+            { backgroundColor: theme.accent, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
           ]}
           disabled={submitting || !canSubmit}
           onPress={handleSubmit}>
@@ -229,7 +247,7 @@ export default function OnboardingScreen() {
   const joinCode = (session?.user.user_metadata?.join_code as string | undefined) ?? null;
 
   return (
-    <ThemedView style={styles.container}>
+    <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         {intendedRole === 'employee' ? (
           <EmployeeOnboarding username={usernameFromAuthEmail(session?.user.email)} joinCode={joinCode} />
@@ -237,7 +255,8 @@ export default function OnboardingScreen() {
           <ChefOnboarding />
         )}
       </SafeAreaView>
-    </ThemedView>
+      <KeyboardDoneBar />
+    </DismissKeyboardView>
   );
 }
 
@@ -281,6 +300,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   error: {
-    color: '#e5484d',
+    
   },
 });

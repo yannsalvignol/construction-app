@@ -1,48 +1,19 @@
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { TaskForm } from '@/components/task-form';
+import { Action, Feedback, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { useI18n } from '@/hooks/use-i18n';
+import { workCopy } from '@/lib/work-copy';
 
-export default function ReportScreen() {
-  const { t } = useI18n();
-
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
-          {t.report.title}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-          {t.report.subtitle}
-        </ThemedText>
-      </SafeAreaView>
-    </ThemedView>
-  );
+export default function TasksScreen() {
+  const { locale } = useI18n();
+  const copy = workCopy(locale);
+  const { data, loading, error, refresh, now } = useWorkspace();
+  const active = data?.day && !data.day.ended_at && Date.parse(data.day.planned_end_at) > now;
+  return <WorkPage title={copy.taskTitle}>
+    {loading && <ThemedText>{copy.loading}</ThemedText>}
+    <Feedback message={error} />
+    {error && <Action label={copy.retry} onPress={() => { void refresh(); }} />}
+    {data && (active ? <TaskForm data={data} onSaved={refresh} /> : <ThemedText themeColor="textSecondary">{copy.startForTasks}</ThemedText>)}
+  </WorkPage>;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.three,
-    gap: Spacing.four,
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  title: {
-    textAlign: 'center',
-  },
-  subtitle: {
-    textAlign: 'center',
-  },
-});
