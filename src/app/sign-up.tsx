@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { RuleChecklist } from '@/components/rule-checklist';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -65,6 +66,8 @@ export default function SignUpScreen() {
             onChangeText={setPassword}
             inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
+
+          <RuleChecklist rules={[{ label: t.signUp.rulePassword, met: password.length >= 6 }]} />
 
           {error && (
             <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>

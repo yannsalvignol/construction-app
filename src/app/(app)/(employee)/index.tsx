@@ -3,7 +3,8 @@ import { Action, Card, Feedback, NumberWheel, Select, WorkPage } from '@/compone
 import { ThemedText } from '@/components/themed-text';
 import { PresenceNotice } from '@/components/presence-notice';
 import { LiveNotice } from '@/components/live-notice';
-import { TaskForm } from '@/components/task-form';
+import { EmployeeLiveMap } from '@/components/employee-live-map';
+import { DeclaredTasks } from '@/components/declared-tasks';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useWorkspace } from '@/hooks/use-workspace';
@@ -45,6 +46,7 @@ export default function EmployeeHomeScreen() {
   }
   const active = !!data?.day && !data.day.ended_at && Date.parse(data.day.planned_end_at) > now;
   const pending = active ? data.requests.find(r => Date.parse(r.expires_at) > now && !data.checks.some(c => c.request_id === r.id)) : undefined;
+  const liveSharing = data?.location_mode === 'live' && !!liveConsented;
   const missed = data?.requests.filter(r => Date.parse(r.expires_at) <= now && !data.checks.some(c => c.request_id === r.id)).length ?? 0;
   return <WorkPage title={copy.dayTitle} subtitle={copy.daySubtitle}>
     {loading && <ThemedText>{copy.loading}</ThemedText>}
@@ -63,7 +65,7 @@ export default function EmployeeHomeScreen() {
           }); }} />
         </> : <ThemedText>{copy.noSites}</ThemedText>}
       </Card>}
-      {liveConsented && data.location_mode === 'live' && <LiveNotice accepted busy={busy}
+      {showNotice && liveConsented && data.location_mode === 'live' && <LiveNotice accepted busy={busy}
         onAccept={() => { void act(() => liveConsent(true)); }}
         onWithdraw={() => { void act(() => liveConsent(false)); }} />}
       {data.day && <Card accent>
@@ -75,17 +77,26 @@ export default function EmployeeHomeScreen() {
         {!!missed && <ThemedText>{missed} · {copy.missed}</ThemedText>}
       </Card>}
       {active && <>
-        <Card accent={!!pending}>
-          <ThemedText style={{ fontSize: 22, fontWeight: '700' }}>{pending ? copy.requestReady : copy.waiting}</ThemedText>
-          {pending ? <>
-            <ThemedText themeColor="accentText">{copy.deadline} {new Date(pending.expires_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</ThemedText>
-            <ThemedText themeColor="textSecondary">{copy.captureHint}</ThemedText>
-            <Action label={copy.capture} busy={busy} onPress={() => { void act(async () => { await capturePresence(pending.id, profile!.id, locale); }); }} />
-          </> : <ThemedText themeColor="textSecondary">{copy.waitingHint}</ThemedText>}
+        {/* A pending check always takes the screen. Otherwise, live sharing replaces
+            the idle "nothing to do" card with the position actually being shared. */}
+        {pending ? <Card accent>
+          <ThemedText style={{ fontSize: 22, fontWeight: '700' }}>{copy.requestReady}</ThemedText>
+          <ThemedText themeColor="accentText">{copy.deadline} {new Date(pending.expires_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</ThemedText>
+          <ThemedText themeColor="textSecondary">{copy.captureHint}</ThemedText>
+          <Action label={copy.capture} busy={busy} onPress={() => { void act(async () => { await capturePresence(pending.id, profile!.id, locale); }); }} />
           {pushWarning && <ThemedText themeColor="warning" type="small">{copy.pushUnavailable}</ThemedText>}
           <Action secondary label={copy.refresh} onPress={() => { void refresh(); }} />
+        </Card> : liveSharing ? <EmployeeLiveMap /> : <Card>
+          <ThemedText style={{ fontSize: 22, fontWeight: '700' }}>{copy.waiting}</ThemedText>
+          <ThemedText themeColor="textSecondary">{copy.waitingHint}</ThemedText>
+          {pushWarning && <ThemedText themeColor="warning" type="small">{copy.pushUnavailable}</ThemedText>}
+          <Action secondary label={copy.refresh} onPress={() => { void refresh(); }} />
+        </Card>}
+        {/* Read-only: declaring stays in the Tasks tab, this is the day's tally. */}
+        <Card>
+          <ThemedText style={{ fontSize: 22, fontWeight: '700' }}>{copy.tasksDone}</ThemedText>
+          <DeclaredTasks data={data} />
         </Card>
-        <TaskForm data={data} onSaved={refresh} />
         {confirmFinish && <Card><ThemedText>{copy.finishConfirm}</ThemedText></Card>}
         <Action secondary label={copy.finish} busy={busy} onPress={() => {
           if (!confirmFinish) { setConfirmFinish(true); return; }

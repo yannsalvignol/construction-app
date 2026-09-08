@@ -192,6 +192,8 @@ test('presence and productivity database contracts', async t => {
   await t.test('site roster lists who declared days there, scoped to the company', async () => {
     const roster = await scalar(ids.chef, 'select public.site_team($1)', [ids.site]);
     assert.equal(roster.length, 1);
+    // Last seen comes from real evidence: the check-in already submitted on this site.
+    assert.ok(roster[0].last_seen_at, 'a submitted check-in must count as being seen');
     assert.equal(roster[0].employee_name, 'Worker A');
     assert.equal(roster[0].present_today, true);
     assert.equal(Number(roster[0].days), 1);

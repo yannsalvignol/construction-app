@@ -5,12 +5,14 @@ import { ThemedText } from './themed-text';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
-import { workCopy } from '@/lib/work-copy';
+import { positionAge, workCopy } from '@/lib/work-copy';
 import type { Site } from '@/lib/presence';
 
 type Member = {
   employee_id: string; employee_name: string; is_active: boolean;
   location_mode: 'checkpoint' | 'live'; last_day: string; days: number; present_today: boolean;
+  /** Most recent evidence of where they were on this site: a live position or a check-in. */
+  last_seen_at: string | null;
 };
 
 /**
@@ -30,6 +32,8 @@ export function SiteRow({ site, onPressSite, onLocate, locatable }: {
   const copy = workCopy(locale);
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+  // Captured when the roster loads: reading the clock during render is not pure.
+  const [now, setNow] = useState(() => Date.now());
   const [team, setTeam] = useState<Member[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const loading = useRef(false);
@@ -39,7 +43,7 @@ export function SiteRow({ site, onPressSite, onLocate, locatable }: {
     loading.current = true; setError(null);
     const { data, error: failure } = await supabase.rpc('site_team', { site: site.id });
     if (failure) setError(copy.failed);
-    else setTeam((data ?? []) as Member[]);
+    else { setTeam((data ?? []) as Member[]); setNow(Date.now()); }
     loading.current = false;
   }
 
@@ -74,7 +78,9 @@ export function SiteRow({ site, onPressSite, onLocate, locatable }: {
         const body = <View style={{ gap: 4, paddingLeft: 14, borderLeftWidth: 3, borderLeftColor: member.present_today ? theme.accent : theme.backgroundSelected }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <ThemedText type="smallBold" style={{ flex: 1 }}>{member.employee_name}</ThemedText>
-            {member.location_mode === 'live' && <ThemedText type="small" themeColor="accentText">{copy.liveOnBadge}</ThemedText>}
+            {member.last_seen_at
+              ? <ThemedText type="small" themeColor="accentText">{copy.lastSeen} : {positionAge(member.last_seen_at, copy, now)}</ThemedText>
+              : <ThemedText type="small" themeColor="textSecondary">{copy.neverSeen}</ThemedText>}
           </View>
           {member.present_today
             ? <ThemedText type="small" themeColor="accentText">{copy.presentToday}</ThemedText>

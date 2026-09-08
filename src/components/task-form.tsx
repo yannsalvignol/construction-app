@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
 import { Keyboard, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Action, Card, Feedback, Field, NumberWheel, Select } from './work-ui';
 import { ThemedText } from './themed-text';
 import { useI18n } from '@/hooks/use-i18n';
 import { supabase } from '@/lib/supabase';
+import { DeclaredTasks } from './declared-tasks';
 import { isWholeUnit, unitLong, unitShort, workCopy } from '@/lib/work-copy';
 import type { Workspace } from '@/lib/presence';
 
@@ -50,7 +52,11 @@ export function TaskForm({ data, onSaved }: { data: Workspace; onSaved: () => Pr
     try {
       const { error: failure } = await supabase.rpc('declare_task', { day_id: data.day.id, code, amount });
       if (failure) throw failure;
-      await onSaved(); setSaved(true);
+      await onSaved();
+      // Collapse back to the resting state: the trade stays chosen, because a
+      // worker usually declares several tasks from the same one in a row.
+      setCode(''); setWhole(0); setFrac(0); setTyped(''); setKeyboard(false);
+      setSaved(true);
     } catch { setError(copy.failed); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -59,7 +65,8 @@ export function TaskForm({ data, onSaved }: { data: Workspace; onSaved: () => Pr
     <ThemedText themeColor="textSecondary" type="small">{copy.taskHint}</ThemedText>
     <Select label={copy.category} value={category} options={data.categories.map(c => ({ value: c.code, label: c[label] }))} onChange={next => { setCategory(next); setCode(''); reset(); }} />
     <Select label={copy.chooseTask} value={code} options={data.codes.filter(c => c.category_code === category).map(c => ({ value: c.code, label: c[label] }))} onChange={chooseCode} />
-    {task && <>
+    {task && <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(140)}
+      layout={LinearTransition} style={{ gap: 16 }}>
       <ThemedText type="smallBold">{copy.quantity} · {unitLong(task.unit, copy)}</ThemedText>
       {keyboard ? <Field accessibilityLabel={copy.quantity} value={typed} onChangeText={v => { setTyped(v); setSaved(false); }}
         keyboardType={countable ? 'number-pad' : 'decimal-pad'} returnKeyType="done" onSubmitEditing={save} placeholder="0" maxLength={9} />
@@ -77,15 +84,9 @@ export function TaskForm({ data, onSaved }: { data: Workspace; onSaved: () => Pr
         } else { setTyped(String(amount)); setKeyboard(true); }
         setSaved(false);
       }} />
-    </>}
+    </Animated.View>}
     <Feedback message={error} /><Feedback message={saved ? copy.taskSaved : null} success />
     <Action label={copy.save} busy={busy} disabled={!task || !amount} onPress={save} />
-    {data.declarations.map(d => {
-      const item = data.codes.find(c => c.code === d.task_code);
-      return <View key={d.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-        <ThemedText type="small" style={{ flex: 1 }}>{item?.[label] ?? d.task_code}</ThemedText>
-        <ThemedText type="smallBold">{d.quantity} {item ? unitShort(item.unit, copy) : ''}</ThemedText>
-      </View>;
-    })}
+    <DeclaredTasks data={data} />
   </Card>;
 }

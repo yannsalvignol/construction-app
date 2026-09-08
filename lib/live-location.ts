@@ -52,19 +52,26 @@ export async function isLiveLocationRunning() {
   catch { return false; }
 }
 
-/** Returns false when the employee declines either permission; never throws. */
+/**
+ * Starts sharing and returns whether anything is being shared at all.
+ *
+ * Foreground permission is the only hard requirement. Background permission is
+ * asked for but not required: iOS commonly grants "While Using" first, and
+ * refusing to share anything in that case left the employee invisible to their
+ * chef entirely. Without it the position still goes out whenever the app is
+ * open, and the chef keeps seeing the last known one in between.
+ */
 export async function startLiveLocation() {
   try {
     const foreground = await Location.requestForegroundPermissionsAsync();
     if (!foreground.granted) return false;
     // Background permission must be requested after foreground on both platforms.
     const background = await Location.requestBackgroundPermissionsAsync();
-    if (!background.granted) return false;
-    if (!await isLiveLocationRunning()) {
+    if (background.granted && !await isLiveLocationRunning()) {
       await Location.startLocationUpdatesAsync(LIVE_TASK, {
         accuracy: Location.Accuracy.Balanced,
         // Android honours timeInterval; iOS only reacts to distance, hence the
-        // foreground heartbeat that keeps a stationary worker on the map.
+        // foreground heartbeat that keeps a stationary worker current.
         timeInterval: 120_000,
         distanceInterval: 25,
         pausesUpdatesAutomatically: false,
@@ -77,10 +84,16 @@ export async function startLiveLocation() {
         },
       });
     }
-    // Appear on the chef's map straight away rather than at the first 25 m moved.
+    // Reach the chef's map now rather than at the first 25 m moved.
     await pushCurrentPosition();
     return true;
   } catch { return false; }
+}
+
+/** Whether the OS will keep reporting while the app is closed. */
+export async function hasBackgroundLocation() {
+  try { return (await Location.getBackgroundPermissionsAsync()).granted; }
+  catch { return false; }
 }
 
 export async function stopLiveLocation() {

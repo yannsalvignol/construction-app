@@ -5,6 +5,7 @@ import { Alert, Keyboard, Pressable, ScrollView, Share, StyleSheet, TextInput } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { RuleChecklist } from '@/components/rule-checklist';
 import { SwipeToDelete } from '@/components/swipe-to-delete';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -363,6 +364,11 @@ export default function EmployeesScreen() {
                 onChangeText={setUsername}
                 inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
+
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.employees.form.usernameHint}
+              </ThemedText>
+
               <TextInput
                 style={[
                   styles.input,
@@ -378,6 +384,10 @@ export default function EmployeesScreen() {
                 onChangeText={setPassword}
                 inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
+
+              <RuleChecklist rules={[
+                { label: t.employees.form.rulePassword, met: password.length >= 6 },
+              ]} />
 
               <Pressable
                 onPress={() => {

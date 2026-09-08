@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { RuleChecklist } from '@/components/rule-checklist';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -46,7 +47,7 @@ export default function JoinScreen() {
 
   const trimmedUsername = username.trim().toLowerCase();
   const canSubmitCode = joinCode.trim().length >= 4 && !checking;
-  const canSubmitSignup = USERNAME_PATTERN.test(trimmedUsername) && password.length >= 6;
+  const canSubmitSignup = !!trimmedUsername && !!password;
 
   async function handleCheckCode() {
     setCodeError(null);
@@ -75,6 +76,11 @@ export default function JoinScreen() {
 
     if (!USERNAME_PATTERN.test(trimmedUsername)) {
       setSignupError(t.join.usernamePatternError);
+      return;
+    }
+
+    if (password.length < 6) {
+      setSignupError(t.join.passwordTooShort);
       return;
     }
 
@@ -154,6 +160,10 @@ export default function JoinScreen() {
                 inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
 
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.join.usernameHint}
+              </ThemedText>
+
               <TextInput
                 style={inputStyle(theme)}
                 placeholder={t.join.passwordPlaceholder}
@@ -167,6 +177,10 @@ export default function JoinScreen() {
                 onChangeText={setPassword}
                 inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
+
+              <RuleChecklist rules={[
+                { label: t.join.rulePassword, met: password.length >= 6 },
+              ]} />
 
               {signupError && (
                 <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>

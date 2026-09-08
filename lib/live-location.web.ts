@@ -13,6 +13,7 @@ export type LivePosition = {
 export async function pushCurrentPosition() { return false; }
 export async function isLiveLocationRunning() { return false; }
 export async function startLiveLocation() { return false; }
+export async function hasBackgroundLocation() { return false; }
 export async function stopLiveLocation() { /* nothing runs on web */ }
 
 export async function fetchLiveTeam(): Promise<LivePosition[]> {
