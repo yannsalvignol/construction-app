@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import { Action, Card, Feedback } from './work-ui';
 import { ThemedText } from './themed-text';
+import { OnSiteBadge } from './on-site-badge';
 import { SiteRow } from './site-row';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
@@ -104,6 +105,7 @@ export function LiveTeamMap() {
         {team?.map(member => <Marker key={member.employee_id}
           coordinate={{ latitude: member.latitude, longitude: member.longitude }}
           opacity={isStale(member.recorded_at) ? 0.5 : 1}
+          pinColor={member.on_site === false ? theme.danger : theme.success}
           title={member.employee_name}
           description={`${member.site_name} · ${positionAge(member.recorded_at, copy, now)}`} />)}
         {/* The reported accuracy is drawn, so a coarse fix is never read as an exact spot. */}
@@ -135,13 +137,15 @@ export function LiveTeamMap() {
         style={({ pressed }) => pressed && { opacity: 0.6 }}>
         <Card>
           <ThemedText type="smallBold">{member.employee_name}</ThemedText>
+          <OnSiteBadge onSite={member.on_site} distance={member.distance_meters} />
+          {/* GPS accuracy and the staleness sentence moved out: the age carries the
+              same warning, in one line, and the accuracy circle is drawn on the map. */}
           <ThemedText type="small" themeColor="textSecondary">
-            {member.site_name} · {copy.accuracy} ±{Math.round(member.accuracy_meters)} m
+            {member.site_name} ·{' '}
+            <ThemedText type="small" themeColor={isStale(member.recorded_at) ? 'warning' : 'textSecondary'}>
+              {positionAge(member.recorded_at, copy, now)}
+            </ThemedText>
           </ThemedText>
-          <ThemedText type="small" themeColor={isStale(member.recorded_at) ? 'warning' : 'accentText'}>
-            {positionAge(member.recorded_at, copy, now)}
-          </ThemedText>
-          {isStale(member.recorded_at) && <ThemedText type="small" themeColor="textSecondary">{copy.stalePosition}</ThemedText>}
         </Card>
       </Pressable>)}
     </> : <>

@@ -49,6 +49,7 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'Chef account required': 'Cette action est réservée aux chefs de chantier.',
   'Employee account required': 'Cette action est réservée aux comptes employés actifs.',
   'Site not found': 'Ce chantier est introuvable dans votre entreprise.',
+  'Chef account required.': 'Cette action est réservée aux chefs de chantier.',
   'Only an employee can be removed': 'Seul un compte employé peut être supprimé.',
   'This employee has declared work. Suspend the account instead.':
     'Cet employé a déjà déclaré du travail : son historique appartient à l’entreprise. Suspendez son compte depuis sa fiche.',
@@ -68,7 +69,13 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
     'Commencez votre journée avant de déclarer des tâches.',
   'Start a work day before sharing your location':
     'Commencez votre journée avant de partager votre position.',
-  'A work day has already been declared': 'Une journée est déjà déclarée pour aujourd’hui.',
+  'Only an open work day can be cancelled': 'Seule une journée en cours peut être annulée.',
+  'Tasks were declared on this day. Finish it instead.':
+    'Des tâches ont été déclarées sur cette journée : terminez-la au lieu de l’annuler.',
+  'A presence check was answered on this day. Finish it instead.':
+    'Une vérification de présence a été validée sur cette journée : terminez-la au lieu de l’annuler.',
+  'Work day not found': 'Journée introuvable.',
+  'Finish your current work day first': 'Terminez votre journée en cours avant d’en commencer une autre.',
   'Choose an active site in your company':
     'Choisissez un chantier actif de votre entreprise.',
   'Choose a task from the catalogue': 'Choisissez une tâche dans le catalogue.',

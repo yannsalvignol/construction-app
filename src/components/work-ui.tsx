@@ -7,11 +7,20 @@ import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/hooks/use-i18n';
 import { workCopy } from '@/lib/work-copy';
 
-export function WorkPage({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+export function WorkPage({ title, subtitle, titleAccessory, children }: {
+  title: string; subtitle?: string;
+  /** Sits to the right of the heading, for a control that acts on the whole page. */
+  titleAccessory?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   const theme = useTheme();
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={{ flex: 1, backgroundColor: theme.background }}>
     <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.page}>
-      <View style={{ gap: 8, marginBottom: 8 }}><ThemedText style={styles.heading}>{title}</ThemedText>
+      <View style={{ gap: 8, marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <ThemedText style={[styles.heading, { flex: 1 }]}>{title}</ThemedText>
+          {titleAccessory}
+        </View>
         {subtitle && <ThemedText themeColor="textSecondary">{subtitle}</ThemedText>}</View>
       {children}
     </ScrollView>
@@ -66,8 +75,11 @@ export function Select({ label, value, options, onChange }: { label: string; val
  * `appearance="wheel"` is an inline rotor on iOS and falls back to the platform
  * dropdown on Android and web.
  */
-export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, decimals = 0, onChange }: {
-  label: string; value: number; values?: number[]; min?: number; max?: number; step?: number; decimals?: number; onChange: (value: number) => void;
+export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, decimals = 0, suffix, onChange }: {
+  label: string; value: number; values?: number[]; min?: number; max?: number; step?: number; decimals?: number;
+  /** Shown on every option, so the unit is read off the wheel and not guessed. */
+  suffix?: string;
+  onChange: (value: number) => void;
 }) {
   const options = React.useMemo(() => {
     if (values) return values;
@@ -79,7 +91,7 @@ export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, 
     <ThemedText type="smallBold">{label}</ThemedText>
     <Host matchContents={{ vertical: true }} style={{ width: '100%' }}>
       <Picker selectedValue={value} onValueChange={next => onChange(Number(next))} appearance="wheel">
-        {options.map(n => <Picker.Item key={n} label={n.toFixed(decimals)} value={n} />)}
+        {options.map(n => <Picker.Item key={n} label={suffix ? `${n.toFixed(decimals)} ${suffix}` : n.toFixed(decimals)} value={n} />)}
       </Picker>
     </Host>
   </View>;

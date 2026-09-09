@@ -4,7 +4,7 @@ import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
-import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { PasswordInput } from '@/components/password-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -55,15 +55,13 @@ export default function SignInScreen() {
             textContentType="username"
             value={identifier}
             onChangeText={setIdentifier}
-            inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
 
-          <TextInput
+          <PasswordInput
             ref={passwordInput}
             style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
             placeholder={t.signIn.passwordPlaceholder}
             placeholderTextColor={theme.textSecondary}
-            secureTextEntry
             returnKeyType="done"
             submitBehavior="blurAndSubmit"
             onSubmitEditing={handleSubmit}
@@ -71,7 +69,6 @@ export default function SignInScreen() {
             textContentType="password"
             value={password}
             onChangeText={setPassword}
-            inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
 
           {error && (
@@ -101,7 +98,6 @@ export default function SignInScreen() {
           </Link>
         </ThemedView>
       </SafeAreaView>
-      <KeyboardDoneBar />
     </DismissKeyboardView>
   );
 }

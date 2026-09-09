@@ -101,28 +101,28 @@ export default function ChefTabs() {
         <TabList asChild>
           <ChefTabList hidden={isAccount}>
             <TabTrigger name="home" href="/" asChild>
-              <ChefTabButton icon={{ ios: 'house', android: 'home', web: 'home' }}>
+              <ChefTabButton icon="home-outline">
                 {t.chefTabs.home}
               </ChefTabButton>
             </TabTrigger>
             <TabTrigger name="employees" href="/employees" asChild>
-              <ChefTabButton icon={{ ios: 'person.2', android: 'group', web: 'group' }}>
+              <ChefTabButton icon="people-outline">
                 {t.chefTabs.employees}
               </ChefTabButton>
             </TabTrigger>
             <TabTrigger name="sites" href="/sites" asChild>
-              <ChefTabButton icon={{ ios: 'map', android: 'location_on', web: 'location_on' }}>
+              <ChefTabButton icon="business-outline">
                 {t.chefTabs.sites}
               </ChefTabButton>
             </TabTrigger>
             <TabTrigger name="live" href="/live" asChild>
-              <ChefTabButton icon={{ ios: 'dot.radiowaves.left.and.right', android: 'my_location', web: 'my_location' }}>
+              <ChefTabButton icon="radio-outline">
                 {t.chefTabs.live}
               </ChefTabButton>
             </TabTrigger>
             <TabTrigger name="schedule" href="/schedule" asChild>
               <ChefTabButton
-                icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}>
+                icon="calendar-outline">
                 {t.chefTabs.schedule}
               </ChefTabButton>
             </TabTrigger>

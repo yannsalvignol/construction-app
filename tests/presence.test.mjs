@@ -111,7 +111,8 @@ test('presence and productivity database contracts', async t => {
     assert.equal(workspace.requests.length, 0);
     assert.equal(workspace.day.id, day.id);
     await assert.rejects(as(ids.worker, 'select * from private.push_tokens'), /permission denied/);
-    await assert.rejects(as(ids.worker, 'select public.start_work_day($1, 8)', [ids.site]), /already been declared/);
+    // An OPEN day is what blocks a second one, not the calendar date.
+    await assert.rejects(as(ids.worker, 'select public.start_work_day($1, 8)', [ids.site]), /Finish your current work day/);
   });
   await t.test('future and expired requests cannot be submitted', async () => {
     await assert.rejects(as(ids.worker, "select public.submit_presence_check($1,'fake',now(),1,1,10)", [request.id]), /no longer active/);
@@ -232,7 +233,17 @@ test('presence and productivity database contracts', async t => {
     await as(ids.worker, 'select public.set_live_location_consent(true)');
     await assert.rejects(as(ids.worker, "select public.set_live_location_consent(true, 'old')"), /current live location notice/);
     await as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)');
-    assert.equal((await as(ids.chef, 'select public.live_team()'))[0].live_team.length, 1);
+    // Site A sits at 33.5731,-7.5898; the position above is roughly 8 km away.
+    const away = (await as(ids.chef, 'select public.live_team()'))[0].live_team;
+    assert.equal(away.length, 1);
+    assert.equal(away[0].on_site, false);
+    assert.ok(away[0].distance_meters > 5000);
+    assert.equal((await scalar(ids.chef, 'select public.site_team($1)', [ids.site]))[0].on_site, false);
+    // Standing on the site flips the flag rather than just moving the pin.
+    await as(ids.worker, 'select public.update_live_position(33.5731::float8, -7.5898::float8, 8::float8)');
+    const team = (await as(ids.chef, 'select public.live_team()'))[0].live_team;
+    assert.equal(team[0].on_site, true);
+    assert.ok(team[0].distance_meters < 100);
     // A stationary worker stops emitting, so an old position must keep showing:
     // vanishing from the map reads as "gone" and is worse than a dated pin.
     await db.query("update public.live_positions set recorded_at = now() - interval '3 hours' where employee_id = $1", [ids.worker]);
@@ -258,6 +269,89 @@ test('presence and productivity database contracts', async t => {
     await db.query('update public.work_days set ended_at = null where id = $1', [day.id]);
     await db.query('update public.presence_requests set cancelled_at = null where work_day_id = $1', [day.id]);
     await db.query("update public.profiles set location_mode = 'checkpoint' where id = $1", [ids.worker]);
+  });
+  await t.test('time on site accumulates without keeping any trail', async () => {
+    await db.query("update public.profiles set location_mode = 'live' where id = $1", [ids.worker]);
+    // Site A sits at 33.5731,-7.5898; the 5 km rule has to hold either side of it.
+    assert.ok(await scalar(ids.worker, 'select public.distance_meters(33.5731,-7.5898,33.5731,-7.5898) < 1'));
+    assert.ok(await scalar(ids.worker, 'select public.distance_meters(33.5731,-7.5898,33.6031,-7.5898) < 5000'));
+    assert.ok(await scalar(ids.worker, 'select public.distance_meters(33.5731,-7.5898,33.7731,-7.5898) > 5000'));
+
+    await as(ids.worker, 'select public.update_live_position(33.5731::float8, -7.5898::float8, 8::float8)');
+    let row = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    assert.equal(row.seconds_inside, 0, 'the first sample has nothing to attribute yet');
+    assert.equal(row.last_sample_inside, true);
+
+    // Two minutes on site, then a reading far away.
+    await db.query("update public.work_days set last_sample_at = now() - interval '2 minutes' where id=$1", [day.id]);
+    await as(ids.worker, 'select public.update_live_position(33.7731::float8, -7.5898::float8, 8::float8)');
+    row = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    assert.ok(row.seconds_inside >= 118 && row.seconds_inside <= 125);
+    assert.equal(row.seconds_outside, 0);
+    assert.equal(row.last_sample_inside, false);
+
+    // Three minutes away are attributed to the outside bucket.
+    await db.query("update public.work_days set last_sample_at = now() - interval '3 minutes' where id=$1", [day.id]);
+    await as(ids.worker, 'select public.update_live_position(33.7731::float8, -7.5898::float8, 8::float8)');
+    row = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    assert.ok(row.seconds_outside >= 178 && row.seconds_outside <= 185);
+
+    // A long silence is attributed to neither: we do not know where they were.
+    const before = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    await db.query("update public.work_days set last_sample_at = now() - interval '3 hours' where id=$1", [day.id]);
+    await as(ids.worker, 'select public.update_live_position(33.5731::float8, -7.5898::float8, 8::float8)');
+    row = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    assert.equal(row.seconds_inside, before.seconds_inside);
+    assert.equal(row.seconds_outside, before.seconds_outside);
+
+    // Counters exist, the positions behind them do not: still one row, no history.
+    assert.equal(Number((await db.query('select count(*) from public.live_positions')).rows[0].count), 1);
+    await db.query("update public.profiles set location_mode = 'checkpoint' where id = $1", [ids.worker]);
+  });
+  await t.test('a work day can be cancelled only while it produced nothing', async () => {
+    // The shared fixture day already carries a declaration and a check-in.
+    await assert.rejects(as(ids.worker, 'select public.cancel_work_day($1)', [day.id]), /Finish it instead/);
+    await assert.rejects(as(ids.other, 'select public.cancel_work_day($1)', [day.id]), /Work day not found/);
+
+    // A day started by mistake, with nothing on it, disappears entirely.
+    const fresh = (await db.query(`insert into public.work_days(employee_id, company_id, site_id, work_date, planned_end_at)
+      values ($1,$2,$3,current_date,now() + interval '8 hours') returning *`, [ids.other, ids.otherCompany, ids.otherSite])).rows[0];
+    await db.query("insert into public.presence_requests(work_day_id, employee_id, company_id, due_at, expires_at) values ($1,$2,$3,now(),now() + interval '30 minutes')",
+      [fresh.id, ids.other, ids.otherCompany]);
+    await as(ids.other, 'select public.cancel_work_day($1)', [fresh.id]);
+    assert.equal((await db.query('select * from public.work_days where id=$1', [fresh.id])).rows.length, 0);
+    // Its pending requests go with it rather than being left orphaned.
+    assert.equal((await db.query('select * from public.presence_requests where work_day_id=$1', [fresh.id])).rows.length, 0);
+  });
+  await t.test('an employee reads back their own past days and nobody else\'s', async () => {
+    const history = await scalar(ids.worker, 'select public.work_day_history(30)');
+    assert.ok(history.length >= 1);
+    const today = history.find(h => h.id === day.id);
+    assert.equal(today.site_name, 'Site A');
+    assert.ok(today.tasks.length >= 1, 'declared tasks come back with the day');
+    assert.ok(today.tasks[0].label_fr && today.tasks[0].unit);
+    assert.equal(Number(today.checks), 1);
+    // Scoped to the caller: another employee's days never appear here.
+    assert.equal((await scalar(ids.other, 'select public.work_day_history(30)')).length, 0);
+    await assert.rejects(as(ids.chef, 'select public.work_day_history(30)'), /Employee account/);
+    await assert.rejects(as(ids.worker, 'select public.work_day_history(0)'), /Invalid history range/);
+  });
+  await t.test('a worked site is archived, an unused one is deleted', async () => {
+    // Site A carries the fixture's work day, so its history must survive.
+    assert.equal(await scalar(ids.chef, 'select public.remove_site($1)', [ids.site]), 'archived');
+    const archived = (await db.query('select * from public.sites where id=$1', [ids.site])).rows[0];
+    assert.equal(archived.is_active, false);
+    assert.ok((await db.query('select * from public.work_days where site_id=$1', [ids.site])).rows.length > 0);
+    await db.query('update public.sites set is_active = true where id=$1', [ids.site]);
+
+    // A site nobody ever worked on leaves nothing behind, so it goes for good.
+    const unused = (await db.query(`insert into public.sites(company_id,name,address,latitude,longitude)
+      values ($1,'Unused','9 rue Z, Casablanca',33.6,-7.6) returning *`, [ids.company])).rows[0];
+    assert.equal(await scalar(ids.chef, 'select public.remove_site($1)', [unused.id]), 'deleted');
+    assert.equal((await db.query('select * from public.sites where id=$1', [unused.id])).rows.length, 0);
+
+    await assert.rejects(as(ids.worker, 'select public.remove_site($1)', [ids.site]), /Chef account/);
+    await assert.rejects(as(ids.otherChef, 'select public.remove_site($1)', [ids.site]), /Site not found/);
   });
   await t.test('same task/site/quantity over three worked days flags without blocking', async () => {
     for (const offset of [1, 3]) {
@@ -336,7 +430,11 @@ test('presence and productivity database contracts', async t => {
       }
       await as(employee, 'select public.end_work_day($1)', [work.id]);
       assert.equal((await db.query('select * from public.presence_requests where employee_id=$1 and cancelled_at is null', [employee])).rows.length, 0);
-      await assert.rejects(as(employee, 'select * from public.start_work_day($1,$2)', [ids.site, hours]), /already been declared/);
+      // A finished day no longer blocks a new one: an employee can move to another
+      // site, or head back out after closing early, on the same calendar date.
+      const second = (await as(employee, 'select * from public.start_work_day($1,$2)', [ids.site, hours]))[0];
+      assert.equal(+new Date(second.work_date), +new Date(work.work_date));
+      await as(employee, 'select public.end_work_day($1)', [second.id]);
     }
     assert.ok(offsets.size > 24, 'request times must vary between workers and days');
   });

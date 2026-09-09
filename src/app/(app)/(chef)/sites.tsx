@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Keyboard } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Action, Card, Feedback, Field, WorkPage } from '@/components/work-ui';
+import { ThemedText } from '@/components/themed-text';
 import { PresenceHistory } from '@/components/screens/presence-history';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
@@ -47,9 +48,10 @@ export default function SitesScreen() {
     } catch { setError(copy.failed); }
     finally { lock.current = false; setBusy(false); }
   }
-  return <WorkPage title={copy.sitesTitle} subtitle={copy.sitesHint}>
+  return <WorkPage title={copy.sitesTitle}>
     <Feedback message={error} />
-    {sites.map(site => <SiteRow key={site.id} site={site} />)}
+    {sites.map(site => <SiteRow key={site.id} site={site} onRemoved={refresh} />)}
+    {!!sites.length && <ThemedText type="small" themeColor="textSecondary">{copy.removeSiteHint}</ThemedText>}
     {adding ? <Card>
       <Field accessibilityLabel={copy.siteName} placeholder={copy.siteName} value={name} onChangeText={setName} maxLength={120} />
       <SitePicker onChange={setLocated} />

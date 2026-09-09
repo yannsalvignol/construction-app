@@ -3,7 +3,6 @@ import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
-import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -60,7 +59,6 @@ function ChefOnboarding() {
           returnKeyType="next"
           value={companyName}
           onChangeText={setCompanyName}
-          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
@@ -69,7 +67,6 @@ function ChefOnboarding() {
           returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
-          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
@@ -78,7 +75,6 @@ function ChefOnboarding() {
           returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
-          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
@@ -89,7 +85,6 @@ function ChefOnboarding() {
           onSubmitEditing={() => Keyboard.dismiss()}
           value={phone}
           onChangeText={setPhone}
-          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
 
         {error && (
@@ -177,7 +172,6 @@ function EmployeeOnboarding({
           returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
-          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
@@ -186,7 +180,6 @@ function EmployeeOnboarding({
           returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
-          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
         <TextInput
           style={inputStyle(theme)}
@@ -197,7 +190,6 @@ function EmployeeOnboarding({
           onSubmitEditing={() => Keyboard.dismiss()}
           value={phone}
           onChangeText={setPhone}
-          inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
         />
 
         {error && (
@@ -255,7 +247,6 @@ export default function OnboardingScreen() {
           <ChefOnboarding />
         )}
       </SafeAreaView>
-      <KeyboardDoneBar />
     </DismissKeyboardView>
   );
 }

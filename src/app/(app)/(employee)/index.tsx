@@ -1,10 +1,14 @@
 import { useRef, useState } from 'react';
+import { Alert, Pressable } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Action, Card, Feedback, NumberWheel, Select, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
 import { PresenceNotice } from '@/components/presence-notice';
 import { LiveNotice } from '@/components/live-notice';
 import { EmployeeLiveMap } from '@/components/employee-live-map';
 import { DeclaredTasks } from '@/components/declared-tasks';
+import { ZoneTime } from '@/components/zone-time';
+import { DayHistory, PastDayView, formatDay, useDayHistory } from '@/components/day-history';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useWorkspace } from '@/hooks/use-workspace';
@@ -12,7 +16,7 @@ import { capturePresence, NOTICE_VERSION } from '@/lib/presence';
 import { LIVE_NOTICE_VERSION } from '@/lib/live-location';
 import { enablePresenceNotifications } from '@/lib/presence-notifications';
 import { supabase } from '@/lib/supabase';
-import { workCopy } from '@/lib/work-copy';
+import { formatElapsed, workCopy } from '@/lib/work-copy';
 
 export default function EmployeeHomeScreen() {
   const { profile } = useAuth();
@@ -25,6 +29,9 @@ export default function EmployeeHomeScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pushWarning, setPushWarning] = useState(false);
   const [showNotice, setShowNotice] = useState(false);
+  const history = useDayHistory();
+  // null means today; a date shows that day in place of the live screen.
+  const [picked, setPicked] = useState<string | null>(null);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const lock = useRef(false);
   async function act(operation: () => Promise<void>) {
@@ -47,17 +54,38 @@ export default function EmployeeHomeScreen() {
   const active = !!data?.day && !data.day.ended_at && Date.parse(data.day.planned_end_at) > now;
   const pending = active ? data.requests.find(r => Date.parse(r.expires_at) > now && !data.checks.some(c => c.request_id === r.id)) : undefined;
   const liveSharing = data?.location_mode === 'live' && !!liveConsented;
+  function confirmCancelDay() {
+    if (!data?.day) return;
+    // Confirms the long press landed, before the dialog covers the card.
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(copy.cancelDay, copy.cancelDayConfirm, [
+      { text: copy.cancel, style: 'cancel' },
+      { text: copy.cancelDay, style: 'destructive', onPress: () => { void act(async () => {
+        const { error: failure } = await supabase.rpc('cancel_work_day', { day_id: data.day!.id });
+        if (failure) throw failure;
+      }); } },
+    ]);
+  }
   const missed = data?.requests.filter(r => Date.parse(r.expires_at) <= now && !data.checks.some(c => c.request_id === r.id)).length ?? 0;
-  return <WorkPage title={copy.dayTitle} subtitle={copy.daySubtitle}>
+  const pickedDays = picked ? (history.days ?? []).filter(day => day.work_date === picked) : [];
+
+  return <WorkPage
+    title={picked ? formatDay(picked, locale) : copy.dayTitle}
+    titleAccessory={<DayHistory days={history.days} error={history.error}
+      onOpen={() => { void history.load(); }} onPick={setPicked} />}>
+    {picked ? <>
+      <Action secondary label={copy.backToToday} onPress={() => setPicked(null)} />
+      <PastDayView days={pickedDays} />
+    </> : <>
     {loading && <ThemedText>{copy.loading}</ThemedText>}
     <Feedback message={error || actionError} />
     {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
     {profile && !profile.is_active ? <Card><ThemedText>{copy.inactive}</ThemedText></Card> : data && <>
       {(!consented || showNotice) && <PresenceNotice accepted={consented} busy={busy} onAccept={() => { void act(() => consent(true)); }} onWithdraw={() => { void act(() => consent(false)); }} />}
-      {consented && !data.day && <Card>
+      {consented && !active && <Card>
         {data.sites.length ? <>
           <Select label={copy.chooseSite} value={site} options={data.sites.map(s => ({ value: s.id, label: s.name }))} onChange={setSite} />
-          <NumberWheel label={copy.duration} value={Number(duration)} values={[4, 8, 10]} onChange={n => setDuration(String(n))} />
+          <NumberWheel label={copy.duration} value={Number(duration)} values={[4, 8, 10]} suffix={copy.hourUnit} onChange={n => setDuration(String(n))} />
           <Action label={copy.start} disabled={!site} busy={busy} onPress={() => { void act(async () => {
             setPushWarning(!await enablePresenceNotifications(locale));
             const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
@@ -68,14 +96,29 @@ export default function EmployeeHomeScreen() {
       {showNotice && liveConsented && data.location_mode === 'live' && <LiveNotice accepted busy={busy}
         onAccept={() => { void act(() => liveConsent(true)); }}
         onWithdraw={() => { void act(() => liveConsent(false)); }} />}
-      {data.day && <Card accent>
+      {/* Long-press cancels a day declared by mistake; the destructive path stays out
+          of reach of a normal tap, and the server refuses once the day produced work. */}
+      {data.day && <Pressable onLongPress={active ? confirmCancelDay : undefined}
+        accessibilityRole={active ? 'button' : undefined}
+        accessibilityHint={active ? copy.cancelDayHint : undefined}
+        style={({ pressed }) => pressed && active ? { opacity: 0.7 } : undefined}>
+        <Card accent>
         <ThemedText type="small" themeColor="accentText">{active ? copy.today : copy.dayDone}</ThemedText>
         <ThemedText style={{ fontSize: 24, fontWeight: '700' }}>{data.sites.find(s => s.id === data.day?.site_id)?.name ?? copy.site}</ThemedText>
-        <ThemedText themeColor="textSecondary">{data.checks.length} {copy.checksDone}</ThemedText>
+        {/* Counts up from the declared start, and freezes at the total once finished.
+            `now` already ticks every second in useWorkspace. */}
+        <ThemedText themeColor="textSecondary">
+          {active ? copy.elapsedLabel : copy.workedLabel} : {formatElapsed(
+            (data.day.ended_at ? Date.parse(data.day.ended_at) : now) - Date.parse(data.day.started_at), copy)}
+        </ThemedText>
         {data.location_mode === 'live' && <ThemedText type="small" themeColor={liveConsented ? 'accentText' : 'textSecondary'}>
           {liveConsented ? copy.liveOn : copy.liveOff}</ThemedText>}
+        {/* Only meaningful while sharing: without positions there is nothing to classify. */}
+        {liveSharing && <ZoneTime secondsInside={data.day.seconds_inside} secondsOutside={data.day.seconds_outside} />}
         {!!missed && <ThemedText>{missed} · {copy.missed}</ThemedText>}
-      </Card>}
+        {active && <ThemedText type="small" themeColor="textSecondary">{copy.cancelDayHint}</ThemedText>}
+        </Card>
+      </Pressable>}
       {active && <>
         {/* A pending check always takes the screen. Otherwise, live sharing replaces
             the idle "nothing to do" card with the position actually being shared. */}
@@ -105,6 +148,7 @@ export default function EmployeeHomeScreen() {
         {confirmFinish && <Action secondary label={copy.cancel} onPress={() => setConfirmFinish(false)} />}
       </>}
       {consented && <Action secondary label={showNotice ? copy.close : copy.info} onPress={() => setShowNotice(!showNotice)} />}
+    </>}
     </>}
   </WorkPage>;
 }

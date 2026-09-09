@@ -1,11 +1,11 @@
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Switch, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
 import { ThemedText } from '@/components/themed-text';
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useI18n } from '@/hooks/use-i18n';
@@ -178,7 +178,7 @@ export default function EmployeeDetailScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <DismissKeyboardView style={styles.container}>
       <Stack.Screen options={{ title: `${employee.first_name} ${employee.last_name}` }} />
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -204,12 +204,8 @@ export default function EmployeeDetailScreen() {
                   hitSlop={8}
                   onPress={() => setShowPassword((value) => !value)}
                   style={({ pressed }) => pressed && styles.pressed}>
-                  <SymbolView
-                    name={{
-                      ios: showPassword ? 'eye.slash' : 'eye',
-                      android: showPassword ? 'visibility_off' : 'visibility',
-                      web: showPassword ? 'visibility_off' : 'visibility',
-                    }}
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={18}
                     tintColor={theme.textSecondary}
                   />
@@ -267,7 +263,6 @@ export default function EmployeeDetailScreen() {
                 setFirstName(value);
                 setInfoSaved(false);
               }}
-              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
             <TextInput
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
@@ -279,7 +274,6 @@ export default function EmployeeDetailScreen() {
                 setLastName(value);
                 setInfoSaved(false);
               }}
-              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
             <TextInput
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
@@ -293,7 +287,6 @@ export default function EmployeeDetailScreen() {
                 setPhone(value);
                 setInfoSaved(false);
               }}
-              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
 
             {infoError && (
@@ -362,8 +355,7 @@ export default function EmployeeDetailScreen() {
           </ThemedView>
         </ScrollView>
       </SafeAreaView>
-      <KeyboardDoneBar />
-    </ThemedView>
+    </DismissKeyboardView>
   );
 }
 

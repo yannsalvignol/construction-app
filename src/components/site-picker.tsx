@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
-import { SymbolView } from 'expo-symbols';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Action } from './work-ui';
 import { ThemedText } from './themed-text';
 import { useI18n } from '@/hooks/use-i18n';
@@ -68,7 +68,7 @@ export function SitePicker({ onChange }: {
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
         {/* Sits half a pin above centre so the point, not the head, marks the spot. */}
         <View style={{ marginBottom: 28 }}>
-          <SymbolView name={{ ios: 'mappin', android: 'location_on', web: 'location_on' }} size={36} tintColor={theme.accent} />
+          <Ionicons name="location" size={36} color={theme.accent} />
         </View>
       </View>
     </View>

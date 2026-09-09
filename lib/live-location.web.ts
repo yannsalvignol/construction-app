@@ -6,6 +6,7 @@ export const LIVE_NOTICE_VERSION = '2026-09-08';
 export type LivePosition = {
   employee_id: string; employee_name: string;
   latitude: number; longitude: number; accuracy_meters: number; recorded_at: string; site_name: string;
+  on_site: boolean | null; distance_meters: number | null;
 };
 
 // Background location needs a native task runner, so the web build never shares.

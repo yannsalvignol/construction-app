@@ -66,8 +66,8 @@ const fr = {
     changeCode: "Ce n'est pas la bonne entreprise ? Changer de code",
     usernamePatternError:
       "Le nom d'utilisateur doit contenir 3 à 20 caractères : lettres minuscules, chiffres, « _ » ou « . »",
-    usernameHint:
-      '3 à 20 caractères : minuscules, chiffres, « _ » ou « . ». Ni accents, ni espaces, ni tirets.',
+    ruleLength: '3 à 20 caractères',
+    ruleNoAccent: 'Ni accents, ni espaces, ni tirets',
     passwordHint: 'Au moins 6 caractères.',
     passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères.',
     rulePassword: 'Au moins 6 caractères',
@@ -181,14 +181,18 @@ const fr = {
     manualAddNote: 'Ou ajoutez un employé à la fois et remettez-lui ses identifiants vous-même.',
     addManually: 'Ajouter un employé manuellement',
     form: {
-      usernameHint:
-        '3 à 20 caractères : minuscules, chiffres, « _ » ou « . ». Ni accents, ni espaces, ni tirets.',
+      ruleLength: '3 à 20 caractères',
+      ruleNoAccent: 'Ni accents, ni espaces, ni tirets',
       rulePassword: 'Au moins 6 caractères',
       firstNamePlaceholder: 'Prénom',
       lastNamePlaceholder: 'Nom',
       phonePlaceholder: 'Téléphone (facultatif)',
       usernamePlaceholder: "Nom d'utilisateur",
       passwordPlaceholder: 'Mot de passe',
+      credentialsTitle: 'Identifiants de connexion',
+      credentialsHint:
+        'Ce que l’employé saisira pour se connecter. Le bouton remplit ces deux champs au hasard.',
+      generate: 'Générer',
       generateRandomly: 'Générer aléatoirement',
       submit: 'Ajouter un employé',
       submitting: 'Ajout…',

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -49,11 +49,7 @@ export function AppHeader() {
                   styles.avatarPlaceholder,
                   { borderWidth: 1, borderColor: theme.backgroundSelected },
                 ]}>
-                <SymbolView
-                  name={{ ios: 'person.fill', android: 'person', web: 'person' }}
-                  size={26}
-                  tintColor={theme.textSecondary}
-                />
+                <Ionicons name="person" size={26} color={theme.textSecondary} />
               </ThemedView>
             )}
           </Pressable>

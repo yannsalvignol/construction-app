@@ -37,7 +37,7 @@ export default function ChefHomeScreen() {
     return () => { clearInterval(timer); app.remove(); void supabase.removeChannel(channel); request.current++; };
   }, [companyId, refresh]));
   const label = locale === 'en' ? 'label_en' : 'label_fr';
-  return <WorkPage title={copy.teamOverview} subtitle={copy.teamSubtitle}>
+  return <WorkPage title={copy.teamOverview}>
     <Feedback message={error} />
     {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
     {!data && !error && <ThemedText>{copy.loading}</ThemedText>}

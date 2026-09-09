@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -148,11 +148,7 @@ export default function ScheduleScreen() {
           )}
 
           <ThemedView style={[styles.emptyState, styles.transparent]}>
-            <SymbolView
-              name={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }}
-              size={28}
-              tintColor={theme.textSecondary}
-            />
+            <Ionicons name="calendar-outline" size={28} color={theme.textSecondary} />
             <ThemedText type="smallBold" style={styles.centerText}>
               {isSelectedToday ? t.schedule.noShiftsToday : t.schedule.noShiftsOnDay(selectedDayLabel)}
             </ThemedText>

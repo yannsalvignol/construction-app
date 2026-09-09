@@ -68,8 +68,8 @@ const en = {
     creatingAccount: 'Creating account…',
     changeCode: 'Not the right company? Change code',
     usernamePatternError: 'Username must be 3-20 characters: lowercase letters, numbers, "_" or "."',
-    usernameHint:
-      '3 to 20 characters: lowercase letters, digits, "_" or ".". No accents, spaces or hyphens.',
+    ruleLength: '3 to 20 characters',
+    ruleNoAccent: 'No accents, spaces or hyphens',
     passwordHint: 'At least 6 characters.',
     passwordTooShort: 'The password must be at least 6 characters.',
     rulePassword: 'At least 6 characters',
@@ -186,14 +186,18 @@ const en = {
     manualAddNote: 'Or add one employee at a time and hand them their login yourself.',
     addManually: 'Add employee manually',
     form: {
-      usernameHint:
-        '3 to 20 characters: lowercase letters, digits, "_" or ".". No accents, spaces or hyphens.',
+      ruleLength: '3 to 20 characters',
+      ruleNoAccent: 'No accents, spaces or hyphens',
       rulePassword: 'At least 6 characters',
       firstNamePlaceholder: 'First name',
       lastNamePlaceholder: 'Last name',
       phonePlaceholder: 'Phone (optional)',
       usernamePlaceholder: 'Username',
       passwordPlaceholder: 'Password',
+      credentialsTitle: 'Sign-in credentials',
+      credentialsHint:
+        'What the employee will type to sign in. The button fills these two fields at random.',
+      generate: 'Generate',
       generateRandomly: 'Generate randomly',
       submit: 'Add employee',
       submitting: 'Adding…',

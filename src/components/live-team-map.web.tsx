@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Action, Card, Feedback } from './work-ui';
 import { ThemedText } from './themed-text';
+import { OnSiteBadge } from './on-site-badge';
 import { SiteRow } from './site-row';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
@@ -120,13 +121,10 @@ export function LiveTeamMap() {
         style={({ pressed }) => pressed && { opacity: 0.6 }}>
         <Card>
           <ThemedText type="smallBold">{member.employee_name}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {member.site_name} · {copy.accuracy} ±{Math.round(member.accuracy_meters)} m
+          <OnSiteBadge onSite={member.on_site} distance={member.distance_meters} />
+          <ThemedText type="small" themeColor={isStale(member.recorded_at) ? 'warning' : 'textSecondary'}>
+            {member.site_name} · {positionAge(member.recorded_at, copy, now)}
           </ThemedText>
-          <ThemedText type="small" themeColor={isStale(member.recorded_at) ? 'warning' : 'accentText'}>
-            {positionAge(member.recorded_at, copy, now)}
-          </ThemedText>
-          {isStale(member.recorded_at) && <ThemedText type="small" themeColor="textSecondary">{copy.stalePosition}</ThemedText>}
         </Card>
       </Pressable>)}
     </> : <>

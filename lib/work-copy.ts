@@ -2,7 +2,7 @@ import type { Locale } from './i18n/locale';
 import type { TaskUnit } from './presence';
 
 const fr = {
-  today: 'Aujourd’hui', teamOverview: 'Votre équipe, en un regard.', teamSubtitle: 'Présence ponctuelle et travail déclaré, sans suivi continu.',
+  today: 'Aujourd’hui', teamOverview: 'Votre équipe, en un regard.',
   employees: 'Employés', confirmed: 'Présence confirmée', review: 'À vérifier', hours: 'Heures déclarées',
   hoursHint: 'Durée des journées déclarées. Une vérification ponctuelle ne mesure pas le temps réellement travaillé.',
   productivity: 'Productivité', productivityHint: 'Les réalisations déclarées aujourd’hui, tâche par tâche.', declarations: 'Déclarations', contributors: 'Contributeurs',
@@ -19,8 +19,15 @@ const fr = {
   gateTitle: 'Avant de commencer', gateHint: 'Votre accord est nécessaire pour utiliser l’application. Vous pouvez vous déconnecter si vous préférez ne pas répondre maintenant.', signOut: 'Se déconnecter',
   liveOn: 'Partage en direct actif', liveOff: 'Partage en direct en attente de votre accord', livePermissionDenied: 'Autorisez la position « Toujours » pour partager en direct pendant votre journée.',
   noTasks: 'Aucune tâche déclarée pour le moment.', consistency: 'Points de cohérence', consistencyHint: 'Même tâche, même chantier et même quantité sur les 3 dernières journées travaillées. À discuter avec l’équipe ; aucun blocage.',
-  dayTitle: 'Ma journée', daySubtitle: 'Un chantier. Des tâches. Quelques vérifications ponctuelles.', site: 'Chantier', chooseSite: 'Choisir un chantier', noSites: 'Votre chef doit d’abord ajouter un chantier.',
-  duration: 'Durée prévue', start: 'Commencer ma journée', finish: 'Terminer ma journée', finishConfirm: 'Terminer maintenant ? Les demandes futures seront annulées. Pensez à enregistrer vos tâches avant de terminer.',
+  dayTitle: 'Ma journée', site: 'Chantier', chooseSite: 'Choisir un chantier', noSites: 'Votre chef doit d’abord ajouter un chantier.',
+  hourUnit: 'h', minuteUnit: 'min', elapsedLabel: 'Temps écoulé', workedLabel: 'Durée travaillée',
+  showPassword: 'Afficher le mot de passe', hidePassword: 'Masquer le mot de passe',
+  backToToday: 'Revenir à aujourd’hui',
+  history30: 'Journées précédentes', historyEmpty: 'Aucune journée enregistrée.', pickDay: 'Voir les journées précédentes', dayOngoing: 'En cours',
+  liveStats: 'Aujourd’hui', noDayToday: 'Aucune journée déclarée aujourd’hui.', checksToday: 'Vérifications réalisées', missedToday: 'Demandes manquées',
+  removeSite: 'Supprimer le chantier', removeSiteConfirm: 'Retirer ce chantier de la liste ? S’il a déjà été travaillé, il est archivé et son historique reste consultable.', removeSiteHint: 'Appui long sur un chantier pour le retirer',
+  cancelDay: 'Annuler cette journée', cancelDayConfirm: 'Supprimer cette journée ? Elle disparaîtra sans laisser de trace. À utiliser si vous vous êtes trompé de chantier.', cancelDayHint: 'Appui long pour annuler cette journée',
+  onSite: 'Sur le chantier', offSite: 'Hors zone', offSiteAt: (m: number) => `Hors zone · à ${m >= 1000 ? (m / 1000).toFixed(1) + ' km' : m + ' m'} du chantier`, zoneUnknown: 'Chantier non localisé, distance inconnue', zoneHint: 'Zone de 5 km autour du chantier. Le temps sans relevé n’est compté nulle part.', duration: 'Durée prévue', start: 'Commencer ma journée', finish: 'Terminer ma journée', finishConfirm: 'Terminer maintenant ? Les demandes futures seront annulées. Pensez à enregistrer vos tâches avant de terminer.',
   cancel: 'Annuler', save: 'Enregistrer', loading: 'Chargement…', retry: 'Réessayer', refresh: 'Actualiser', dayDone: 'Journée terminée', dayDoneHint: 'Vos déclarations et vérifications sont enregistrées.',
   presence: 'Vérification de présence', requestReady: 'Une vérification vous attend', deadline: 'Répondre avant', capture: 'Prendre la photo et vérifier ma présence',
   captureHint: 'Prenez une photo du chantier, sans visage ni document personnel. Votre GPS sera relevé une seule fois, juste après la photo.',
@@ -38,7 +45,7 @@ const fr = {
   category: 'Métier', task: 'Tâche', chooseTask: 'Choisir une tâche', quantity: 'Quantité réalisée', unit: 'unité(s)', metres: 'mètres', taskSaved: 'Déclaration enregistrée', startForTasks: 'Commencez votre journée pour déclarer vos tâches.',
   unitLong: { unit: 'unité(s)', m: 'mètres', m2: 'mètres carrés', m3: 'mètres cubes', kg: 'kilogrammes' }, unitShort: { unit: 'u', m: 'm', m2: 'm²', m3: 'm³', kg: 'kg' },
   whole: 'Nombre entier', decimal: 'Décimales', useKeyboard: 'Saisir au clavier', useWheel: 'Utiliser la molette',
-  sitesTitle: 'Chantiers', sitesHint: 'Les chantiers que votre équipe peut déclarer. Chaque chantier est placé sur la carte à partir de son adresse.', addSite: 'Ajouter un chantier', siteName: 'Nom du chantier', siteAddress: 'Adresse du chantier',
+  sitesTitle: 'Chantiers', addSite: 'Ajouter un chantier', siteName: 'Nom du chantier', siteAddress: 'Adresse du chantier',
   siteAddressHint: 'Déplacez la carte pour placer le repère sur le chantier. L’adresse se met à jour toute seule.',
   pinLocating: 'Recherche de l’adresse…', pinNoAddress: 'Aucune adresse à cet endroit. Déplacez le repère.', pinUseMyLocation: 'Revenir à ma position',
   pinPermission: 'Position refusée : la carte démarre sur le Maroc, déplacez le repère jusqu’au chantier.',
@@ -60,7 +67,7 @@ const fr = {
   inactive: 'Ce compte est suspendu. Contactez votre chef.',
 };
 const en: typeof fr = {
-  today: 'Today', teamOverview: 'Your team at a glance.', teamSubtitle: 'Occasional presence checks and declared work, without continuous tracking.',
+  today: 'Today', teamOverview: 'Your team at a glance.',
   employees: 'Employees', confirmed: 'Presence confirmed', review: 'To review', hours: 'Declared hours',
   hoursHint: 'Duration of declared work days. Occasional checks do not measure actual time worked.',
   productivity: 'Productivity', productivityHint: 'Today’s declared work, task by task.', declarations: 'Declarations', contributors: 'Contributors',
@@ -77,8 +84,15 @@ const en: typeof fr = {
   gateTitle: 'Before you start', gateHint: 'Your agreement is required to use the app. You can sign out if you would rather not answer now.', signOut: 'Sign out',
   liveOn: 'Live sharing active', liveOff: 'Live sharing waiting for your agreement', livePermissionDenied: 'Allow "Always" location to share live during your day.',
   noTasks: 'No tasks declared yet.', consistency: 'Consistency notes', consistencyHint: 'Same task, site and quantity on the last 3 work days. Discuss with the team; this never blocks a declaration.',
-  dayTitle: 'My day', daySubtitle: 'One site. Your tasks. A few occasional checks.', site: 'Site', chooseSite: 'Choose a site', noSites: 'Your chef needs to add a site first.',
-  duration: 'Planned duration', start: 'Start my day', finish: 'Finish my day', finishConfirm: 'Finish now? Future requests will be cancelled. Remember to save your tasks first.',
+  dayTitle: 'My day', site: 'Site', chooseSite: 'Choose a site', noSites: 'Your chef needs to add a site first.',
+  hourUnit: 'h', minuteUnit: 'min', elapsedLabel: 'Elapsed', workedLabel: 'Time worked',
+  showPassword: 'Show password', hidePassword: 'Hide password',
+  backToToday: 'Back to today',
+  history30: 'Previous days', historyEmpty: 'No work day recorded yet.', pickDay: 'See previous days', dayOngoing: 'Ongoing',
+  liveStats: 'Today', noDayToday: 'No work day declared today.', checksToday: 'Checks completed', missedToday: 'Missed requests',
+  removeSite: 'Delete site', removeSiteConfirm: 'Remove this site from the list? If it has been worked on, it is archived and its history stays readable.', removeSiteHint: 'Long-press a site to remove it',
+  cancelDay: 'Cancel this day', cancelDayConfirm: 'Delete this work day? It will disappear without a trace. Use this if you picked the wrong site.', cancelDayHint: 'Long-press to cancel this day',
+  onSite: 'On site', offSite: 'Off site', offSiteAt: (m: number) => `Off site · ${m >= 1000 ? (m / 1000).toFixed(1) + ' km' : m + ' m'} from the site`, zoneUnknown: 'Site not located, distance unknown', zoneHint: 'A 5 km zone around the site. Time without a reading is counted nowhere.', duration: 'Planned duration', start: 'Start my day', finish: 'Finish my day', finishConfirm: 'Finish now? Future requests will be cancelled. Remember to save your tasks first.',
   cancel: 'Cancel', save: 'Save', loading: 'Loading…', retry: 'Retry', refresh: 'Refresh', dayDone: 'Day finished', dayDoneHint: 'Your declarations and checks are saved.',
   presence: 'Presence check', requestReady: 'A check is waiting for you', deadline: 'Respond before', capture: 'Take a photo and confirm my presence',
   captureHint: 'Photograph the site without faces or personal documents. Your GPS position will be captured once, just after the photo.',
@@ -96,7 +110,7 @@ const en: typeof fr = {
   category: 'Trade', task: 'Task', chooseTask: 'Choose a task', quantity: 'Quantity completed', unit: 'unit(s)', metres: 'metres', taskSaved: 'Declaration saved', startForTasks: 'Start your day to declare tasks.',
   unitLong: { unit: 'unit(s)', m: 'metres', m2: 'square metres', m3: 'cubic metres', kg: 'kilograms' }, unitShort: { unit: 'u', m: 'm', m2: 'm²', m3: 'm³', kg: 'kg' },
   whole: 'Whole number', decimal: 'Decimals', useKeyboard: 'Type on keyboard', useWheel: 'Use the wheel',
-  sitesTitle: 'Sites', sitesHint: 'Sites your team can declare. Each site is placed on the map from its address.', addSite: 'Add a site', siteName: 'Site name', siteAddress: 'Site address',
+  sitesTitle: 'Sites', addSite: 'Add a site', siteName: 'Site name', siteAddress: 'Site address',
   siteAddressHint: 'Move the map to place the pin on the site. The address updates on its own.',
   pinLocating: 'Looking up the address…', pinNoAddress: 'No address here. Move the pin.', pinUseMyLocation: 'Back to my location',
   pinPermission: 'Location denied: the map starts on Morocco, move the pin to the site.',
@@ -121,6 +135,14 @@ export function workCopy(locale: Locale) { return locale === 'en' ? en : fr; }
 
 /** A position older than this is shown as dated rather than treated as current. */
 export const STALE_AFTER_MS = 15 * 60 * 1000;
+
+/** "3 h 24 min" once past an hour, "24 min" below it. */
+export function formatElapsed(milliseconds: number, copy: typeof fr) {
+  const minutes = Math.max(0, Math.floor(milliseconds / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours} ${copy.hourUnit} ${rest} ${copy.minuteUnit}` : `${rest} ${copy.minuteUnit}`;
+}
 
 export function positionAge(recordedAt: string, copy: typeof fr, now = Date.now()) {
   const elapsed = Math.max(0, now - Date.parse(recordedAt));

@@ -4,7 +4,7 @@ import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
-import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { PasswordInput } from '@/components/password-input';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -52,19 +52,16 @@ export default function SignUpScreen() {
             returnKeyType="next"
             value={email}
             onChangeText={setEmail}
-            inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
 
-          <TextInput
+          <PasswordInput
             style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
             placeholder={t.signUp.passwordPlaceholder}
             placeholderTextColor={theme.textSecondary}
-            secureTextEntry
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
             value={password}
             onChangeText={setPassword}
-            inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
           />
 
           <RuleChecklist rules={[{ label: t.signUp.rulePassword, met: password.length >= 6 }]} />
@@ -92,7 +89,6 @@ export default function SignUpScreen() {
           </Link>
         </ThemedView>
       </SafeAreaView>
-      <KeyboardDoneBar />
     </DismissKeyboardView>
   );
 }

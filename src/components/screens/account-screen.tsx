@@ -3,13 +3,14 @@ import { decode } from 'base64-arraybuffer';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { SymbolView } from 'expo-symbols';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { PasswordInput } from '@/components/password-input';
 import { ThemedText } from '@/components/themed-text';
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
@@ -49,12 +50,7 @@ function LinkRow({
         style={({ pressed }) => [styles.infoRow, pressed && styles.pressed]}
         onPress={onPress}>
         <ThemedText type="small">{label}</ThemedText>
-        <SymbolView
-          name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-          size={13}
-          weight="semibold"
-          tintColor={theme.textSecondary}
-        />
+        <Ionicons name="chevron-forward" size={15} color={theme.textSecondary} />
       </Pressable>
       {note && (
         <ThemedText type="small" themeColor="textSecondary" style={styles.linkNote}>
@@ -267,7 +263,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
   if (!profile) return null;
 
   return (
-    <ThemedView style={styles.container}>
+    <DismissKeyboardView style={styles.container}>
       <SafeAreaView
         style={styles.safeArea}
         edges={topInset ? undefined : ['bottom', 'left', 'right']}>
@@ -283,11 +279,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                     styles.avatarPlaceholder,
                     { borderWidth: 1, borderColor: theme.backgroundSelected },
                   ]}>
-                  <SymbolView
-                    name={{ ios: 'person.fill', android: 'person', web: 'person' }}
-                    size={32}
-                    tintColor={theme.textSecondary}
-                  />
+                  <Ionicons name="person" size={32} color={theme.textSecondary} />
                 </ThemedView>
               )}
             </Pressable>
@@ -327,7 +319,6 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                 setFirstName(value);
                 setInfoSaved(false);
               }}
-              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
             <TextInput
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
@@ -339,7 +330,6 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                 setLastName(value);
                 setInfoSaved(false);
               }}
-              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
             <TextInput
               style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
@@ -353,7 +343,6 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                 setPhone(value);
                 setInfoSaved(false);
               }}
-              inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
             />
 
             {profile.role === 'chef' && (
@@ -371,7 +360,6 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                   setCompanyName(value);
                   setInfoSaved(false);
                 }}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
             )}
 
@@ -410,34 +398,27 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
 
               {showPasswordForm && (
                 <ThemedView style={[styles.expandedForm, styles.transparent]}>
-                  <TextInput
+                  <PasswordInput
                     style={[
                       styles.input,
                       { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
                     ]}
                     placeholder={t.account.security.newPasswordPlaceholder}
                     placeholderTextColor={theme.textSecondary}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    secureTextEntry
                     returnKeyType="next"
                     value={newPassword}
                     onChangeText={(value) => {
                       setNewPassword(value);
                       setPasswordChanged(false);
                     }}
-                    inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
                   />
-                  <TextInput
+                  <PasswordInput
                     style={[
                       styles.input,
                       { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
                     ]}
                     placeholder={t.account.security.confirmPasswordPlaceholder}
                     placeholderTextColor={theme.textSecondary}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    secureTextEntry
                     returnKeyType="done"
                     onSubmitEditing={() => Keyboard.dismiss()}
                     value={confirmPassword}
@@ -445,7 +426,6 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                       setConfirmPassword(value);
                       setPasswordChanged(false);
                     }}
-                    inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
                   />
 
                   {passwordError && (
@@ -502,8 +482,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
           </Pressable>
         </ScrollView>
       </SafeAreaView>
-      <KeyboardDoneBar />
-    </ThemedView>
+    </DismissKeyboardView>
   );
 }
 

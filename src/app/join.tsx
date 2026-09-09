@@ -4,7 +4,7 @@ import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
-import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { PasswordInput } from '@/components/password-input';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -114,7 +114,6 @@ export default function JoinScreen() {
                 onSubmitEditing={() => Keyboard.dismiss()}
                 value={joinCode}
                 onChangeText={setJoinCode}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
 
               {codeError && (
@@ -157,25 +156,21 @@ export default function JoinScreen() {
                 returnKeyType="next"
                 value={username}
                 onChangeText={setUsername}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
 
-              <ThemedText type="small" themeColor="textSecondary">
-                {t.join.usernameHint}
-              </ThemedText>
+              <RuleChecklist rules={[
+                { label: t.join.ruleLength, met: trimmedUsername.length >= 3 && trimmedUsername.length <= 20 },
+                { label: t.join.ruleNoAccent, met: trimmedUsername.length > 0 && !/[\s-]|[^\x00-\x7F]/.test(trimmedUsername) },
+              ]} />
 
-              <TextInput
+              <PasswordInput
                 style={inputStyle(theme)}
                 placeholder={t.join.passwordPlaceholder}
                 placeholderTextColor={theme.textSecondary}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
                 returnKeyType="done"
                 onSubmitEditing={() => Keyboard.dismiss()}
                 value={password}
                 onChangeText={setPassword}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
 
               <RuleChecklist rules={[
@@ -212,7 +207,6 @@ export default function JoinScreen() {
           </>
         )}
       </SafeAreaView>
-      <KeyboardDoneBar />
     </DismissKeyboardView>
   );
 }

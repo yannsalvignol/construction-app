@@ -1,4 +1,5 @@
-import { SymbolView, SymbolViewProps } from 'expo-symbols';
+import React from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { TabListProps, TabTriggerSlotProps } from 'expo-router/ui';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 
@@ -9,7 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChefTabButtonProps = TabTriggerSlotProps & {
-  icon: SymbolViewProps['name'];
+  icon: React.ComponentProps<typeof Ionicons>['name'];
 };
 
 export function ChefTabButton({ children, isFocused, icon, ...props }: ChefTabButtonProps) {
@@ -26,7 +27,7 @@ export function ChefTabButton({ children, isFocused, icon, ...props }: ChefTabBu
             borderColor: isFocused ? theme.accent : theme.backgroundSelected,
           },
         ]}>
-        <SymbolView name={icon} size={16} tintColor={color} />
+        <Ionicons name={icon} size={16} color={color} />
         <ThemedText type="small" themeColor={isFocused ? 'accentText' : 'textSecondary'}>
           {children}
         </ThemedText>

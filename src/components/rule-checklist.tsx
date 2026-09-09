@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ThemedText } from './themed-text';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -13,12 +14,13 @@ export function RuleChecklist({ rules }: { rules: Rule[] }) {
   const theme = useTheme();
   return <View style={{ gap: 6 }}>
     {rules.map(rule => <View key={rule.label} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-      <ThemedText
+      <Ionicons
         accessibilityElementsHidden
-        type="smallBold"
-        style={{ color: rule.met ? theme.success : theme.danger, width: 16 }}>
-        {rule.met ? '✓' : '✗'}
-      </ThemedText>
+        name={rule.met ? 'checkmark-outline' : 'close-outline'}
+        size={18}
+        color={rule.met ? theme.success : theme.danger}
+        style={{ width: 18 }}
+      />
       {/* The state is spoken as part of the label so a screen reader is not left
           with a bare tick character to interpret. */}
       <ThemedText

@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, Pressable, ScrollView, Share, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { KEYBOARD_DONE_BAR_ID, KeyboardDoneBar } from '@/components/keyboard-done-bar';
+import { Image } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { SwipeToDelete } from '@/components/swipe-to-delete';
 import { ThemedText } from '@/components/themed-text';
+import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
@@ -28,6 +30,7 @@ function JoinCodeCard() {
   const [regenerating, setRegenerating] = useState(false);
   const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showCodeInfo, setShowCodeInfo] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
   const copiedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -91,10 +94,24 @@ function JoinCodeCard() {
 
   return (
     <ThemedView style={[styles.joinCard, { borderColor: theme.backgroundSelected }]}>
-      <ThemedText type="smallBold">{t.employees.joinCode.title}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        {t.employees.joinCode.description}
-      </ThemedText>
+      <ThemedView style={[styles.transparent, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+        <ThemedText type="smallBold" style={{ flex: 1 }}>{t.employees.joinCode.title}</ThemedText>
+        {/* The explanation is read once and never again, so it hides behind the icon. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t.employees.joinCode.description}
+          accessibilityState={{ expanded: showCodeInfo }}
+          onPress={() => setShowCodeInfo(!showCodeInfo)}
+          hitSlop={12}
+          style={({ pressed }) => (pressed ? { opacity: 0.6 } : undefined)}>
+          <Ionicons name="information-circle-outline" size={20} color={theme.textSecondary} />
+        </Pressable>
+      </ThemedView>
+      {showCodeInfo && (
+        <ThemedText type="small" themeColor="textSecondary">
+          {t.employees.joinCode.description}
+        </ThemedText>
+      )}
 
       <ThemedText type="title" style={styles.joinCodeText}>
         {joinCode ?? '······'}
@@ -147,6 +164,7 @@ type Employee = {
   last_name: string;
   phone: string | null;
   username: string | null;
+  avatar_url: string | null;
 };
 
 export default function EmployeesScreen() {
@@ -176,7 +194,7 @@ export default function EmployeesScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, phone, username')
+      .select('id, first_name, last_name, phone, username, avatar_url')
       .eq('company_id', profile.company_id)
       .eq('role', 'employee')
       .order('first_name');
@@ -267,7 +285,7 @@ export default function EmployeesScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <JoinCodeCard />
@@ -300,13 +318,22 @@ export default function EmployeesScreen() {
                     styles.transparent,
                     { borderColor: theme.backgroundSelected },
                   ]}>
-                  <ThemedText type="smallBold">
+                  {employee.avatar_url ? (
+                    <Image source={{ uri: employee.avatar_url }} style={styles.employeeAvatar} />
+                  ) : (
+                    <ThemedView
+                      style={[
+                        styles.employeeAvatar,
+                        styles.employeeAvatarEmpty,
+                        { borderColor: theme.backgroundSelected },
+                      ]}>
+                      <Ionicons name="person" size={22} color={theme.textSecondary} />
+                    </ThemedView>
+                  )}
+                  <ThemedText type="smallBold" style={{ flex: 1 }}>
                     {employee.first_name} {employee.last_name}
                   </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    @{employee.username}
-                    {employee.phone ? ` · ${employee.phone}` : ''}
-                  </ThemedText>
+                  <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
                 </ThemedView>
               </Pressable>
             </SwipeToDelete>
@@ -324,7 +351,6 @@ export default function EmployeesScreen() {
                 returnKeyType="next"
                 value={firstName}
                 onChangeText={setFirstName}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
               <TextInput
                 style={[
@@ -336,7 +362,6 @@ export default function EmployeesScreen() {
                 returnKeyType="next"
                 value={lastName}
                 onChangeText={setLastName}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
               <TextInput
                 style={[
@@ -348,56 +373,72 @@ export default function EmployeesScreen() {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
               />
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                ]}
-                placeholder={t.employees.form.usernamePlaceholder}
-                placeholderTextColor={theme.textSecondary}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-                value={username}
-                onChangeText={setUsername}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
-              />
-
-              <ThemedText type="small" themeColor="textSecondary">
-                {t.employees.form.usernameHint}
-              </ThemedText>
-
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                ]}
-                placeholder={t.employees.form.passwordPlaceholder}
-                placeholderTextColor={theme.textSecondary}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={() => Keyboard.dismiss()}
-                value={password}
-                onChangeText={setPassword}
-                inputAccessoryViewID={KEYBOARD_DONE_BAR_ID}
-              />
-
-              <RuleChecklist rules={[
-                { label: t.employees.form.rulePassword, met: password.length >= 6 },
-              ]} />
-
-              <Pressable
-                onPress={() => {
-                  setUsername(generateUsername(firstName || 'employee', lastName));
-                  setPassword(generatePassword());
-                }}>
-                <ThemedText type="linkPrimary" style={styles.centerText}>
-                  {t.employees.form.generateRandomly}
+              <ThemedView style={[styles.credentials, { borderColor: theme.backgroundSelected }]}>
+                <ThemedView style={[styles.transparent, { flexDirection: 'row', alignItems: 'center', gap: Spacing.two }]}>
+                  <ThemedText type="smallBold" style={{ flex: 1 }}>
+                    {t.employees.form.credentialsTitle}
+                  </ThemedText>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t.employees.form.generateRandomly}
+                    onPress={() => {
+                      setUsername(generateUsername(firstName || 'employee', lastName));
+                      setPassword(generatePassword());
+                    }}
+                    style={({ pressed }) => [
+                      styles.generateButton,
+                      { borderColor: theme.accent, opacity: pressed ? 0.6 : 1 },
+                    ]}>
+                    <Ionicons name="dice-outline" size={16} color={theme.accentText} />
+                    <ThemedText type="small" themeColor="accentText">
+                      {t.employees.form.generate}
+                    </ThemedText>
+                  </Pressable>
+                </ThemedView>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.employees.form.credentialsHint}
                 </ThemedText>
-              </Pressable>
+
+                <TextInput
+                  style={[
+                    styles.input,
+                    { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
+                  ]}
+                  placeholder={t.employees.form.usernamePlaceholder}
+                  placeholderTextColor={theme.textSecondary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                  value={username}
+                  onChangeText={setUsername}
+                />
+
+                <RuleChecklist rules={[
+                  { label: t.employees.form.ruleLength, met: username.trim().length >= 3 && username.trim().length <= 20 },
+                  { label: t.employees.form.ruleNoAccent, met: username.trim().length > 0 && !/[\s-]|[^\x00-\x7F]/.test(username.trim()) },
+                ]} />
+
+                <TextInput
+                  style={[
+                    styles.input,
+                    { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
+                  ]}
+                  placeholder={t.employees.form.passwordPlaceholder}
+                  placeholderTextColor={theme.textSecondary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+
+                <RuleChecklist rules={[
+                  { label: t.employees.form.rulePassword, met: password.length >= 6 },
+                ]} />
+
+              </ThemedView>
 
               {formError && (
                 <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
@@ -446,8 +487,7 @@ export default function EmployeesScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
-      <KeyboardDoneBar />
-    </ThemedView>
+    </DismissKeyboardView>
   );
 }
 
@@ -479,11 +519,38 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   employeeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: Spacing.three,
     borderWidth: 1,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
-    gap: Spacing.half,
+    gap: Spacing.two,
+  },
+  credentials: {
+    borderRadius: Spacing.three,
+    borderWidth: 1,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  employeeAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  employeeAvatarEmpty: {
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   joinCard: {
     borderRadius: Spacing.three,
