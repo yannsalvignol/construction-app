@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Builds the public pages at casprod.app from docs/legal/*.md into website/.
+// Builds the legal/support pages at casprod.app from docs/legal/*.md into
+// website/. The landing page (website/index.html + landing.css/js) is
+// hand-written and left untouched.
 //
 // The Markdown in docs/legal is the source of truth (it is what gets reviewed
 // and edited); this script renders it into plain static HTML that Cloudflare
@@ -122,18 +124,11 @@ footer{text-align:center;color:var(--muted);font-size:14px;padding:24px 20px;bor
 
 const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#7238ce"/><rect x="14" y="26" width="36" height="12" rx="6" fill="#fff"/></svg>`;
 
-const HOME = `<h1>CASPROD</h1>
-<p>Application de suivi des chantiers et du personnel pour les entreprises du bâtiment.</p>
-<div class="home">
-<a href="/support"><strong>Assistance</strong><span>Questions fréquentes et contact.</span></a>
-<a href="/privacy"><strong>Politique de confidentialité</strong><span>Quelles données, pourquoi, combien de temps.</span></a>
-<a href="/terms"><strong>Conditions d’utilisation</strong><span>Règles d’usage de l’application.</span></a>
-</div>`;
+// website/index.html (the landing page) is hand-written and not generated here.
 
 await mkdir(OUT, { recursive: true });
 await writeFile(path.join(OUT, 'style.css'), STYLE);
 await writeFile(path.join(OUT, 'favicon.svg'), FAVICON);
-await writeFile(path.join(OUT, 'index.html'), page({ title: 'CASPROD', body: HOME, slug: '' }));
 for (const { slug, file } of PAGES) {
   const { title, body } = render(await readFile(path.join(SOURCE, file), 'utf8'));
   await mkdir(path.join(OUT, slug), { recursive: true });
