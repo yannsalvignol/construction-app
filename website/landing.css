@@ -190,6 +190,6 @@ p { margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; animation: none; transition: none; }
-  .btn, .tile, .phone__frame { transition: none; }
+  .btn, .tile { transition: none; }
   .eyebrow .dot, .hero__scroll span { animation: none; }
 }
