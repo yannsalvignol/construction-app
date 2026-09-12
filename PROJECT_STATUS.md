@@ -24,6 +24,9 @@ Les instructions Expo restent dans `AGENTS.md` ; les migrations SQL décrivent l
 
 ## Avancement
 
+12 septembre 2026 — préparation App Store : suppression de compte en libre-service (migration `20260912100000`, fonction Edge `delete-account`, section « Supprimer le compte » de l’écran Compte, tests), liens externes politique/CGU via `EXPO_PUBLIC_PRIVACY_POLICY_URL` / `EXPO_PUBLIC_TERMS_URL` (repli sur la notice intégrée), clé Google Maps Android injectée par `app.config.js` depuis `GOOGLE_MAPS_ANDROID_API_KEY`. Notes de review, étiquette confidentialité et liste des actions manuelles dans `docs/APP_STORE_SUBMISSION.md` ; brouillons de politique de confidentialité et de CGU dans `docs/legal/`. Rien de tout cela n’est déployé sur le projet distant.
+
+
 L’utilisateur a demandé de rester sur le backend et de ne pas vérifier l’interface. Aucune autre vérification ou modification visuelle à entreprendre sans nouvelle demande. Les modifications d’interface déjà écrites restent présentes ; leur validation visuelle n’a pas été effectuée.
 
 Backend implémenté localement :

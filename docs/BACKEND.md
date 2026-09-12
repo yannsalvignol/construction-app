@@ -26,6 +26,10 @@ Les photos sont dans le bucket privé `presence-proofs`, limité à 5 Mo et aux 
 
 Les colonnes historiques de dernier emplacement sont vidées et l’ancienne fonction `update_own_employee_location` est supprimée. Le droit de modifier le commutateur de tracking est retiré et une contrainte SQL empêche sa réactivation ou l’écriture de nouvelles coordonnées continues. La table historique `location_events` est conservée sans accès client ; sa purge éventuelle nécessite une décision de conservation distincte.
 
+## Suppression de compte
+
+`delete_own_account()` (RPC, rôle `authenticated`) supprime le compte de l’appelant et retourne les chemins Storage à effacer ; la fonction Edge `delete-account` l’appelle avec le jeton de l’utilisateur puis efface ces fichiers avec le rôle service. Un employé perd son identifiant, ses données personnelles, ses jetons push, sa position en direct ; ses preuves sont caviardées immédiatement. S’il a déclaré du travail, sa ligne `profiles` subsiste en pierre tombale anonyme (`deleted_at`, nom « Compte supprimé ») pour que journées, déclarations et vérifications gardent leurs clés ; sinon elle est supprimée. Un chef étant seul par entreprise, sa suppression supprime l’entreprise entière, employés compris. Conséquence de schéma : `profiles` ne cascade plus depuis `auth.users` ; `remove_employee` supprime le profil explicitement. Les listes de personnel et le décompte du tableau de bord excluent `deleted_at is not null`.
+
 ## Notifications
 
 `presence-dispatch` doit être invoquée chaque minute. Elle exige un secret dédié dans `Authorization: Bearer …` ; `verify_jwt = false` n’en fait pas une fonction publique sans authentification.
@@ -35,7 +39,7 @@ Le serveur réserve les demandes échues avec un verrou et un délai de reprise 
 ## Mise en service, après choix explicite de l’environnement
 
 1. Confirmer la base cible et les migrations appliquées avec `supabase migration list`. Déployer les nouvelles migrations avec `supabase db push`, d’abord dans un environnement de test.
-2. Déployer `presence-dispatch` avec `supabase functions deploy presence-dispatch`. Enregistrer un secret aléatoire d’au moins 32 caractères dans `PRESENCE_DISPATCH_SECRET`, à l’aide de `supabase secrets set --env-file <fichier-local-protégé>`. Ne pas commiter ce fichier. Si la sécurité renforcée Expo Push est activée, fournir également `EXPO_ACCESS_TOKEN` côté serveur.
+2. Déployer `presence-dispatch` avec `supabase functions deploy presence-dispatch`, et `delete-account` avec `supabase functions deploy delete-account` (elle n’a besoin d’aucun secret supplémentaire). Enregistrer un secret aléatoire d’au moins 32 caractères dans `PRESENCE_DISPATCH_SECRET`, à l’aide de `supabase secrets set --env-file <fichier-local-protégé>`. Ne pas commiter ce fichier. Si la sécurité renforcée Expo Push est activée, fournir également `EXPO_ACCESS_TOKEN` côté serveur.
 3. Dans Supabase Vault, enregistrer `presence_project_url` (URL du projet) et `presence_dispatch_secret` (même secret). Exécuter `supabase/operations/schedule-presence.sql`. Ce script configure `pg_cron` + `pg_net` et un seul job nommé `casprod-presence-dispatch`.
 4. Vérifier les résultats des appels HTTP du job, pas seulement son existence. Une réponse 503 distingue les sous-tâches à reprendre : notifications, reçus, nettoyage. Une erreur d’authentification signifie que Vault et le secret de la fonction ne correspondent pas.
 5. Pour la livraison aux téléphones, configurer APNs/FCM sur le projet EAS et produire un nouveau build contenant `expo-notifications`. Vérifier les push sur appareils réels. Aucune notification réelle n’a été envoyée pendant les tests locaux de cette session.

@@ -3,6 +3,7 @@ import { decode } from 'base64-arraybuffer';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as WebBrowser from 'expo-web-browser';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
@@ -16,12 +17,17 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { resolveFunctionError } from '@/lib/edge-function-error';
 import type { Locale } from '@/lib/i18n/locale';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
 import { workCopy } from '@/lib/work-copy';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+// Hosted legal pages. App Store Connect needs a public privacy-policy URL and
+// the app has to link to it; until one is configured the in-app notice shows.
+const PRIVACY_POLICY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
+const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL;
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -125,6 +131,10 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
   const [passwordChanged, setPasswordChanged] = useState(false);
 
   const [openLegalNote, setOpenLegalNote] = useState<'privacy' | 'terms' | null>(null);
+
+  const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
 
   const fetchCompany = useCallback(async () => {
     if (!profile || profile.role !== 'chef') return;
@@ -261,6 +271,30 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
   }
 
   if (!profile) return null;
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeletionError(null);
+    const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+    if (error) {
+      const message = await resolveFunctionError('delete-account', error);
+      setDeletionError(message ? translateServerError(message, locale) : t.account.deletion.failed);
+      setDeleting(false);
+      return;
+    }
+    // The auth user no longer exists, so the server-side sign-out is expected to
+    // fail; the local session still has to go.
+    await signOut().catch(() => supabase.auth.signOut({ scope: 'local' }));
+  }
+
+  function openLegal(kind: 'privacy' | 'terms') {
+    const url = kind === 'privacy' ? PRIVACY_POLICY_URL : TERMS_URL;
+    if (url) {
+      WebBrowser.openBrowserAsync(url).catch(() => setOpenLegalNote(kind));
+      return;
+    }
+    setOpenLegalNote((current) => (current === kind ? null : kind));
+  }
 
   return (
     <DismissKeyboardView style={styles.container}>
@@ -462,13 +496,53 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
             <LinkRow
               label={t.account.about.privacyPolicy}
               note={openLegalNote === 'privacy' ? [workCopy(locale).noticePrivacy, workCopy(locale).noticeAccess, workCopy(locale).noticeRights].join('\n\n') : null}
-              onPress={() => setOpenLegalNote((current) => (current === 'privacy' ? null : 'privacy'))}
+              onPress={() => openLegal('privacy')}
             />
             <LinkRow
               label={t.account.about.termsOfService}
               note={openLegalNote === 'terms' ? t.account.about.notAvailableYet : null}
-              onPress={() => setOpenLegalNote((current) => (current === 'terms' ? null : 'terms'))}
+              onPress={() => openLegal('terms')}
             />
+          </ThemedView>
+
+          <ThemedView style={[styles.section, styles.transparent]}>
+            <ThemedText type="smallBold">{t.account.deletion.title}</ThemedText>
+            {confirmingDeletion ? (
+              <ThemedView style={[styles.expandedForm, styles.transparent]}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {profile.role === 'chef'
+                    ? t.account.deletion.chefWarning
+                    : t.account.deletion.employeeWarning}
+                </ThemedText>
+                {deletionError && (
+                  <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
+                    {deletionError}
+                  </ThemedText>
+                )}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.button,
+                    { backgroundColor: theme.danger, opacity: pressed || deleting ? 0.7 : 1 },
+                  ]}
+                  disabled={deleting}
+                  onPress={handleDeleteAccount}>
+                  <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                    {deleting ? t.account.deletion.deleting : t.account.deletion.confirm}
+                  </ThemedText>
+                </Pressable>
+                <Pressable onPress={() => setConfirmingDeletion(false)} disabled={deleting}>
+                  <ThemedText type="linkPrimary" style={styles.centerText}>
+                    {t.common.cancel}
+                  </ThemedText>
+                </Pressable>
+              </ThemedView>
+            ) : (
+              <Pressable onPress={() => setConfirmingDeletion(true)}>
+                <ThemedText type="small" style={{ color: theme.danger }}>
+                  {t.account.deletion.action}
+                </ThemedText>
+              </Pressable>
+            )}
           </ThemedView>
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>

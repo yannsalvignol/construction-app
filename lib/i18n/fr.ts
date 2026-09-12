@@ -293,6 +293,17 @@ const fr = {
       termsOfService: "Conditions d'utilisation",
       notAvailableYet: 'Pas encore disponible.',
     },
+    deletion: {
+      title: 'Supprimer le compte',
+      action: 'Supprimer mon compte',
+      employeeWarning:
+        'Votre identifiant, votre nom, votre téléphone, votre photo ainsi que vos photos et positions de présence sont effacés définitivement. Le travail déjà déclaré sous votre nom reste dans les registres de l’entreprise, sans votre identité.',
+      chefWarning:
+        'Vous êtes le seul chef de cette entreprise. Supprimer votre compte supprime l’entreprise : ses chantiers, toutes les déclarations et vérifications de présence, et les comptes de tous les employés. Cette action est irréversible.',
+      confirm: 'Supprimer définitivement',
+      deleting: 'Suppression…',
+      failed: 'La suppression a échoué. Vérifiez votre connexion et réessayez.',
+    },
     signedInAs: (role: string) => `Connecté en tant que ${role}`,
   },
 } satisfies Translations;

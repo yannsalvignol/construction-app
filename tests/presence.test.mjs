@@ -448,4 +448,47 @@ test('presence and productivity database contracts', async t => {
     assert.notEqual(created.company_id, ids.company);
     assert.equal((await scalar(user, 'select public.chef_dashboard()')).employees, 0);
   });
+  await t.test('an employee can delete their own account; declared work survives anonymously', async () => {
+    // ids.worker has a work day and a (now redacted) check-in from the tests above,
+    // plus a fresh proof so the file list is exercised. ids.other has nothing.
+    await db.query("insert into storage.objects(bucket_id,name) values ('avatars',$1)", [ids.worker + '/avatar.jpg']);
+    await db.query("insert into private.push_tokens(token,employee_id) values ('ExpoPushToken[worker]',$1)", [ids.worker]);
+    const before = await scalar(ids.chef, 'select public.chef_dashboard()');
+    await assert.rejects(as(null, 'select public.delete_own_account()', [], 'anon'), /permission denied/);
+    const result = await scalar(ids.worker, 'select public.delete_own_account()');
+    assert.deepEqual(result.files, [{ bucket: 'avatars', path: ids.worker + '/avatar.jpg' }]);
+    assert.equal((await db.query('select * from auth.users where id=$1', [ids.worker])).rows.length, 0, 'sign-in is gone');
+    const tombstone = (await db.query('select * from public.profiles where id=$1', [ids.worker])).rows[0];
+    assert.ok(tombstone.deleted_at, 'profile stays because work was declared under it');
+    assert.equal(tombstone.first_name, 'Compte supprimé'); assert.equal(tombstone.last_name, '');
+    assert.equal(tombstone.username, null); assert.equal(tombstone.phone, null); assert.equal(tombstone.is_active, false);
+    assert.equal((await db.query('select * from private.push_tokens where employee_id=$1', [ids.worker])).rows.length, 0);
+    assert.equal((await db.query('select * from public.work_days where employee_id=$1', [ids.worker])).rows.length > 0, true, 'company records remain');
+    assert.equal((await db.query('select * from public.work_days where employee_id=$1 and ended_at is null', [ids.worker])).rows.length, 0);
+    assert.equal((await db.query('select * from public.presence_check_ins where employee_id=$1 and redacted_at is null', [ids.worker])).rows.length, 0, 'evidence redacted immediately');
+    assert.equal((await scalar(ids.chef, 'select public.chef_dashboard()')).employees, before.employees - 1, 'tombstones are not headcount');
+    await assert.rejects(as(ids.worker, 'select public.delete_own_account()'), /already deleted/);
+    // No declared work: nothing to keep, the profile goes entirely.
+    await as(ids.other, 'select public.delete_own_account()');
+    assert.equal((await db.query('select * from public.profiles where id=$1', [ids.other])).rows.length, 0);
+  });
+  await t.test('a chef deleting their account removes the company and its employees', async () => {
+    const chef = '60000000-0000-0000-0000-000000000001', staff = '60000000-0000-0000-0000-000000000002';
+    await db.query("insert into auth.users(id,email) values ($1,'gone-chef@example.test'), ($2,'gone-staff@employee.local')", [chef, staff]);
+    const company = (await as(chef, "select * from public.create_company_and_chef_profile('Gone Ltd','Gone','Chef')"))[0].company_id;
+    await db.query("insert into public.profiles(id,company_id,first_name,last_name,role) values ($1,$2,'Gone','Staff','employee')", [staff, company]);
+    await db.query("insert into public.sites(company_id,name,address,latitude,longitude) values ($1,'Gone site','3 rue C, Fès',34.03,-5.0)", [company]);
+    await db.query("insert into storage.objects(bucket_id,name) values ('avatars',$1)", [staff + '/avatar.jpg']);
+    const site = (await db.query('select id from public.sites where company_id=$1', [company])).rows[0].id;
+    await as(staff, 'select public.set_presence_consent(true)');
+    await as(staff, 'select * from public.start_work_day($1, 8)', [site]);
+    const result = await scalar(chef, 'select public.delete_own_account()');
+    assert.deepEqual(result.files, [{ bucket: 'avatars', path: staff + '/avatar.jpg' }]);
+    for (const [table, column] of [['public.companies', 'id'], ['public.sites', 'company_id'], ['public.work_days', 'company_id'], ['public.presence_requests', 'company_id']]) {
+      assert.equal((await db.query(`select * from ${table} where ${column}=$1`, [company])).rows.length, 0, table);
+    }
+    assert.equal((await db.query('select * from public.profiles where id in ($1,$2)', [chef, staff])).rows.length, 0);
+    assert.equal((await db.query('select * from auth.users where id in ($1,$2)', [chef, staff])).rows.length, 0);
+    assert.equal((await db.query('select * from public.presence_consents where employee_id=$1', [staff])).rows.length, 0);
+  });
 });

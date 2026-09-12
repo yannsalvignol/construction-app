@@ -197,6 +197,9 @@ export default function EmployeesScreen() {
       .select('id, first_name, last_name, phone, username, avatar_url')
       .eq('company_id', profile.company_id)
       .eq('role', 'employee')
+      // Deleted accounts keep an anonymous profile row so their declared work
+      // stays attributable to the company; they are not staff to list.
+      .is('deleted_at', null)
       .order('first_name');
     setEmployees(data ?? []);
     setLoading(false);

@@ -298,6 +298,17 @@ const en = {
       termsOfService: 'Terms of service',
       notAvailableYet: 'Not available yet.',
     },
+    deletion: {
+      title: 'Delete account',
+      action: 'Delete my account',
+      employeeWarning:
+        'Your sign-in, name, phone, photo, and any presence photos or positions are erased for good. Work already declared under your name stays in the company records without your identity.',
+      chefWarning:
+        'You are the only manager of this company. Deleting your account deletes the company: its sites, all declared work and presence records, and the accounts of every employee. This cannot be undone.',
+      confirm: 'Delete for good',
+      deleting: 'Deleting…',
+      failed: 'Deletion failed. Check your connection and try again.',
+    },
     signedInAs: (role: string) => `Signed in as ${role}`,
   },
 };

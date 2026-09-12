@@ -117,7 +117,7 @@ function checkLockfileSync() {
 }
 
 // ---------------------------------------------------------------------------
-// Check 2: every EXPO_PUBLIC_* var the app reads is registered on EAS
+// Check 2: every env var the app (or app.config.js) reads is registered on EAS
 // ---------------------------------------------------------------------------
 function findReferencedPublicEnvVars() {
   const found = new Set();
@@ -142,6 +142,20 @@ function findReferencedPublicEnvVars() {
   }
 
   searchDirs.forEach(walk);
+
+  // app.config.js also reads env at prebuild time (not EXPO_PUBLIC_, since
+  // the value only needs to reach the native manifest). Same failure mode if
+  // it's missing on EAS: the build succeeds and Android maps render blank.
+  const appConfig = path.join(ROOT, 'app.config.js');
+  if (fs.existsSync(appConfig)) {
+    const content = fs.readFileSync(appConfig, 'utf8');
+    const anyEnv = /process\.env\.([A-Z0-9_]+)/g;
+    let match;
+    while ((match = anyEnv.exec(content))) {
+      found.add(match[1]);
+    }
+  }
+
   return found;
 }
 
@@ -150,7 +164,7 @@ function checkEasEnvVars() {
 
   const referenced = findReferencedPublicEnvVars();
   if (referenced.size === 0) {
-    warn('No process.env.EXPO_PUBLIC_* references found in src/ or lib/, skipping.');
+    warn('No process.env references found in src/, lib/ or app.config.js, skipping.');
     return;
   }
 
