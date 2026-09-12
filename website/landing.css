@@ -172,7 +172,7 @@ p { margin: 0; }
   transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(0);
   transition: transform .18s ease-out; transform-style: preserve-3d;
 }
-.phone__frame img { border-radius: 31px; }
+.phone__frame img { width: 100%; height: auto; border-radius: 31px; }
 .phone--tilt:hover .phone__frame { transition: transform .06s linear; }
 
 /* presence flow */
