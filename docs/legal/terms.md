@@ -2,13 +2,10 @@
 
 *Dernière mise à jour : 12 septembre 2026*
 
-> Texte volontairement court pour la première version. Remplacez les champs
-> entre crochets avant publication.
-
 ## 1. Éditeur
 
-CASPROD est éditée par **[nom de l’éditeur / société]**, **[adresse]**,
-**[adresse e-mail de contact]**.
+CASPROD est éditée par **Yanis El-Mansori et Yann Salvignol**, 6, chemin de
+Marot, 47550, France, joignables à **contact@casprod.app**.
 
 ## 2. Objet
 
@@ -38,7 +35,7 @@ personnelles de tiers.
 ## 5. Données personnelles
 
 Le traitement des données est décrit dans la [politique de
-confidentialité](./privacy-policy.md), qui fait partie des présentes conditions.
+confidentialité](/privacy), qui fait partie des présentes conditions.
 
 ## 6. Disponibilité et responsabilité
 
@@ -58,5 +55,5 @@ l’utilisateur lorsque c’est possible.
 
 ## 8. Droit applicable
 
-Les présentes conditions sont régies par le droit **[pays]**. Tout litige
-relève des tribunaux compétents de **[ville]**.
+Les présentes conditions sont régies par le droit **France**. Tout litige
+relève des tribunaux compétents de **Paris**.

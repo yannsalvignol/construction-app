@@ -2,14 +2,10 @@
 
 *Dernière mise à jour : 12 septembre 2026*
 
-> Remplacez les champs entre crochets avant publication. Ce texte décrit ce que
-> l’application fait réellement ; il ne remplace pas la validation juridique que
-> chaque entreprise utilisatrice doit faire de son côté (voir la section 3).
-
 ## 1. Qui publie l’application
 
-CASPROD est éditée par **[nom de l’éditeur / société]**, **[adresse]**,
-joignable à **[adresse e-mail de contact]** (« nous »).
+CASPROD est éditée par **Yanis El-Mansori et Yann Salvignol**, 6, chemin de
+Marot, 47550, France, joignables à **contact@casprod.app** (« nous »).
 
 ## 2. À quoi sert l’application
 
@@ -26,7 +22,7 @@ hébergeons et traitons ces données pour le compte de l’entreprise.
 
 Pour exercer vos droits (accès, rectification, opposition, effacement) ou poser
 une question sur l’usage de vos données, adressez-vous d’abord à votre chef.
-Vous pouvez aussi nous écrire à **[adresse e-mail de contact]**.
+Vous pouvez aussi nous écrire à **contact@casprod.app**.
 
 ## 4. Données traitées
 
@@ -97,8 +93,8 @@ compte**.
 
 ## 10. Hébergement et sécurité
 
-Les données sont hébergées sur Supabase (**[région du projet, ex. UE –
-Francfort]**). Les échanges sont chiffrés (HTTPS). Les photos de vérification
+Les données sont hébergées sur Supabase, dans l’Union européenne (région
+Irlande, `eu-west-1`). Les échanges sont chiffrés (HTTPS). Les photos de vérification
 sont stockées dans un espace privé accessible uniquement via l’application.
 
 ## 11. Modifications
