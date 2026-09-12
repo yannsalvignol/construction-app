@@ -341,29 +341,6 @@ function initPage() {
   const onScroll = () => nav.classList.toggle('is-scrolled', scrollY > 24);
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
-  // Spotlight that follows the pointer on cards.
-  for (const card of document.querySelectorAll('.card--spot')) {
-    card.addEventListener('pointermove', (e) => {
-      const r = card.getBoundingClientRect();
-      card.style.setProperty('--mx', `${e.clientX - r.left}px`);
-      card.style.setProperty('--my', `${e.clientY - r.top}px`);
-    });
-  }
-
-  // Phone mockup tilts toward the pointer.
-  if (!coarsePointer && !reduceMotion) {
-    for (const phone of document.querySelectorAll('[data-tilt]')) {
-      const frame = phone.querySelector('.phone__frame');
-      phone.addEventListener('pointermove', (e) => {
-        const r = phone.getBoundingClientRect();
-        const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
-        frame.style.setProperty('--ry', `${x * 16}deg`);
-        frame.style.setProperty('--rx', `${-y * 16}deg`);
-      });
-      phone.addEventListener('pointerleave', () => { frame.style.setProperty('--ry', '0deg'); frame.style.setProperty('--rx', '0deg'); });
-    }
-  }
-
   // Fallbacks for browsers without scroll-driven animations.
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in', 'is-drawn'); io.unobserve(e.target); }
