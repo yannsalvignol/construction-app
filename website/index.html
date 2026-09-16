@@ -25,7 +25,6 @@
   <a class="nav__brand" href="/"><img src="/img/logo.png" alt="" width="26" height="26"><span>CASPROD</span></a>
   <nav class="nav__links mono" aria-label="Sections">
     <a href="#capacites">Capacités</a>
-    <a href="#principes">Principes</a>
     <a href="#journal">Journal</a>
     <a href="/support">Assistance</a>
   </nav>
@@ -58,7 +57,7 @@
     <div class="hero__meta mono" aria-hidden="true">
       <span>SCAN <b id="scanPct">000</b>%</span>
       <span>STRUCTURE <b id="blockCount">000</b>/<b id="blockTotal">000</b></span>
-      <span class="hero__meta-right">DÉFILER POUR CONSTRUIRE</span>
+      <span class="hero__meta-right" id="scanState">CONSTRUCTION EN COURS</span>
     </div>
   </div>
 </section>
@@ -98,23 +97,7 @@
         <p class="mono col__foot">AUCUN HISTORIQUE · RETRAIT IMMÉDIAT</p>
       </article>
     </div>
-  </div>
-</section>
-
-<!-- ============ PRINCIPES ============ -->
-<section class="section section--rule" id="principes">
-  <div class="wrap">
-    <div class="section__head reveal">
-      <p class="mono label">02 · PRINCIPES</p>
-      <h2 class="h2">Ce que le système refuse de faire.</h2>
-    </div>
-    <ol class="rules">
-      <li class="rule reveal"><span class="mono rule__n">P-01</span><div><h3>Aucun suivi continu</h3><p>Pas de position lue en dehors d’une journée déclarée. Pas d’accès en arrière-plan sans journée ouverte. Contraint au niveau de la base de données, pas seulement de l’interface.</p></div></li>
-      <li class="rule reveal"><span class="mono rule__n">P-02</span><div><h3>Accord daté et versionné</h3><p>La notice est présentée avant tout accès caméra ou GPS. Elle est enregistrée avec sa version et redemandée si elle change. L’employeur reste responsable de l’usage.</p></div></li>
-      <li class="rule reveal"><span class="mono rule__n">P-03</span><div><h3>Preuves éphémères</h3><p>Photos et coordonnées sont supprimées après trente jours au plus. Seul le fait qu’une vérification a eu lieu subsiste dans l’historique.</p></div></li>
-      <li class="rule reveal"><span class="mono rule__n">P-04</span><div><h3>Suppression sans intermédiaire</h3><p>Chaque compte peut être supprimé depuis l’application, immédiatement. Le travail déclaré reste dans les registres de l’entreprise, anonymisé.</p></div></li>
-    </ol>
-    <p class="reveal"><a class="link mono" href="/privacy">LIRE LA POLITIQUE DE CONFIDENTIALITÉ →</a></p>
+    <p class="reveal section__foot"><a class="link mono" href="/privacy">LIRE LA POLITIQUE DE CONFIDENTIALITÉ →</a></p>
   </div>
 </section>
 
@@ -122,7 +105,7 @@
 <section class="section" id="journal">
   <div class="wrap">
     <div class="section__head reveal">
-      <p class="mono label">03 · JOURNAL</p>
+      <p class="mono label">02 · JOURNAL</p>
       <h2 class="h2">État d’avancement.</h2>
     </div>
     <ul class="log mono">

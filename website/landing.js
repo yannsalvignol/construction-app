@@ -1,7 +1,7 @@
 // CASPROD landing — hero scene (three.js r170, vendored) + page interactions.
 //
 // The hero is a building being *scanned into existence*: a monochrome
-// wireframe tower whose edges materialise as the visitor scrolls, a scan
+// wireframe tower whose edges materialise on their own after load, a scan
 // plane that sweeps the structure and lights the edges it crosses, a
 // tower crane drawn in the same thin lines, a low-contrast survey grid, and a
 // sparse point field. Everything is procedural and drawn with two custom
@@ -221,7 +221,9 @@ function initScene() {
   // ----- state
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   const targetV = new THREE.Vector3();
-  let scrollP = 0, introStart = performance.now(), built = false, visible = true, needsFrame = true, lastCount = -1, lastPct = -1;
+  let introStart = performance.now(), built = false, visible = true, needsFrame = true, lastCount = -1, lastPct = -1;
+  const BUILD_MS = 7000, BUILD_DELAY_MS = 600;
+  const scanState = document.getElementById('scanState');
 
   function updateCamera(p, time) {
     const wide = camera.aspect > 1.05;
@@ -272,8 +274,7 @@ function initScene() {
     if (!visible || document.hidden) { needsFrame = true; return; }
     requestAnimationFrame(frame);
     const time = now / 1000;
-    const intro = easeOutCubic(clamp((now - introStart) / 3000, 0, 1));
-    const p = Math.max(intro * 0.4, scrollP);
+    const p = clamp((now - introStart - BUILD_DELAY_MS) / BUILD_MS, 0, 1);
 
     pointer.x = lerp(pointer.x, pointer.tx, 0.05);
     pointer.y = lerp(pointer.y, pointer.ty, 0.05);
@@ -293,7 +294,7 @@ function initScene() {
     }
     pos.needsUpdate = true;
 
-    if (!built && p >= 0.999) { built = true; hero.classList.add('is-built'); }
+    if (!built && p >= 0.999) { built = true; hero.classList.add('is-built'); scanState.textContent = 'STRUCTURE STABLE · SCAN CONTINU'; }
     draw(p, time);
   }
 
@@ -308,14 +309,12 @@ function initScene() {
   new ResizeObserver(resize).observe(stage);
   resize();
 
-  const onScroll = () => { scrollP = clamp(scrollY / (hero.offsetHeight - stage.offsetHeight), 0, 1); };
-  addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
-
   if (!coarsePointer && !reduceMotion) {
     addEventListener('pointermove', (e) => { pointer.tx = (e.clientX / innerWidth - 0.5) * 2; pointer.ty = (e.clientY / innerHeight - 0.5) * 2; }, { passive: true });
   }
 
+  // Pause rendering off-screen; the build clock keeps running so a visitor who
+  // scrolls back finds the structure further along, never rewound.
   const io = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
     if (visible && needsFrame) { needsFrame = false; requestAnimationFrame(frame); }
