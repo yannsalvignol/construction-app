@@ -1,10 +1,13 @@
 // CASPROD landing — hero scene (three.js r170, vendored) + page interactions.
 //
-// The hero is a stylised construction site: a tower of blocks that assembles
-// as the visitor scrolls, a slowly turning crane, the Level Mark logo hovering
-// over the finished building, dust in the light. Everything is procedural —
-// no models to download. Degrades to a CSS gradient when WebGL is missing and
-// to a static, fully built scene under prefers-reduced-motion.
+// The hero is a building being *scanned into existence*: a monochrome
+// wireframe tower whose edges materialise as the visitor scrolls, a scan
+// plane that sweeps the structure and lights the edges it crosses, a
+// tower crane drawn in the same thin lines, a low-contrast survey grid, and a
+// sparse point field. Everything is procedural and drawn with two custom
+// shaders (one for the edges, one for the faces), so the whole scene is a
+// handful of draw calls. No WebGL → CSS grid fallback; reduced motion →
+// static, fully built scene.
 
 import * as THREE from '/vendor/three.module.min.js';
 
@@ -13,7 +16,6 @@ const coarsePointer = matchMedia('(pointer: coarse)').matches;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-const easeOutBack = (t) => { const c = 1.70158; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
 
 // ---------------------------------------------------------------------------
 // Hero scene
@@ -25,224 +27,211 @@ function initScene() {
 
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', alpha: false });
   } catch {
     hero.classList.add('no-webgl');
     return;
   }
   const isMobile = coarsePointer || innerWidth < 900;
   renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.5 : 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.setClearColor('#07080a', 1);
 
-  const BG = new THREE.Color('#0f0c17');
   const scene = new THREE.Scene();
-  scene.background = BG;
-  scene.fog = new THREE.Fog(BG, 22, 48);
-
+  scene.fog = new THREE.Fog('#07080a', 20, 46);
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 120);
 
-  // ----- lights
-  scene.add(new THREE.HemisphereLight('#9d8cc7', '#0f0c17', 0.9));
-  const sun = new THREE.DirectionalLight('#fff4e6', 2.6);
-  sun.position.set(7, 14, 5);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
-  sun.shadow.camera.left = sun.shadow.camera.bottom = -11;
-  sun.shadow.camera.right = sun.shadow.camera.top = 11;
-  sun.shadow.camera.near = 1; sun.shadow.camera.far = 40;
-  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
-  scene.add(sun);
-  const fill = new THREE.PointLight('#854cdb', 40, 24, 1.6);
-  fill.position.set(-4, 3.5, 5);
-  scene.add(fill);
-  const rim = new THREE.PointLight('#3ddc97', 12, 18, 2);
-  rim.position.set(5, 2, -6);
-  scene.add(rim);
-
-  // ----- ground: shadow-catching plane + procedural blueprint grid on top
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(90, 90),
-    new THREE.MeshStandardMaterial({ color: '#15111d', roughness: 1, metalness: 0 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
+  // ----- survey grid on the ground: hairlines + a slow radial sweep
   const grid = new THREE.Mesh(
-    new THREE.PlaneGeometry(90, 90),
+    new THREE.PlaneGeometry(120, 120),
     new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      uniforms: { uColor: { value: new THREE.Color('#b18cf0') }, uTime: { value: 0 } },
+      transparent: true, depthWrite: false,
+      uniforms: { uTime: { value: 0 } },
       vertexShader: `varying vec3 vPos; void main(){ vPos = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vPos,1.0); }`,
       fragmentShader: `
-        uniform vec3 uColor; uniform float uTime; varying vec3 vPos;
+        uniform float uTime; varying vec3 vPos;
         float line(vec2 p, float size){ vec2 g = abs(fract(p / size - 0.5) - 0.5) / fwidth(p / size); return 1.0 - min(min(g.x, g.y), 1.0); }
         void main(){
           vec2 p = vPos.xz;
-          float minor = line(p, 1.0) * 0.35;
-          float major = line(p, 5.0) * 0.9;
+          float minor = line(p, 1.0) * 0.16;
+          float major = line(p, 5.0) * 0.42;
           float d = length(p);
-          float fade = smoothstep(26.0, 6.0, d);
-          // a slow radar sweep so the site never feels frozen
-          float ring = smoothstep(0.35, 0.0, abs(d - mod(uTime * 2.2, 30.0))) * 0.35 * smoothstep(30.0, 0.0, d);
-          float a = (max(minor, major) * fade + ring) * 0.9;
-          gl_FragColor = vec4(uColor, a);
+          float fade = smoothstep(30.0, 4.0, d);
+          float sweep = smoothstep(0.5, 0.0, abs(d - mod(uTime * 1.6, 34.0))) * 0.22 * smoothstep(34.0, 0.0, d);
+          float a = max(minor, major) * fade + sweep;
+          gl_FragColor = vec4(vec3(0.86, 0.88, 0.95), a);
         }`,
     })
   );
   grid.rotation.x = -Math.PI / 2;
-  grid.position.y = 0.012;
   scene.add(grid);
 
-  // ----- the building: a tower of blocks, mid-construction
-  const FLOORS = 6, N = 4, STEP = 1.06, SIZE = 0.94;
-  const plan = [];
+  // ----- the building
+  const FLOORS = 7, N = 4, STEP = 1.06, SIZE = 0.98;
   const keep = (f, x, z) => {
-    if (f < 3) return true;                       // full lower floors
-    if (f === 3) return !(x === 3 && z === 3);    // one block short
+    if (f < 3) return true;
+    if (f === 3) return !(x === 3 && z === 3);
     if (f === 4) return x < 3 && !(x === 2 && z === 3);
-    return x < 2 && z < 3;                        // top floor barely started
+    if (f === 5) return x < 2 && z < 3;
+    return x < 1 && z < 2;
   };
-  for (let f = 0; f < FLOORS; f++) for (let x = 0; x < N; x++) for (let z = 0; z < N; z++) if (keep(f, x, z)) plan.push({ f, x, z });
   const rand = (seed) => { const s = Math.sin(seed * 9301 + 49297) * 233280; return s - Math.floor(s); };
-  const blocks = plan.map((b, i) => ({
-    ...b,
-    delay: (b.f / FLOORS) * 0.8 + rand(i) * 0.12,
-    glass: rand(i + 777) < 0.22 && b.f > 0,
-    spin: (rand(i + 99) - 0.5) * 1.2,
-    px: (b.x - (N - 1) / 2) * STEP,
-    pz: (b.z - (N - 1) / 2) * STEP,
-    py: b.f * STEP + SIZE / 2 + 0.16,
+  const blocks = [];
+  for (let f = 0; f < FLOORS; f++) for (let x = 0; x < N; x++) for (let z = 0; z < N; z++) if (keep(f, x, z)) {
+    const i = blocks.length;
+    blocks.push({
+      cx: (x - (N - 1) / 2) * STEP, cy: f * STEP + SIZE / 2 + 0.1, cz: (z - (N - 1) / 2) * STEP,
+      delay: (f / FLOORS) * 0.82 + rand(i) * 0.1,
+    });
+  }
+  const TOTAL = blocks.length;
+  document.getElementById('blockTotal').textContent = String(TOTAL).padStart(3, '0');
+
+  // Merge one box per block into a single geometry, tagging every vertex with
+  // its block centre and build delay so a vertex shader can animate each block.
+  function merged(source) {
+    const pos = source.getAttribute('position');
+    const per = pos.count;
+    const out = new Float32Array(per * 3 * TOTAL), centers = new Float32Array(per * 3 * TOTAL), delays = new Float32Array(per * TOTAL);
+    let idx = null;
+    if (source.index) idx = new Uint32Array(source.index.count * TOTAL);
+    blocks.forEach((b, k) => {
+      for (let v = 0; v < per; v++) {
+        const o = (k * per + v) * 3;
+        out[o] = pos.getX(v) + b.cx; out[o + 1] = pos.getY(v) + b.cy; out[o + 2] = pos.getZ(v) + b.cz;
+        centers[o] = b.cx; centers[o + 1] = b.cy; centers[o + 2] = b.cz;
+        delays[k * per + v] = b.delay;
+      }
+      if (idx) for (let j = 0; j < source.index.count; j++) idx[k * source.index.count + j] = source.index.getX(j) + k * per;
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(out, 3));
+    geo.setAttribute('aCenter', new THREE.BufferAttribute(centers, 3));
+    geo.setAttribute('aDelay', new THREE.BufferAttribute(delays, 1));
+    if (idx) geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    return geo;
+  }
+  const box = new THREE.BoxGeometry(SIZE, SIZE, SIZE);
+  const edgesGeo = merged(new THREE.EdgesGeometry(box));
+  const facesGeo = merged(box);
+
+  const uniforms = { uProgress: { value: 0 }, uScan: { value: 0 }, uTime: { value: 0 } };
+  const buildVertex = `
+    attribute vec3 aCenter; attribute float aDelay;
+    uniform float uProgress;
+    varying float vT; varying float vY;
+    float easeOut(float t){ return 1.0 - pow(1.0 - t, 3.0); }
+    void main(){
+      float t = clamp((uProgress - aDelay) / 0.14, 0.0, 1.0);
+      float e = easeOut(t);
+      vec3 p = aCenter + (position - aCenter) * mix(0.001, 1.0, e);
+      p.y += (1.0 - e) * 6.0;
+      vT = t; vY = p.y;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+    }`;
+  const edges = new THREE.LineSegments(edgesGeo, new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, uniforms,
+    vertexShader: buildVertex,
+    fragmentShader: `
+      uniform float uScan; varying float vT; varying float vY;
+      void main(){
+        if (vT <= 0.0) discard;
+        float base = 0.22;
+        float band = smoothstep(0.9, 0.0, abs(vY - uScan)) * 0.9;    // edges lit by the scan plane
+        float a = (base + band) * vT;
+        vec3 c = mix(vec3(0.80, 0.83, 0.92), vec3(1.0), band);
+        gl_FragColor = vec4(c, a);
+      }`,
   }));
-  const solidBlocks = blocks.filter((b) => !b.glass), glassBlocks = blocks.filter((b) => b.glass);
-  const boxGeo = new THREE.BoxGeometry(SIZE, SIZE, SIZE);
+  scene.add(edges);
+  const faces = new THREE.Mesh(facesGeo, new THREE.ShaderMaterial({
+    transparent: true, uniforms, side: THREE.FrontSide,
+    vertexShader: buildVertex,
+    fragmentShader: `
+      uniform float uScan; varying float vT; varying float vY;
+      void main(){
+        if (vT <= 0.0) discard;
+        float band = smoothstep(1.4, 0.0, abs(vY - uScan)) * 0.10;
+        gl_FragColor = vec4(vec3(0.05, 0.06, 0.08) + band, 0.92 * vT);
+      }`,
+  }));
+  scene.add(faces);
+  edges.renderOrder = 2; faces.renderOrder = 1;
 
-  const solid = new THREE.InstancedMesh(boxGeo, new THREE.MeshStandardMaterial({ roughness: 0.42, metalness: 0.08 }), solidBlocks.length);
-  solid.castShadow = solid.receiveShadow = true;
-  const palette = ['#efe6ff', '#e6dcff', '#d9c8ff', '#b18cf0', '#854cdb', '#5d2bb0', '#f7f2ff'];
-  solidBlocks.forEach((b, i) => solid.setColorAt(i, new THREE.Color(palette[Math.floor(rand(i + 31) * palette.length)])));
-  solid.instanceColor.needsUpdate = true;
-  scene.add(solid);
+  // scan plane: a thin translucent sheet sweeping the tower
+  const scanPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(N * STEP + 2.6, N * STEP + 2.6),
+    new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      fragmentShader: `varying vec2 vUv; void main(){ float e = 1.0 - max(abs(vUv.x - 0.5), abs(vUv.y - 0.5)) * 2.0; float edge = smoothstep(0.0, 0.06, e) * (1.0 - smoothstep(0.06, 0.12, e)); gl_FragColor = vec4(vec3(0.85, 0.88, 1.0), 0.05 + edge * 0.5); }`,
+    })
+  );
+  scanPlane.rotation.x = -Math.PI / 2;
+  scene.add(scanPlane);
 
-  const glassMat = isMobile
-    ? new THREE.MeshStandardMaterial({ color: '#c9b3ff', transparent: true, opacity: 0.55, roughness: 0.2, metalness: 0.1 })
-    : new THREE.MeshPhysicalMaterial({ color: '#d7c6ff', transmission: 0.75, thickness: 0.8, roughness: 0.12, metalness: 0, ior: 1.4, transparent: true, opacity: 0.9 });
-  const glass = new THREE.InstancedMesh(boxGeo, glassMat, Math.max(1, glassBlocks.length));
-  glass.count = glassBlocks.length;
-  glass.castShadow = true;
-  scene.add(glass);
-
-  // base slab under the tower
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(N * STEP + 1.2, 0.18, N * STEP + 1.2), new THREE.MeshStandardMaterial({ color: '#241b35', roughness: 0.9 }));
-  slab.position.y = 0.09; slab.receiveShadow = true; slab.castShadow = true;
-  scene.add(slab);
-
-  // ----- crane
+  // ----- crane, in the same hairline language
+  const lineMat = new THREE.LineBasicMaterial({ color: '#c9ceda', transparent: true, opacity: 0.55 });
+  const dimMat = new THREE.LineBasicMaterial({ color: '#c9ceda', transparent: true, opacity: 0.28 });
+  const wire = (parent, w, h, d, x, y, z, mat = lineMat) => { const m = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)), mat); m.position.set(x, y, z); parent.add(m); return m; };
   const crane = new THREE.Group();
-  crane.position.set(4.6, 0, -3.8);
-  crane.rotation.y = Math.PI;
-  const craneMat = new THREE.MeshStandardMaterial({ color: '#e9e0ff', roughness: 0.5, metalness: 0.15 });
-  const accentMat = new THREE.MeshStandardMaterial({ color: '#854cdb', roughness: 0.4, metalness: 0.2 });
-  const addBox = (parent, w, h, d, x, y, z, mat = craneMat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
-  addBox(crane, 1.4, 0.3, 1.4, 0, 0.15, 0, accentMat);
-  const MAST = 9.5;
-  addBox(crane, 0.34, MAST, 0.34, 0, MAST / 2 + 0.3, 0);
-  for (let y = 1; y < MAST; y += 1.1) addBox(crane, 0.5, 0.05, 0.5, 0, y + 0.3, 0, accentMat);
+  crane.position.set(4.9, 0, -3.9); crane.rotation.y = Math.PI;
+  wire(crane, 1.4, 0.3, 1.4, 0, 0.15, 0);
+  const MAST = 10.5;
+  wire(crane, 0.36, MAST, 0.36, 0, MAST / 2 + 0.3, 0);
+  for (let y = 1; y < MAST; y += 1.05) wire(crane, 0.36, 0.001, 0.36, 0, y + 0.3, 0, dimMat);
   const top = new THREE.Group(); top.position.y = MAST + 0.3; crane.add(top);
-  addBox(top, 0.7, 0.6, 0.7, 0, 0.3, 0, accentMat);                 // slewing unit
-  const JIB = 8.5;
-  addBox(top, JIB, 0.2, 0.28, JIB / 2 - 0.3, 0.65, 0);               // jib
-  addBox(top, 2.6, 0.2, 0.28, -1.6, 0.65, 0);                        // counter jib
-  addBox(top, 0.8, 0.7, 0.8, -2.5, 0.35, 0, accentMat);              // counterweight
-  addBox(top, 0.6, 0.55, 0.7, 0.55, 0.28, 0.55, accentMat);          // cab
-  addBox(top, 0.12, 1.6, 0.12, 0, 1.4, 0);                           // tower peak
-  const cableMat = new THREE.LineBasicMaterial({ color: '#cfc2ea', transparent: true, opacity: 0.8 });
-  const tie = (a, b) => top.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), cableMat));
-  tie(new THREE.Vector3(0, 2.2, 0), new THREE.Vector3(JIB - 0.5, 0.75, 0));
-  tie(new THREE.Vector3(0, 2.2, 0), new THREE.Vector3(-2.7, 0.75, 0));
+  const JIB = 9;
+  wire(top, 0.7, 0.6, 0.7, 0, 0.3, 0);
+  wire(top, JIB, 0.22, 0.3, JIB / 2 - 0.3, 0.65, 0);
+  wire(top, 2.8, 0.22, 0.3, -1.7, 0.65, 0);
+  wire(top, 0.8, 0.7, 0.8, -2.6, 0.35, 0);
+  wire(top, 0.6, 0.55, 0.7, 0.55, 0.28, 0.55);
+  wire(top, 0.12, 1.7, 0.12, 0, 1.45, 0);
+  const tie = (a, b) => top.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), dimMat));
+  tie(new THREE.Vector3(0, 2.3, 0), new THREE.Vector3(JIB - 0.5, 0.76, 0));
+  tie(new THREE.Vector3(0, 2.3, 0), new THREE.Vector3(-2.9, 0.76, 0));
   const trolley = new THREE.Group(); top.add(trolley);
-  addBox(trolley, 0.4, 0.14, 0.4, 0, 0.5, 0, accentMat);
-  const hookLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.45, 0), new THREE.Vector3(0, -3, 0)]), cableMat);
+  wire(trolley, 0.4, 0.14, 0.4, 0, 0.5, 0);
+  const hookLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.45, 0), new THREE.Vector3(0, -2, 0)]), dimMat);
   trolley.add(hookLine);
   const hook = new THREE.Group(); trolley.add(hook);
-  addBox(hook, 0.3, 0.3, 0.3, 0, 0, 0, accentMat);
-  const carried = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: '#b18cf0', roughness: 0.42 }));
-  carried.position.y = -0.62; carried.castShadow = true; hook.add(carried);
-  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshStandardMaterial({ color: '#ff3b5c', emissive: '#ff3b5c', emissiveIntensity: 2 }));
-  beacon.position.y = 2.3; top.add(beacon);
-  const beaconLight = new THREE.PointLight('#ff3b5c', 6, 6, 2); beaconLight.position.copy(beacon.position); top.add(beaconLight);
+  wire(hook, SIZE, SIZE, SIZE, 0, -0.5, 0);
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+  beacon.position.y = 2.35; top.add(beacon);
   scene.add(crane);
 
-  // ----- Level Mark: the logo as a floating object over the finished tower
-  const mark = new THREE.Group();
-  const pill = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 2.3, 8, 28), new THREE.MeshStandardMaterial({ color: '#171221', roughness: 0.28, metalness: 0.55 }));
-  pill.rotation.z = Math.PI / 2; pill.castShadow = true; mark.add(pill);
-  const bubble = new THREE.Mesh(new THREE.SphereGeometry(0.3, 24, 24), new THREE.MeshStandardMaterial({ color: '#f7f2ff', emissive: '#b18cf0', emissiveIntensity: 1.6, roughness: 0.2 }));
-  bubble.position.z = 0.22; mark.add(bubble);
-  const markLight = new THREE.PointLight('#b18cf0', 16, 8, 2); mark.add(markLight);
-  mark.position.set(0, FLOORS * STEP + 2.0, 0);
-  mark.scale.setScalar(0.0001);
-  scene.add(mark);
+  // ----- point field
+  const COUNT = isMobile ? 260 : 700;
+  const pts = new Float32Array(COUNT * 3), seeds = new Float32Array(COUNT);
+  for (let i = 0; i < COUNT; i++) { pts[i * 3] = (Math.random() - 0.5) * 30; pts[i * 3 + 1] = Math.random() * 12; pts[i * 3 + 2] = (Math.random() - 0.5) * 30; seeds[i] = Math.random() * 100; }
+  const pointGeo = new THREE.BufferGeometry();
+  pointGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  const points = new THREE.Points(pointGeo, new THREE.PointsMaterial({ color: '#dfe3ee', size: 0.035, transparent: true, opacity: 0.6, depthWrite: false, sizeAttenuation: true }));
+  scene.add(points);
 
-  // ----- dust
-  const DUST = isMobile ? 220 : 520;
-  const dustPos = new Float32Array(DUST * 3), dustSeed = new Float32Array(DUST);
-  for (let i = 0; i < DUST; i++) { dustPos[i * 3] = (Math.random() - 0.5) * 22; dustPos[i * 3 + 1] = Math.random() * 10; dustPos[i * 3 + 2] = (Math.random() - 0.5) * 22; dustSeed[i] = Math.random() * 100; }
-  const dustGeo = new THREE.BufferGeometry();
-  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-  const spriteCanvas = document.createElement('canvas'); spriteCanvas.width = spriteCanvas.height = 64;
-  const g = spriteCanvas.getContext('2d'); const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.35, 'rgba(230,214,255,.6)'); grad.addColorStop(1, 'rgba(230,214,255,0)');
-  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
-  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ size: 0.16, map: new THREE.CanvasTexture(spriteCanvas), transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
-  scene.add(dust);
-
-  // ----- HUD anchors (3D points projected to the labels in the DOM)
+  // ----- HUD anchors
+  const half = N * STEP / 2;
   const huds = [
-    { el: stage.querySelector('.hud--a'), at: new THREE.Vector3(N * STEP / 2 + 0.6, 0.2, N * STEP / 2 + 0.6), from: 0.28 },
-    { el: stage.querySelector('.hud--b'), at: new THREE.Vector3(N * STEP / 2 + 0.6, 3 * STEP + 0.6, -N * STEP / 2), from: 0.62 },
-    { el: stage.querySelector('.hud--c'), at: new THREE.Vector3(-0.5, FLOORS * STEP + 0.4, N * STEP / 2 + 0.4), from: 0.94 },
+    { el: stage.querySelector('.hud--a'), at: new THREE.Vector3(half + 0.3, 0.3, half + 0.3), from: 0.3 },
+    { el: stage.querySelector('.hud--b'), at: new THREE.Vector3(half + 0.3, 3 * STEP + 0.5, -half), from: 0.62 },
+    { el: stage.querySelector('.hud--c'), at: new THREE.Vector3(-half + 0.5, FLOORS * STEP + 0.3, half - 0.5), from: 0.96 },
   ];
+  const scanPct = document.getElementById('scanPct'), blockCount = document.getElementById('blockCount');
 
   // ----- state
-  const dummy = new THREE.Object3D();
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
-  let scrollP = 0, introStart = performance.now(), built = false, visible = true, needsFrame = true;
   const targetV = new THREE.Vector3();
-
-  function layoutBlocks(p) {
-    const place = (mesh, list) => {
-      list.forEach((b, i) => {
-        const t = clamp((p - b.delay) / 0.16, 0, 1);
-        const e = easeOutBack(t);
-        const drop = (1 - easeOutCubic(t)) * 7;
-        dummy.position.set(b.px, b.py + drop, b.pz);
-        dummy.rotation.set(0, b.spin * (1 - t), 0);
-        dummy.scale.setScalar(Math.max(0.0001, e));
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
-      });
-      mesh.instanceMatrix.needsUpdate = true;
-    };
-    place(solid, solidBlocks); place(glass, glassBlocks);
-  }
+  let scrollP = 0, introStart = performance.now(), built = false, visible = true, needsFrame = true, lastCount = -1, lastPct = -1;
 
   function updateCamera(p, time) {
     const wide = camera.aspect > 1.05;
-    // Orbit: azimuth swings ~30° over the scroll, elevation eases down, and
-    // the target climbs with the tower so the finished building stays framed.
-    const az = 0.72 + p * 0.55 + pointer.x * 0.07;
-    const elev = lerp(0.42, 0.36, p) + pointer.y * 0.04;
-    const r = lerp(20, 19, easeOutCubic(p));
-    const ty = lerp(1.6, 4.6, easeOutCubic(p));
-    targetV.set(wide ? -3.3 : 0, ty, 0);
+    const az = 0.7 + p * 0.5 + pointer.x * 0.06 + (reduceMotion ? 0 : time * 0.012);
+    const elev = lerp(0.4, 0.34, p) + pointer.y * 0.04;
+    const r = 21;
+    const ty = lerp(1.8, 4.8, easeOutCubic(p));
+    targetV.set(wide ? -3.4 : 0, ty, 0);
     camera.position.set(targetV.x + r * Math.cos(elev) * Math.sin(az), ty + r * Math.sin(elev), targetV.z + r * Math.cos(elev) * Math.cos(az));
     camera.lookAt(targetV);
-    if (!reduceMotion) camera.position.y += Math.sin(time * 0.4) * 0.05;
   }
 
   function projectHUD(p) {
@@ -252,56 +241,60 @@ function initScene() {
       hud.el.classList.toggle('is-on', on);
       if (!on) continue;
       const v = hud.at.clone().project(camera);
-      hud.el.style.left = ((v.x + 1) / 2) * w + 34 + 'px';
+      hud.el.style.left = ((v.x + 1) / 2) * w + 36 + 'px';
       hud.el.style.top = ((1 - v.y) / 2) * h + 'px';
     }
   }
 
+  function readout(p) {
+    const count = blocks.reduce((n, b) => n + (p - b.delay >= 0.14 ? 1 : 0), 0);
+    if (count !== lastCount) { lastCount = count; blockCount.textContent = String(count).padStart(3, '0'); }
+    const pct = Math.round(p * 100);
+    if (pct !== lastPct) { lastPct = pct; scanPct.textContent = String(pct).padStart(3, '0'); }
+  }
+
+  function draw(p, time) {
+    uniforms.uProgress.value = p;
+    uniforms.uTime.value = time;
+    const towerTop = FLOORS * STEP + 0.6;
+    const scanY = reduceMotion ? towerTop * 0.55 : (Math.sin(time * 0.5) * 0.5 + 0.5) * towerTop;
+    uniforms.uScan.value = scanY;
+    scanPlane.position.y = scanY;
+    grid.material.uniforms.uTime.value = time;
+    updateCamera(p, time);
+    projectHUD(p);
+    readout(p);
+    renderer.render(scene, camera);
+  }
+
   function frame(now) {
-    if (reduceMotion) return; // static scene is drawn from resize()
+    if (reduceMotion) return;
     if (!visible || document.hidden) { needsFrame = true; return; }
     requestAnimationFrame(frame);
     const time = now / 1000;
-    const intro = reduceMotion ? 1 : easeOutCubic(clamp((now - introStart) / 2600, 0, 1));
-    const p = reduceMotion ? 1 : Math.max(intro * 0.42, scrollP);
+    const intro = easeOutCubic(clamp((now - introStart) / 3000, 0, 1));
+    const p = Math.max(intro * 0.4, scrollP);
 
-    pointer.x = lerp(pointer.x, pointer.tx, 0.06);
-    pointer.y = lerp(pointer.y, pointer.ty, 0.06);
+    pointer.x = lerp(pointer.x, pointer.tx, 0.05);
+    pointer.y = lerp(pointer.y, pointer.ty, 0.05);
 
-    layoutBlocks(p);
-    updateCamera(p, time);
+    top.rotation.y = Math.sin(time * 0.15) * 0.8 - 0.4;
+    trolley.position.x = 3.4 + Math.sin(time * 0.3) * 2.4;
+    hook.position.y = -1.6 - Math.sin(time * 0.45) * 0.7;
+    hookLine.geometry.attributes.position.setY(1, hook.position.y - 0.5 + SIZE / 2);
+    hookLine.geometry.attributes.position.needsUpdate = true;
+    beacon.visible = Math.sin(time * 2.6) > 0.4;
 
-    if (!reduceMotion) {
-      grid.material.uniforms.uTime.value = time;
-      top.rotation.y = Math.sin(time * 0.18) * 0.8 - 0.4;
-      trolley.position.x = 3.2 + Math.sin(time * 0.35) * 2.3;
-      hook.position.y = -1.4 - Math.sin(time * 0.5) * 0.6;
-      hookLine.geometry.attributes.position.setY(1, hook.position.y);
-      hookLine.geometry.attributes.position.needsUpdate = true;
-      const blink = (Math.sin(time * 3) > 0.6) ? 2.4 : 0.15;
-      beacon.material.emissiveIntensity = blink; beaconLight.intensity = blink * 2.5;
-
-      const pos = dust.geometry.attributes.position;
-      for (let i = 0; i < DUST; i++) {
-        let y = pos.getY(i) + 0.004 + Math.sin(dustSeed[i] + time) * 0.0015;
-        if (y > 10) y = 0;
-        pos.setY(i, y);
-        pos.setX(i, pos.getX(i) + Math.sin(time * 0.3 + dustSeed[i]) * 0.0015);
-      }
-      pos.needsUpdate = true;
-      dust.rotation.y = time * 0.01;
+    const pos = points.geometry.attributes.position;
+    for (let i = 0; i < COUNT; i++) {
+      let y = pos.getY(i) + 0.0025 + Math.sin(seeds[i] + time) * 0.001;
+      if (y > 12) y = 0;
+      pos.setY(i, y);
     }
-
-    const markT = easeOutBack(clamp((p - 0.86) / 0.14, 0, 1));
-    mark.scale.setScalar(Math.max(0.0001, markT));
-    mark.position.y = FLOORS * STEP + 2.0 + (reduceMotion ? 0 : Math.sin(time * 1.1) * 0.18);
-    mark.rotation.y = reduceMotion ? 0.3 : time * 0.35;
-    mark.rotation.x = reduceMotion ? 0 : Math.sin(time * 0.6) * 0.12;
-    bubble.material.emissiveIntensity = 1.2 + Math.sin(time * 2) * 0.5;
+    pos.needsUpdate = true;
 
     if (!built && p >= 0.999) { built = true; hero.classList.add('is-built'); }
-    projectHUD(p);
-    renderer.render(scene, camera);
+    draw(p, time);
   }
 
   function resize() {
@@ -310,7 +303,7 @@ function initScene() {
     camera.aspect = w / h;
     camera.fov = camera.aspect < 0.8 ? 46 : camera.aspect < 1.05 ? 36 : 30;
     camera.updateProjectionMatrix();
-    if (reduceMotion) { layoutBlocks(1); updateCamera(1, 0); mark.scale.setScalar(1); projectHUD(1); renderer.render(scene, camera); }
+    if (reduceMotion) draw(1, 0);
   }
   new ResizeObserver(resize).observe(stage);
   resize();
@@ -323,7 +316,6 @@ function initScene() {
     addEventListener('pointermove', (e) => { pointer.tx = (e.clientX / innerWidth - 0.5) * 2; pointer.ty = (e.clientY / innerHeight - 0.5) * 2; }, { passive: true });
   }
 
-  // Only render while the hero is on screen and the tab is visible.
   const io = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
     if (visible && needsFrame) { needsFrame = false; requestAnimationFrame(frame); }
@@ -341,13 +333,11 @@ function initPage() {
   const onScroll = () => nav.classList.toggle('is-scrolled', scrollY > 24);
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
-  // Fallbacks for browsers without scroll-driven animations.
-  const io = new IntersectionObserver((entries) => {
-    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in', 'is-drawn'); io.unobserve(e.target); }
-  }, { rootMargin: '0px 0px -12% 0px' });
   if (!CSS.supports('animation-timeline: view()')) {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); }
+    }, { rootMargin: '0px 0px -10% 0px' });
     document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
-    document.querySelectorAll('.steps').forEach((el) => io.observe(el));
   }
 }
 

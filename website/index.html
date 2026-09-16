@@ -3,31 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>CASPROD — Vos chantiers et vos équipes, en clair</title>
-<meta name="description" content="CASPROD est l’application des petites entreprises du bâtiment : journées et tâches déclarées, vérifications de présence ponctuelles, position en direct avec accord explicite. Sans surveillance continue.">
-<meta property="og:title" content="CASPROD — Vos chantiers et vos équipes, en clair">
-<meta property="og:description" content="L’application des petites entreprises du bâtiment. Déclarations, présence, chantiers — avec le consentement au centre.">
+<title>CASPROD</title>
+<meta name="description" content="CASPROD — système de suivi des chantiers et des équipes pour le bâtiment. Déclarations, présence, position : le strict nécessaire, avec l’accord de chacun.">
+<meta property="og:title" content="CASPROD">
+<meta property="og:description" content="Voir le chantier tel qu’il est. Système de suivi des chantiers et des équipes, conçu autour du consentement.">
 <meta property="og:url" content="https://casprod.app">
 <meta property="og:type" content="website">
-<meta name="theme-color" content="#0f0c17">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#07080a">
+<link rel="icon" href="/img/logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/landing.css">
 <link rel="modulepreload" href="/vendor/three.module.min.js">
 </head>
 <body>
-<a class="skip" href="#fonctionnement">Aller au contenu</a>
+<a class="skip" href="#capacites">Aller au contenu</a>
+<div class="grain" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
-  <a class="nav__brand" href="/"><img src="/img/logo-mark-white.svg" alt="" width="28" height="28"><span>CASPROD</span></a>
-  <nav class="nav__links" aria-label="Sections">
-    <a href="#fonctionnement">Fonctionnement</a>
-    <a href="#confiance">Confiance</a>
+  <a class="nav__brand" href="/"><img src="/img/logo.png" alt="" width="26" height="26"><span>CASPROD</span></a>
+  <nav class="nav__links mono" aria-label="Sections">
+    <a href="#capacites">Capacités</a>
+    <a href="#principes">Principes</a>
+    <a href="#journal">Journal</a>
     <a href="/support">Assistance</a>
   </nav>
-  <a class="btn btn--ghost btn--sm" href="#telecharger">Télécharger</a>
+  <a class="btn mono" href="mailto:contact@casprod.app?subject=Acc%C3%A8s%20anticip%C3%A9%20CASPROD">Accès anticipé <span aria-hidden="true">→</span></a>
 </header>
 
 <!-- ============ HERO ============ -->
@@ -35,97 +37,122 @@
   <div class="hero__stage">
     <canvas id="scene" aria-hidden="true"></canvas>
     <div class="hero__fallback" aria-hidden="true"></div>
-    <div class="hero__vignette" aria-hidden="true"></div>
+    <div class="hero__veil" aria-hidden="true"></div>
 
     <div class="hero__content">
-      <p class="eyebrow"><span class="dot"></span> Application iOS &amp; Android · Bâtiment</p>
-      <h1 class="hero__title">Vos chantiers et vos équipes,<br><em>en clair.</em></h1>
-      <p class="hero__lead">Journées et tâches déclarées, vérifications de présence ponctuelles, position en direct pendant la journée — toujours avec l’accord de la personne. Sans surveillance continue.</p>
+      <p class="mono tag"><span class="tag__dot"></span>SYSTÈME DE CHANTIER · VERSION 1.0 · EN ATTENTE DE PUBLICATION</p>
+      <h1 class="hero__title">Voir le chantier<br>tel qu’il est.</h1>
+      <p class="hero__lead">Journées déclarées. Présence vérifiée. Position pendant la journée, jamais après. Un système conçu pour les entreprises du bâtiment — et pour être accepté par ceux qui y travaillent.</p>
       <div class="hero__cta">
-        <a class="btn btn--primary" href="#telecharger">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2 2 7l10 5 10-5-10-5Zm-8 9.5V17l8 5 8-5v-5.5l-8 4-8-4Z"/></svg>
-          Bientôt sur l’App Store
-        </a>
-        <a class="btn btn--ghost" href="mailto:contact@casprod.app?subject=CASPROD">Écrire à l’équipe</a>
+        <a class="btn btn--solid mono" href="mailto:contact@casprod.app?subject=Acc%C3%A8s%20anticip%C3%A9%20CASPROD">Demander l’accès anticipé</a>
+        <a class="btn mono" href="#capacites">Explorer <span aria-hidden="true">↓</span></a>
       </div>
-      <ul class="hero__facts" aria-label="Points clés">
-        <li><strong>0</strong> suivi hors journée déclarée</li>
-        <li><strong>30 j</strong> de conservation maximum des preuves</li>
-        <li><strong>1 appui</strong> pour retirer son accord</li>
-      </ul>
     </div>
 
-    <div class="hero__hud" aria-hidden="true">
-      <div class="hud hud--a"><span class="hud__k">Chantier</span><span class="hud__v">Résidence Les Oliviers</span></div>
-      <div class="hud hud--b"><span class="hud__k">Journée</span><span class="hud__v">8 h · en cours</span></div>
-      <div class="hud hud--c"><span class="hud__k">Tâches</span><span class="hud__v">Pose lavabo ×3</span></div>
+    <div class="hero__hud mono" aria-hidden="true">
+      <div class="hud hud--a"><span class="hud__k">SITE</span><span class="hud__v">RÉSIDENCE LES OLIVIERS</span><span class="hud__m">33.5883 N · 7.6114 W</span></div>
+      <div class="hud hud--b"><span class="hud__k">JOURNÉE</span><span class="hud__v">08 H · OUVERTE</span><span class="hud__m">VÉRIF. 2/3 CONFIRMÉES</span></div>
+      <div class="hud hud--c"><span class="hud__k">TÂCHE</span><span class="hud__v">SAN_LAVABO × 3</span><span class="hud__m">DÉCLARÉE 14:12</span></div>
     </div>
 
-    <p class="hero__scroll" aria-hidden="true"><span></span>Faites défiler pour construire</p>
+    <div class="hero__meta mono" aria-hidden="true">
+      <span>SCAN <b id="scanPct">000</b>%</span>
+      <span>STRUCTURE <b id="blockCount">000</b>/<b id="blockTotal">000</b></span>
+      <span class="hero__meta-right">DÉFILER POUR CONSTRUIRE</span>
+    </div>
   </div>
 </section>
 
-<!-- ============ MARQUEE ============ -->
-<div class="marquee" aria-hidden="true">
-  <div class="marquee__track">
-    <span>Pose lavabo</span><span>Pose WC</span><span>Climatiseur mural</span><span>Gaine spirale DN100</span><span>Gaine spirale DN125</span><span>Gaine spirale DN160</span><span>Réseau PPR DN25</span><span>Réseau PPR DN30</span>
-    <span>Pose lavabo</span><span>Pose WC</span><span>Climatiseur mural</span><span>Gaine spirale DN100</span><span>Gaine spirale DN125</span><span>Gaine spirale DN160</span><span>Réseau PPR DN25</span><span>Réseau PPR DN30</span>
-  </div>
-</div>
-
-<!-- ============ FONCTIONNEMENT ============ -->
-<section class="section section--alt" id="fonctionnement">
+<!-- ============ STATEMENT ============ -->
+<section class="statement">
   <div class="wrap">
-    <p class="eyebrow reveal">Mise en route</p>
-    <h2 class="h2 reveal">Opérationnel en une pause café.</h2>
-    <ol class="steps">
-      <svg class="steps__line" viewBox="0 0 2 100" preserveAspectRatio="none" aria-hidden="true"><path d="M1 0 V100" /></svg>
-      <li class="step reveal"><span class="step__n">01</span><div><h3>Créez votre entreprise</h3><p>Inscription du chef, nom de l’entreprise, premier chantier avec son adresse. Deux minutes.</p></div></li>
-      <li class="step reveal"><span class="step__n">02</span><div><h3>Partagez le code d’affiliation</h3><p>Chaque employé rejoint l’entreprise avec un code, ou vous créez son compte vous-même. Pas d’adresse e-mail requise pour l’équipe.</p></div></li>
-      <li class="step reveal"><span class="step__n">03</span><div><h3>L’équipe déclare, vous voyez</h3><p>Journées, tâches, présences confirmées — en direct sur votre tableau de bord et dans l’historique de chaque chantier.</p></div></li>
+    <p class="mono label reveal">00 · POSITION</p>
+    <p class="statement__text reveal">La plupart des outils de suivi choisissent la surveillance. Ils collectent tout, en permanence, et laissent l’employeur trier. CASPROD choisit l’inverse : <em>le minimum de données, déclaré, consenti, puis effacé.</em></p>
+  </div>
+</section>
+
+<!-- ============ CAPACITÉS ============ -->
+<section class="section" id="capacites">
+  <div class="wrap">
+    <div class="section__head reveal">
+      <p class="mono label">01 · CAPACITÉS</p>
+      <h2 class="h2">Trois fonctions. Rien d’autre.</h2>
+    </div>
+    <div class="cols">
+      <article class="col reveal">
+        <p class="mono index">01</p>
+        <h3>Déclaration</h3>
+        <p>L’employé ouvre une journée sur un chantier, annonce sa durée, et déclare ses tâches depuis un catalogue métier codé. Pas de texte libre : des quantités par unité, comparables d’un jour à l’autre.</p>
+        <p class="mono col__foot">CATALOGUE · PLOMBERIE / CVC · 8 CODES</p>
+      </article>
+      <article class="col reveal">
+        <p class="mono index">02</p>
+        <h3>Présence</h3>
+        <p>Deux à trois vérifications par journée, à des moments non annoncés, planifiées côté serveur. Une photo sur place et une lecture GPS — uniquement à l’appui. Une vérification manquée n’est pas une absence.</p>
+        <p class="mono col__foot">FENÊTRE 30 MIN · PREUVE 30 J MAX</p>
+      </article>
+      <article class="col reveal">
+        <p class="mono index">03</p>
+        <h3>Position</h3>
+        <p>Si le chef l’active et si l’employé l’accepte, la position est transmise pendant la journée déclarée, toutes les deux minutes. Seule la dernière est conservée. Fin de journée : effacée.</p>
+        <p class="mono col__foot">AUCUN HISTORIQUE · RETRAIT IMMÉDIAT</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRINCIPES ============ -->
+<section class="section section--rule" id="principes">
+  <div class="wrap">
+    <div class="section__head reveal">
+      <p class="mono label">02 · PRINCIPES</p>
+      <h2 class="h2">Ce que le système refuse de faire.</h2>
+    </div>
+    <ol class="rules">
+      <li class="rule reveal"><span class="mono rule__n">P-01</span><div><h3>Aucun suivi continu</h3><p>Pas de position lue en dehors d’une journée déclarée. Pas d’accès en arrière-plan sans journée ouverte. Contraint au niveau de la base de données, pas seulement de l’interface.</p></div></li>
+      <li class="rule reveal"><span class="mono rule__n">P-02</span><div><h3>Accord daté et versionné</h3><p>La notice est présentée avant tout accès caméra ou GPS. Elle est enregistrée avec sa version et redemandée si elle change. L’employeur reste responsable de l’usage.</p></div></li>
+      <li class="rule reveal"><span class="mono rule__n">P-03</span><div><h3>Preuves éphémères</h3><p>Photos et coordonnées sont supprimées après trente jours au plus. Seul le fait qu’une vérification a eu lieu subsiste dans l’historique.</p></div></li>
+      <li class="rule reveal"><span class="mono rule__n">P-04</span><div><h3>Suppression sans intermédiaire</h3><p>Chaque compte peut être supprimé depuis l’application, immédiatement. Le travail déclaré reste dans les registres de l’entreprise, anonymisé.</p></div></li>
     </ol>
+    <p class="reveal"><a class="link mono" href="/privacy">LIRE LA POLITIQUE DE CONFIDENTIALITÉ →</a></p>
   </div>
 </section>
 
-<!-- ============ CONFIANCE ============ -->
-<section class="section" id="confiance">
+<!-- ============ JOURNAL ============ -->
+<section class="section" id="journal">
   <div class="wrap">
-    <p class="eyebrow reveal">Conçu pour être accepté par l’équipe</p>
-    <h2 class="h2 reveal">La confiance n’est pas une option de réglage.</h2>
-    <p class="lead reveal">Les outils de « tracking » créent de la défiance et des obligations légales lourdes. CASPROD prend le chemin inverse : le minimum de données, expliqué, consenti, et effacé.</p>
-    <div class="grid4">
-      <div class="tile reveal"><div class="tile__icon">🛑</div><h3>Zéro suivi continu</h3><p>Aucune position lue en dehors d’une journée déclarée. La position en direct, si le chef l’active, ne démarre qu’avec l’accord de l’employé et s’arrête avec la journée.</p></div>
-      <div class="tile reveal"><div class="tile__icon">🧾</div><h3>Accord versionné</h3><p>La notice est présentée avant tout accès caméra ou GPS. Elle est datée, versionnée, et redemandée si elle change.</p></div>
-      <div class="tile reveal"><div class="tile__icon">⏳</div><h3>Preuves éphémères</h3><p>Photos et coordonnées des vérifications sont supprimées après 30 jours au plus. Seul le fait qu’une vérification a eu lieu reste.</p></div>
-      <div class="tile reveal"><div class="tile__icon">🗑️</div><h3>Suppression en un geste</h3><p>Chaque utilisateur peut supprimer son compte dans l’application. Aucune demande par e-mail, aucun délai.</p></div>
+    <div class="section__head reveal">
+      <p class="mono label">03 · JOURNAL</p>
+      <h2 class="h2">État d’avancement.</h2>
     </div>
-    <p class="reveal"><a class="link" href="/privacy">Lire la politique de confidentialité →</a></p>
+    <ul class="log mono">
+      <li class="reveal"><span class="log__d">2026-08</span><span class="log__t">Schéma initial, entreprises, chantiers, comptes employés.</span><span class="log__s log__s--done">FAIT</span></li>
+      <li class="reveal"><span class="log__d">2026-09</span><span class="log__t">Vérifications de présence planifiées côté serveur, catalogue de tâches, position en direct avec accord.</span><span class="log__s log__s--done">FAIT</span></li>
+      <li class="reveal"><span class="log__d">2026-09</span><span class="log__t">Suppression de compte en libre-service, pages légales, soumission App Store.</span><span class="log__s log__s--live">EN COURS</span></li>
+      <li class="reveal"><span class="log__d">2026-Q4</span><span class="log__t">Publication Google Play. Catalogues pour d’autres corps de métier.</span><span class="log__s">À VENIR</span></li>
+    </ul>
   </div>
 </section>
 
 <!-- ============ CTA ============ -->
-<section class="cta" id="telecharger">
+<section class="cta">
   <div class="wrap cta__inner reveal">
-    <img class="cta__logo" src="/img/logo-mark-white.svg" alt="" width="56" height="56">
-    <h2 class="h2">Prêt pour votre prochain chantier.</h2>
-    <p class="lead">CASPROD arrive sur l’App Store. Écrivez-nous pour être prévenu de la sortie, ou pour organiser une démonstration avec votre équipe.</p>
-    <div class="hero__cta">
-      <a class="btn btn--primary" href="mailto:contact@casprod.app?subject=Pr%C3%A9venez-moi%20de%20la%20sortie%20de%20CASPROD">Me prévenir de la sortie</a>
-      <a class="btn btn--ghost" href="mailto:contact@casprod.app?subject=D%C3%A9monstration%20CASPROD">Demander une démo</a>
-    </div>
+    <img class="cta__logo" src="/img/logo.png" alt="" width="64" height="64">
+    <h2 class="h2">Accès anticipé.</h2>
+    <p class="lead">Quelques entreprises du bâtiment sont accompagnées avant la publication. Décrivez votre activité en deux lignes ; nous répondons sous deux jours ouvrés.</p>
+    <a class="btn btn--solid mono" href="mailto:contact@casprod.app?subject=Acc%C3%A8s%20anticip%C3%A9%20CASPROD">contact@casprod.app</a>
   </div>
 </section>
 
-<footer class="footer">
+<footer class="footer mono">
   <div class="wrap footer__inner">
-    <div class="footer__brand"><img src="/img/logo-mark-white.svg" alt="" width="22" height="22"><span>CASPROD</span></div>
+    <div class="footer__brand"><img src="/img/logo.png" alt="" width="20" height="20"><span>CASPROD</span></div>
     <nav aria-label="Pages légales">
-      <a href="/support">Assistance</a>
-      <a href="/privacy">Confidentialité</a>
-      <a href="/terms">Conditions</a>
-      <a href="mailto:contact@casprod.app">contact@casprod.app</a>
+      <a href="/support">ASSISTANCE</a>
+      <a href="/privacy">CONFIDENTIALITÉ</a>
+      <a href="/terms">CONDITIONS</a>
     </nav>
-    <p>© 2026 CASPROD · Yanis El-Mansori et Yann Salvignol</p>
+    <p>© 2026 · Y. EL-MANSORI &amp; Y. SALVIGNOL</p>
   </div>
 </footer>
 

@@ -90,11 +90,13 @@ function page({ title, body, slug }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escape(title)}</title>
 <meta name="description" content="${escape(title)} de l’application CASPROD.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/img/logo.png" type="image/png">
 </head>
 <body>
-<header><a class="brand" href="/">CASPROD</a><nav>${nav}</nav></header>
+<header><a class="brand" href="/"><img src="/img/logo.png" alt="">CASPROD</a><nav>${nav}</nav></header>
 <main>
 ${body}
 </main>
@@ -104,31 +106,29 @@ ${body}
 `;
 }
 
-const STYLE = `:root{color-scheme:light dark;--bg:#faf8ff;--fg:#1c1730;--muted:#5b5570;--accent:#7238ce;--line:#e5e0f2;--card:#fff}
-@media(prefers-color-scheme:dark){:root{--bg:#14111f;--fg:#ece8f7;--muted:#a59fbf;--accent:#b18cf0;--line:#2c2740;--card:#1c1829}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.brand{font-weight:800;letter-spacing:.04em;color:var(--fg);text-decoration:none;font-size:18px}
-nav{display:flex;gap:16px}nav a{color:var(--muted);text-decoration:none}nav a[aria-current]{color:var(--accent);font-weight:600}
-main{max-width:720px;margin:0 auto;padding:32px 20px 64px}
-h1{font-size:28px;line-height:1.25;margin:0 0 8px}h2{font-size:20px;margin:36px 0 8px}h3{font-size:17px;margin:24px 0 4px}
-p{margin:0 0 14px}.meta{color:var(--muted);font-size:14px}
-a{color:var(--accent)}strong{font-weight:600}code{font-size:.9em;background:var(--line);padding:1px 5px;border-radius:4px}
-ul{padding-left:22px;margin:0 0 14px}li{margin-bottom:6px}
-blockquote{margin:0 0 14px;padding:10px 14px;border-left:3px solid var(--accent);background:var(--card);color:var(--muted)}
-.table{overflow-x:auto;margin:0 0 14px}table{border-collapse:collapse;width:100%;font-size:15px}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:600}
-footer{text-align:center;color:var(--muted);font-size:14px;padding:24px 20px;border-top:1px solid var(--line)}
-.home{display:grid;gap:12px;margin-top:24px}.home a{display:block;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card);text-decoration:none;color:var(--fg)}.home a span{display:block;color:var(--muted);font-size:14px}
+const STYLE = `:root{color-scheme:dark;--bg:#07080a;--fg:#e8eaee;--fg2:#b7bcc6;--muted:#6f7683;--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);--signal:#cfd8ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg2);font:16px/1.65 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:.18em;color:var(--fg);text-decoration:none}
+.brand img{width:22px;height:22px;border-radius:5px;box-shadow:0 0 0 1px var(--line2)}
+nav{display:flex;gap:22px;font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase}nav a{color:var(--muted);text-decoration:none}nav a:hover{color:var(--fg)}nav a[aria-current]{color:var(--fg)}
+main{max-width:720px;margin:0 auto;padding:56px 28px 96px}
+h1{font-size:34px;line-height:1.1;margin:0 0 10px;color:var(--fg);font-weight:500;letter-spacing:-.025em}h2{font-size:20px;margin:44px 0 10px;color:var(--fg);font-weight:500;letter-spacing:-.02em}h3{font-size:16px;margin:24px 0 4px;color:var(--fg);font-weight:500}
+p{margin:0 0 14px}.meta{color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:28px}
+a{color:var(--signal)}strong{font-weight:500;color:var(--fg)}code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.85em;background:rgba(255,255,255,.06);padding:1px 5px}
+ul{padding-left:20px;margin:0 0 14px}li{margin-bottom:6px}
+blockquote{margin:0 0 14px;padding:10px 16px;border-left:1px solid var(--line2);color:var(--muted)}
+.table{overflow-x:auto;margin:0 0 14px}table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:500;font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+footer{text-align:center;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:28px 20px 44px;border-top:1px solid var(--line)}footer a{color:var(--muted)}
 `;
 
-const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#7238ce"/><rect x="14" y="26" width="36" height="12" rx="6" fill="#fff"/></svg>`;
+
 
 // website/index.html (the landing page) is hand-written and not generated here.
 
 await mkdir(OUT, { recursive: true });
 await writeFile(path.join(OUT, 'style.css'), STYLE);
-await writeFile(path.join(OUT, 'favicon.svg'), FAVICON);
 for (const { slug, file } of PAGES) {
   const { title, body } = render(await readFile(path.join(SOURCE, file), 'utf8'));
   await mkdir(path.join(OUT, slug), { recursive: true });
