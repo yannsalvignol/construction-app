@@ -13,7 +13,13 @@ export function loadGoogleMaps(): Promise<typeof google> {
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_BROWSER_KEY)}&v=weekly&language=fr&region=MA&loading=async`;
     script.async = true;
     script.onerror = () => { loading = null; reject(new Error('Google Maps n’a pas pu être chargé.')); };
-    script.onload = () => resolve(window.google);
+    // With loading=async the namespace is empty at onload: the libraries used
+    // (Map/Circle in "maps", legacy Marker in "marker") must be imported first.
+    script.onload = () => {
+      Promise.all([window.google.maps.importLibrary('maps'), window.google.maps.importLibrary('marker')])
+        .then(() => resolve(window.google))
+        .catch(() => { loading = null; reject(new Error('Google Maps n’a pas pu être initialisé.')); });
+    };
     document.head.appendChild(script);
   });
   return loading;
