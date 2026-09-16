@@ -100,3 +100,9 @@ input::placeholder { color: var(--muted); }
 .seg button:last-child { border-right: 0; }
 .seg button:hover { color: var(--fg); background: var(--hover); }
 .seg button[aria-pressed="true"] { color: var(--bg); background: var(--fg); }
+
+/* map */
+.map { position: relative; border: 1px solid var(--line-2); background: var(--panel); height: min(520px, 60vh); margin-bottom: 24px; }
+.map__canvas { position: absolute; inset: 0; }
+.map__error { position: absolute; left: 12px; bottom: 12px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--line-2); }
+.map--empty { display: grid; place-content: center; text-align: center; gap: 8px; }
