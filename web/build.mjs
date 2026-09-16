@@ -29,7 +29,7 @@ cpSync(path.join(WEB, 'app/dist'), DIST, { recursive: true });
 // App routes. Anything under these prefixes is the SPA; everything else is a
 // static file of the landing. Kept explicit so a typo in a landing link
 // still 404s instead of silently opening the app.
-export const APP_ROUTES = ['/login', '/signup', '/onboarding', '/dashboard', '/employees', '/sites', '/live', '/account'];
+export const APP_ROUTES = ['/login', '/signup', '/onboarding', '/dashboard', '/employees', '/sites', '/planning', '/live', '/account'];
 writeFileSync(path.join(DIST, '_redirects'),
   APP_ROUTES.flatMap((r) => [`${r}  /app  200`, `${r}/*  /app  200`]).join('\n') + '\n');
 

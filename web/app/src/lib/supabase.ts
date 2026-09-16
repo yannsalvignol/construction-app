@@ -27,6 +27,8 @@ const FR: Record<string, string> = {
   'Employee not found': 'Employé introuvable.',
   'Site not found': 'Chantier introuvable.',
   'Only a chef can regenerate the join code': "Seul un chef peut régénérer le code d'affiliation.",
+  'Nothing to send for this period': 'Rien à envoyer pour cette période.',
+  'Invalid date range': 'Période invalide.',
 };
 export function fr(message: string | undefined | null, fallback = 'Une erreur est survenue. Réessayez.') {
   if (!message) return fallback;

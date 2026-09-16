@@ -8,6 +8,7 @@ import { EmployeeDetail } from './pages/EmployeeDetail';
 import { Employees } from './pages/Employees';
 import { Live } from './pages/Live';
 import { Onboarding } from './pages/Onboarding';
+import { Planning } from './pages/Planning';
 import { SignIn } from './pages/SignIn';
 import { SignUp } from './pages/SignUp';
 import { Sites } from './pages/Sites';
@@ -45,6 +46,7 @@ function Router() {
         <Route path="/employees" element={<Employees />} />
         <Route path="/employees/:id" element={<EmployeeDetail />} />
         <Route path="/sites" element={<Sites />} />
+        <Route path="/planning" element={<Planning />} />
         <Route path="/live" element={<Live />} />
         <Route path="/account" element={<Account />} />
       </Route>

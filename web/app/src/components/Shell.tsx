@@ -5,6 +5,7 @@ const links = [
   { to: '/dashboard', label: 'Accueil' },
   { to: '/employees', label: 'Employés' },
   { to: '/sites', label: 'Chantiers' },
+  { to: '/planning', label: 'Planning' },
   { to: '/live', label: 'En direct' },
   { to: '/account', label: 'Compte' },
 ];

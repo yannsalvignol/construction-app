@@ -15,6 +15,9 @@ export default function EmployeeTabs() {
           <TabTrigger name="today" href="/" asChild>
             <TabButton>{t.employeeTabs.today}</TabButton>
           </TabTrigger>
+          <TabTrigger name="schedule" href="/schedule" asChild>
+            <TabButton>{t.employeeTabs.schedule}</TabButton>
+          </TabTrigger>
           <TabTrigger name="instructions" href="/instructions" asChild>
             <TabButton>{t.employeeTabs.instructions}</TabButton>
           </TabTrigger>

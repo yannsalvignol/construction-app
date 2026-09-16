@@ -9,6 +9,14 @@ const fr = {
     done: 'Terminé',
   },
 
+  planning: {
+    chefHint: 'Consultation seulement : créez et envoyez les plannings depuis casprod.app.',
+    employeeHint: 'Les créneaux envoyés par votre chef. Ils sont mis à jour à chaque envoi.',
+    weekOf: (day: string) => `Semaine du ${day}`,
+    weekTotal: (hours: number) => `${hours} h prévues cette semaine pour vous`,
+    failed: 'Impossible de charger le planning. Réessayez.',
+  },
+
   chefTabs: {
     home: 'Accueil',
     employees: 'Employés',
@@ -19,6 +27,7 @@ const fr = {
 
   employeeTabs: {
     today: "Aujourd'hui",
+    schedule: 'Planning',
     instructions: 'Instructions',
     map: 'Présence',
     report: 'Tâches',

@@ -12,6 +12,14 @@ const en = {
     done: 'Done',
   },
 
+  planning: {
+    chefHint: 'Read-only here: create and send plannings from casprod.app.',
+    employeeHint: 'The shifts your chef sent you. Updated on every send.',
+    weekOf: (day: string) => `Week of ${day}`,
+    weekTotal: (hours: number) => `${hours} h planned for you this week`,
+    failed: 'Could not load the planning. Try again.',
+  },
+
   chefTabs: {
     home: 'Home',
     employees: 'Employees',
@@ -22,6 +30,7 @@ const en = {
 
   employeeTabs: {
     today: 'Today',
+    schedule: 'Planning',
     instructions: 'Instructions',
     map: 'Presence',
     report: 'Tasks',

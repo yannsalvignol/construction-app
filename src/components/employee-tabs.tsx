@@ -20,6 +20,11 @@ export default function EmployeeTabs() {
         <NativeTabs.Trigger.Icon sf="house" md="home" />
       </NativeTabs.Trigger>
 
+      <NativeTabs.Trigger name="schedule">
+        <NativeTabs.Trigger.Label>{t.employeeTabs.schedule}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="instructions">
         <NativeTabs.Trigger.Label>{t.employeeTabs.instructions}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="megaphone" md="campaign" />

@@ -491,4 +491,44 @@ test('presence and productivity database contracts', async t => {
     assert.equal((await db.query('select * from auth.users where id in ($1,$2)', [chef, staff])).rows.length, 0);
     assert.equal((await db.query('select * from public.presence_consents where employee_id=$1', [staff])).rows.length, 0);
   });
+  await t.test('planning is written by the chef on the web and read by employees once sent', async () => {
+    // Fresh company: earlier tests deleted the fixture employees of both companies.
+    const chefB = '70000000-0000-0000-0000-000000000001', staffB = '70000000-0000-0000-0000-000000000002';
+    await db.query("insert into auth.users(id,email) values ($1,'plan-chef@example.test'), ($2,'plan-staff@employee.local')", [chefB, staffB]);
+    const companyB = (await as(chefB, "select * from public.create_company_and_chef_profile('Planning Ltd','Plan','Chef')"))[0].company_id;
+    await db.query("insert into public.profiles(id,company_id,first_name,last_name,role) values ($1,$2,'Plan','Staff','employee')", [staffB, companyB]);
+    const siteB = (await db.query("insert into public.sites(company_id,name,address,latitude,longitude) values ($1,'Plan site','4 rue D, Tanger',35.76,-5.83) returning id", [companyB])).rows[0].id;
+    const shift = (employee, date, start = '08:00', end = '17:00') =>
+      as(chefB, "insert into public.planned_shifts(company_id, employee_id, site_id, work_date, start_time, end_time, created_by) values ($1,$2,$3,$4,$5,$6,$7) returning id",
+        [companyB, employee, siteB, date, start, end, chefB]);
+    // Employees cannot write; a chef cannot schedule someone from another company or on a foreign site.
+    await assert.rejects(as(staffB, "insert into public.planned_shifts(company_id, employee_id, site_id, work_date, start_time, end_time, created_by) values ($1,$2,$3,'2026-09-21','08:00','17:00',$2)", [companyB, staffB, siteB]), /row-level security/);
+    await assert.rejects(as(chefB, "insert into public.planned_shifts(company_id, employee_id, site_id, work_date, start_time, end_time, created_by) values ($1,$2,$3,'2026-09-21','08:00','17:00',$4)", [companyB, ids.chef, siteB, chefB]), /row-level security/);
+    await assert.rejects(as(chefB, "insert into public.planned_shifts(company_id, employee_id, site_id, work_date, start_time, end_time, created_by) values ($1,$2,$3,'2026-09-21','08:00','17:00',$4)", [companyB, staffB, ids.site, chefB]), /row-level security/);
+    await assert.rejects(shift(staffB, '2026-09-21', '17:00', '08:00'), /check constraint/);
+    const [{ id }] = await shift(staffB, '2026-09-21');
+    await shift(chefB, '2026-09-21', '07:30', '12:00');
+    // Not sent yet: invisible to the employee, visible to the chef.
+    assert.equal((await as(staffB, 'select * from public.planned_shifts')).length, 0);
+    assert.equal((await as(chefB, 'select * from public.planned_shifts')).length, 2);
+    await assert.rejects(as(staffB, "select public.publish_planning('2026-09-21','2026-09-27')"), /Chef account required/);
+    await assert.rejects(as(chefB, "select public.publish_planning('2026-10-05','2026-10-11')"), /Nothing to send/);
+    const sent = await scalar(chefB, "select public.publish_planning('2026-09-21','2026-09-27')");
+    assert.equal(sent.shifts, 2);
+    assert.deepEqual(new Set(sent.employees), new Set([staffB, chefB]));
+    assert.equal((await as(staffB, 'select * from public.planned_shifts')).length, 1, 'employee sees only their own sent shift');
+    assert.equal((await as(chefB, 'select * from public.planning_sends')).length, 1);
+    assert.equal((await as(ids.chef, 'select * from public.planning_sends')).length, 0, 'sends are company-private');
+    // Editing after a send hides the shift again until the next send.
+    await as(chefB, "update public.planned_shifts set end_time = '18:00' where id = $1", [id]);
+    assert.equal((await as(staffB, 'select * from public.planned_shifts')).length, 0);
+    assert.equal((await db.query('select published_at from public.planned_shifts where id=$1', [id])).rows[0].published_at, null);
+    // Push targets are service-only and respect the employee's notification switch.
+    await assert.rejects(as(chefB, 'select * from public.planning_push_targets($1)', [[staffB]]), /permission denied/);
+    await db.query("insert into private.push_tokens(token, employee_id) values ('ExpoPushToken[staffB]', $1)", [staffB]);
+    assert.equal((await as(null, 'select * from public.planning_push_targets($1)', [[staffB, chefB]], 'service_role')).length, 1);
+    await db.query('update public.profiles set notifications_enabled = false where id = $1', [staffB]);
+    assert.equal((await as(null, 'select * from public.planning_push_targets($1)', [[staffB]], 'service_role')).length, 0);
+    await db.query('update public.profiles set notifications_enabled = true where id = $1', [staffB]);
+  });
 });
