@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds the legal/support pages at casprod.app from docs/legal/*.md into
-// website/. The landing page (website/index.html + landing.css/js) is
+// web/site/. The landing page (web/site/index.html + landing.css/js) is
 // hand-written and left untouched.
 //
 // The Markdown in docs/legal is the source of truth (it is what gets reviewed
@@ -14,7 +14,7 @@ import path from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const SOURCE = path.join(ROOT, 'docs/legal');
-const OUT = path.join(ROOT, 'website');
+const OUT = path.join(ROOT, 'web/site');
 
 const PAGES = [
   { slug: 'privacy', file: 'privacy-policy.md' },
@@ -125,7 +125,7 @@ footer{text-align:center;color:var(--muted);font-family:"IBM Plex Mono",ui-monos
 
 
 
-// website/index.html (the landing page) is hand-written and not generated here.
+// web/site/index.html (the landing page) is hand-written and not generated here.
 
 await mkdir(OUT, { recursive: true });
 await writeFile(path.join(OUT, 'style.css'), STYLE);
@@ -133,5 +133,5 @@ for (const { slug, file } of PAGES) {
   const { title, body } = render(await readFile(path.join(SOURCE, file), 'utf8'));
   await mkdir(path.join(OUT, slug), { recursive: true });
   await writeFile(path.join(OUT, slug, 'index.html'), page({ title, body, slug }));
-  console.log(`website/${slug}/index.html ← docs/legal/${file}`);
+  console.log(`web/site/${slug}/index.html ← docs/legal/${file}`);
 }

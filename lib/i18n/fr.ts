@@ -9,12 +9,6 @@ const fr = {
     done: 'Terminé',
   },
 
-  phoneOnly: {
-    title: 'L’application employé est sur votre téléphone',
-    body: 'Journées, vérifications de présence et position en direct ont besoin de la caméra, du GPS et des notifications d’un téléphone. Installez CASPROD sur iPhone ou Android et connectez-vous là-bas. Cet espace web est réservé aux chefs de chantier.',
-    backToSignIn: 'Retour à la connexion',
-  },
-
   chefTabs: {
     home: 'Accueil',
     employees: 'Employés',

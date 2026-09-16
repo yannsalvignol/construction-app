@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
@@ -93,15 +93,9 @@ export default function SignInScreen() {
             <ThemedText type="linkPrimary">{t.signIn.ownerLink}</ThemedText>
           </Link>
 
-          {Platform.OS === 'web' ? (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.link}>
-              {t.phoneOnly.body}
-            </ThemedText>
-          ) : (
-            <Link href="/join" style={styles.link}>
-              <ThemedText type="linkPrimary">{t.signIn.joinLink}</ThemedText>
-            </Link>
-          )}
+          <Link href="/join" style={styles.link}>
+            <ThemedText type="linkPrimary">{t.signIn.joinLink}</ThemedText>
+          </Link>
         </ThemedView>
       </SafeAreaView>
     </DismissKeyboardView>

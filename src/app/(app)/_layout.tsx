@@ -1,13 +1,9 @@
 import { Stack } from 'expo-router';
-import { Platform } from 'react-native';
 
-import { PhoneOnlyNotice } from '@/components/phone-only-notice';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function AppLayout() {
   const { profile } = useAuth();
-
-  if (Platform.OS === 'web' && profile?.role === 'employee') return <PhoneOnlyNotice signedIn />;
 
   return (
       <Stack screenOptions={{ headerShown: false }}>
