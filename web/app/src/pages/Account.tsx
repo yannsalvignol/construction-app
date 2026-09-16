@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../lib/auth';
+import { useTheme, type ThemeChoice } from '../lib/theme';
 import { fr, functionError, supabase } from '../lib/supabase';
 
 export function Account() {
   const { session, profile, signOut } = useAuth();
+  const [theme, setTheme] = useTheme();
+  const themes: { value: ThemeChoice; label: string }[] = [{ value: 'dark', label: 'Sombre' }, { value: 'light', label: 'Clair' }, { value: 'system', label: 'Système' }];
   const [pw, setPw] = useState('');
   const [pwMsg, setPwMsg] = useState<{ ok?: string; error?: string }>({});
   const [confirming, setConfirming] = useState(false);
@@ -42,6 +45,13 @@ export function Account() {
           {pwMsg.ok && <p className="ok">{pwMsg.ok}</p>}
           <div><button className="btn" disabled={!pw}>Mettre à jour</button></div>
         </form>
+      </div>
+      <div className="panel" style={{ marginBottom: 20 }}>
+        <h2>Apparence</h2>
+        <p className="hint">Le choix est mémorisé sur ce navigateur. « Système » suit le réglage de votre ordinateur.</p>
+        <div className="seg" role="group" aria-label="Thème">
+          {themes.map((t) => <button key={t.value} type="button" aria-pressed={theme === t.value} onClick={() => setTheme(t.value)}>{t.label}</button>)}
+        </div>
       </div>
       <div className="panel">
         <h2>Supprimer le compte</h2>
