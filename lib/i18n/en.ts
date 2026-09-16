@@ -12,6 +12,12 @@ const en = {
     done: 'Done',
   },
 
+  phoneOnly: {
+    title: 'The employee app lives on your phone',
+    body: 'Work days, presence checks and live position need the camera, GPS and notifications of a phone. Install CASPROD on iPhone or Android and sign in there. This web space is for site managers.',
+    backToSignIn: 'Back to sign in',
+  },
+
   chefTabs: {
     home: 'Home',
     employees: 'Employees',

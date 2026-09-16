@@ -1,10 +1,11 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Keyboard, Platform, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { PasswordInput } from '@/components/password-input';
+import { PhoneOnlyNotice } from '@/components/phone-only-notice';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -31,6 +32,11 @@ const inputStyle = (theme: ReturnType<typeof useTheme>) => [
  * profile to.
  */
 export default function JoinScreen() {
+  if (Platform.OS === 'web') return <PhoneOnlyNotice signedIn={false} />;
+  return <JoinForm />;
+}
+
+function JoinForm() {
   const theme = useTheme();
   const { t } = useI18n();
   const { checkJoinCode, signUpAsEmployee } = useAuth();
