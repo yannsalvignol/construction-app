@@ -84,7 +84,6 @@ function initScene() {
     });
   }
   const TOTAL = blocks.length;
-  document.getElementById('blockTotal').textContent = String(TOTAL).padStart(3, '0');
 
   // Merge one box per block into a single geometry, tagging every vertex with
   // its block centre and build delay so a vertex shader can animate each block.
@@ -216,14 +215,12 @@ function initScene() {
     { el: stage.querySelector('.hud--b'), at: new THREE.Vector3(half + 0.3, 3 * STEP + 0.5, -half), from: 0.62 },
     { el: stage.querySelector('.hud--c'), at: new THREE.Vector3(-half + 0.5, FLOORS * STEP + 0.3, half - 0.5), from: 0.96 },
   ];
-  const scanPct = document.getElementById('scanPct'), blockCount = document.getElementById('blockCount');
 
   // ----- state
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   const targetV = new THREE.Vector3();
-  let introStart = performance.now(), built = false, visible = true, needsFrame = true, lastCount = -1, lastPct = -1;
+  let introStart = performance.now(), built = false, visible = true, needsFrame = true;
   const BUILD_MS = 7000, BUILD_DELAY_MS = 600;
-  const scanState = document.getElementById('scanState');
 
   function updateCamera(p, time) {
     const wide = camera.aspect > 1.05;
@@ -248,13 +245,6 @@ function initScene() {
     }
   }
 
-  function readout(p) {
-    const count = blocks.reduce((n, b) => n + (p - b.delay >= 0.14 ? 1 : 0), 0);
-    if (count !== lastCount) { lastCount = count; blockCount.textContent = String(count).padStart(3, '0'); }
-    const pct = Math.round(p * 100);
-    if (pct !== lastPct) { lastPct = pct; scanPct.textContent = String(pct).padStart(3, '0'); }
-  }
-
   function draw(p, time) {
     uniforms.uProgress.value = p;
     uniforms.uTime.value = time;
@@ -265,7 +255,6 @@ function initScene() {
     grid.material.uniforms.uTime.value = time;
     updateCamera(p, time);
     projectHUD(p);
-    readout(p);
     renderer.render(scene, camera);
   }
 
@@ -294,7 +283,7 @@ function initScene() {
     }
     pos.needsUpdate = true;
 
-    if (!built && p >= 0.999) { built = true; hero.classList.add('is-built'); scanState.textContent = 'STRUCTURE STABLE · SCAN CONTINU'; }
+    if (!built && p >= 0.999) { built = true; hero.classList.add('is-built'); }
     draw(p, time);
   }
 
