@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
 const links = [
-  { to: '/', label: 'Accueil', end: true },
+  { to: '/dashboard', label: 'Accueil' },
   { to: '/employees', label: 'Employés' },
   { to: '/sites', label: 'Chantiers' },
   { to: '/live', label: 'En direct' },
@@ -14,8 +14,8 @@ export function Shell() {
   return (
     <div className="shell">
       <aside className="side">
-        <a className="brand" href="/"><img src="/logo.png" alt="" />CASPROD</a>
-        <nav>{links.map((l) => <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? 'active' : '')}>{l.label}</NavLink>)}</nav>
+        <a className="brand" href="/dashboard"><img src="/logo.png" alt="" />CASPROD</a>
+        <nav>{links.map((l) => <NavLink key={l.to} to={l.to} className={({ isActive }) => (isActive ? 'active' : '')}>{l.label}</NavLink>)}</nav>
         <div className="side__foot">
           <span className="fg2">{profile?.first_name} {profile?.last_name}</span>
           <span className="mono muted">Chef</span>

@@ -53,7 +53,7 @@ export function Account() {
           </div>
         )}
         {delError && <p className="error">{delError}</p>}
-        <p className="hint">Documents : <a href="https://casprod.app/privacy">confidentialité</a> · <a href="https://casprod.app/terms">conditions</a> · <a href="https://casprod.app/support">assistance</a></p>
+        <p className="hint">Documents : <a href="/privacy">confidentialité</a> · <a href="/terms">conditions</a> · <a href="/support">assistance</a></p>
       </div>
     </>
   );

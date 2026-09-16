@@ -4,7 +4,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="auth">
       <aside className="auth__aside">
-        <a className="brand" href="https://casprod.app"><img src="/logo.png" alt="" />CASPROD</a>
+        <a className="brand" href="/"><img src="/logo.png" alt="" />CASPROD</a>
         <div style={{ display: 'grid', gap: 18 }}>
           <p className="mono muted">Espace chef · Web</p>
           <h2>Voir le chantier tel qu’il est.</h2>

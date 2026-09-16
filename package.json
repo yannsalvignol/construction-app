@@ -56,6 +56,8 @@
     "lint": "expo lint",
     "preflight": "node ./scripts/preflight-build.js",
     "site": "node ./web/site-build.mjs",
+    "web:build": "node ./web/build.mjs",
+    "web:deploy": "node ./web/build.mjs && npx wrangler pages deploy web/dist --project-name casprod --branch main --commit-dirty=true",
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "check:backend": "tsc --ignoreConfig --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --lib ES2022,DOM --skipLibCheck supabase/functions/presence-dispatch/handler.ts && eslint supabase/functions/presence-dispatch tests"

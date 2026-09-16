@@ -34,8 +34,8 @@ export function SignUp() {
         <div className="field"><label htmlFor="cf">Confirmer le mot de passe</label><input id="cf" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required /></div>
         {error && <p className="error">{error}</p>}
         <button className="btn btn--solid" disabled={busy || !email || !password || !confirm}>{busy ? 'Création…' : 'Continuer'}</button>
-        <p className="hint">Déjà un compte ? <Link to="/sign-in">Se connecter</Link>.</p>
-        <p className="hint">En continuant vous acceptez les <a href="https://casprod.app/terms">conditions d’utilisation</a> et la <a href="https://casprod.app/privacy">politique de confidentialité</a>.</p>
+        <p className="hint">Déjà un compte ? <Link to="/login">Se connecter</Link>.</p>
+        <p className="hint">En continuant vous acceptez les <a href="/terms">conditions d’utilisation</a> et la <a href="/privacy">politique de confidentialité</a>.</p>
       </form>
     </AuthLayout>
   );

@@ -34,7 +34,7 @@ export function SignIn() {
         </div>
         {error && <p className="error">{error}</p>}
         <button className="btn btn--solid" disabled={busy || !identifier || !password}>{busy ? 'Connexion…' : 'Se connecter'}</button>
-        <p className="hint">Vous êtes chef de chantier ? <Link to="/sign-up">Créez votre entreprise</Link>.</p>
+        <p className="hint">Vous êtes chef de chantier ? <Link to="/signup">Créez votre entreprise</Link>.</p>
         <p className="hint">Employé ? L’application CASPROD sur votre téléphone est votre espace : journées, tâches et vérifications s’y font. Cet espace web est réservé aux chefs.</p>
       </form>
     </AuthLayout>

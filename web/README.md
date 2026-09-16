@@ -6,20 +6,27 @@ backend (`supabase/`) with the phone app.
 
 | Folder | What | Stack | Deploys to |
 |---|---|---|---|
-| `site/` | Public landing + legal pages (`/privacy`, `/terms`, `/support`) | Hand-written HTML/CSS/JS, three.js hero | Cloudflare Pages project **casprod** → https://casprod.app |
-| `app/` | Chef workspace: sign-in, company sign-up, dashboard, employees, sites, live positions, account | Vite + React + TypeScript, supabase-js | Cloudflare Pages project **casprod-web** → https://app.casprod.app |
+| `site/` | Public landing + legal pages (`/`, `/privacy`, `/terms`, `/support`) | Hand-written HTML/CSS/JS, three.js hero | https://casprod.app |
+| `app/` | Chef workspace (`/login`, `/signup`, `/onboarding`, `/dashboard`, `/employees`, `/sites`, `/live`, `/account`) | Vite + React + TypeScript, supabase-js | https://casprod.app/login |
+
+Both ship together as **one** Cloudflare Pages project (`casprod`):
+`web/build.mjs` assembles `web/dist` from the two, and writes the `_redirects`
+that route the app paths to the SPA shell (`app.html`) while everything else
+stays a static file of the landing.
+
+```bash
+npm run web:build     # from the repo root → web/dist
+npm run web:deploy    # build + deploy to production
+```
+
+Adding an app route: add it to `APP_ROUTES` in `web/build.mjs` and to the
+router in `web/app/src/App.tsx`.
 
 ## Landing (`site/`)
 
-The legal pages are generated from `docs/legal/*.md`:
-
-```bash
-npm run site                                  # from the repo root → web/site/{privacy,terms,support}
-npx wrangler pages deploy web/site --project-name casprod --branch main --commit-dirty=true
-```
-
-`index.html`, `landing.css`, `landing.js` are edited by hand. Bump the `?v=`
-on the CSS/JS links in `index.html` when deploying a change.
+The legal pages are generated from `docs/legal/*.md` (`npm run site`, also
+run by `web:build`). `index.html`, `landing.css`, `landing.js` are edited by
+hand; bump the `?v=` on the CSS/JS links in `index.html` when they change.
 
 ## Chef workspace (`app/`)
 
@@ -27,8 +34,7 @@ on the CSS/JS links in `index.html` when deploying a change.
 cd web/app
 cp .env.example .env      # then fill VITE_SUPABASE_PUBLISHABLE_KEY (same value as the root .env)
 npm install
-npm run dev               # http://localhost:5173
-npm run deploy            # build + deploy to casprod-web
+npm run dev               # http://localhost:5173/login
 ```
 
 Employees never use it: an employee profile sees a "use the phone app"
