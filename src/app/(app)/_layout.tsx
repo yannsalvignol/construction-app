@@ -13,6 +13,8 @@ export default function AppLayout() {
         <Stack.Protected guard={profile?.role === 'employee'}>
           <Stack.Screen name="(employee)" />
         </Stack.Protected>
+        {/* Réglages: shared by both roles, pushed over the tabs from Compte. */}
+        <Stack.Screen name="settings" />
       </Stack>
   );
 }

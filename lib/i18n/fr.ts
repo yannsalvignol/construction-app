@@ -7,6 +7,7 @@ const fr = {
     signOut: 'Se déconnecter',
     notSignedIn: 'Non connecté',
     done: 'Terminé',
+    back: 'Retour',
   },
 
   planning: {
@@ -36,6 +37,14 @@ const fr = {
 
   webTabBar: {
     docs: 'Documentation',
+  },
+
+  social: {
+    or: 'ou',
+    google: 'Continuer avec Google',
+    googleBusy: 'Connexion avec Google…',
+    apple: 'Continuer avec Apple',
+    appleBusy: 'Connexion avec Apple…',
   },
 
   signIn: {
@@ -264,6 +273,16 @@ const fr = {
     subtitle: 'Signalez un problème et envoyez des photos.',
   },
 
+  settings: {
+    title: 'Réglages',
+    appearance: {
+      title: 'Apparence',
+      light: 'Clair',
+      dark: 'Sombre',
+      system: 'Système',
+    },
+  },
+
   account: {
     role: { chef: 'Chef', employee: 'Employé' },
     changePhoto: 'Changer la photo',
@@ -289,6 +308,8 @@ const fr = {
       updating: 'Mise à jour…',
       updated: 'Mis à jour',
       update: 'Mettre à jour le mot de passe',
+      socialOnly: (provider: string) =>
+        `Vous vous connectez avec ${provider} : ce compte n'a pas de mot de passe. Gérez-le depuis votre compte ${provider}.`,
     },
     language: {
       title: 'Langue',

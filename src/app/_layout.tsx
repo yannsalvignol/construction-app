@@ -16,6 +16,9 @@ import { I18nProvider } from '@/hooks/use-i18n';
 // Registers the live-location background task at startup: a background wake
 // after the app was terminated must find the task already defined.
 import '@/lib/live-location';
+import { applyThemeChoice, readStoredThemeChoice } from '@/lib/theme-choice';
+
+applyThemeChoice(readStoredThemeChoice());
 
 SplashScreen.preventAutoHideAsync();
 

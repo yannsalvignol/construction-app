@@ -25,6 +25,10 @@ export const supabase = createClient(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
+      // OAuth (Google) returns a one-time code to the app's deep link instead
+      // of tokens in the URL fragment; exchangeCodeForSession() then finishes
+      // the sign-in. The verifier lives in the storage configured above.
+      flowType: 'pkce',
     },
   }
 )

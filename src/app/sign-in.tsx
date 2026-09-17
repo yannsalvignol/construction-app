@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { PasswordInput } from '@/components/password-input';
+import { SocialSignInButtons } from '@/components/social-sign-in-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -88,6 +89,8 @@ export default function SignInScreen() {
               {submitting ? t.signIn.submitting : t.signIn.submit}
             </ThemedText>
           </Pressable>
+
+          <SocialSignInButtons />
 
           <Link href="/sign-up" style={styles.link}>
             <ThemedText type="linkPrimary">{t.signIn.ownerLink}</ThemedText>

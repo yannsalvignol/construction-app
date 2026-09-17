@@ -10,6 +10,7 @@ const en = {
     signOut: 'Sign out',
     notSignedIn: 'Not signed in',
     done: 'Done',
+    back: 'Back',
   },
 
   planning: {
@@ -39,6 +40,14 @@ const en = {
 
   webTabBar: {
     docs: 'Docs',
+  },
+
+  social: {
+    or: 'or',
+    google: 'Continue with Google',
+    googleBusy: 'Signing in with Google…',
+    apple: 'Continue with Apple',
+    appleBusy: 'Signing in with Apple…',
   },
 
   signIn: {
@@ -269,6 +278,16 @@ const en = {
     subtitle: 'Report an issue and upload photos.',
   },
 
+  settings: {
+    title: 'Settings',
+    appearance: {
+      title: 'Appearance',
+      light: 'Light',
+      dark: 'Dark',
+      system: 'System',
+    },
+  },
+
   account: {
     role: { chef: 'Chef', employee: 'Employee' },
     changePhoto: 'Change photo',
@@ -294,6 +313,8 @@ const en = {
       updating: 'Updating…',
       updated: 'Updated',
       update: 'Update password',
+      socialOnly: (provider: string) =>
+        `You sign in with ${provider}: this account has no password. Manage it from your ${provider} account.`,
     },
     language: {
       title: 'Language',

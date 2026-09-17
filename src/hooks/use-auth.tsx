@@ -1,4 +1,7 @@
 import { Session } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useI18n } from '@/hooks/use-i18n';
@@ -7,6 +10,30 @@ import { supabase } from '@/lib/supabase';
 import { unregisterPresenceNotifications } from '@/lib/presence-notifications';
 
 const EMPLOYEE_EMAIL_DOMAIN = 'employee.local';
+
+/** Deep-link path Supabase sends the OAuth code back to. Rewritten to "/" by
+ * src/app/+native-intent.tsx so the router never tries to render it. */
+export const OAUTH_CALLBACK_PATH = 'auth/callback';
+
+/** Reads the PKCE code out of an OAuth callback URL, or null if it isn't one. */
+export function oauthCodeFromUrl(url: string | null | undefined) {
+  if (!url?.includes(OAUTH_CALLBACK_PATH)) return null;
+  const code = Linking.parse(url).queryParams?.code;
+  return typeof code === 'string' ? code : null;
+}
+
+// The callback can reach us twice — from openAuthSessionAsync() and as a
+// plain deep link (Android always; Expo Go on iOS, where the exp:// link
+// re-opens the project and drops the awaiting promise). A code is single-use,
+// so only the first arrival exchanges it.
+const exchangedCodes = new Set<string>();
+async function exchangeOAuthCode(code: string) {
+  if (exchangedCodes.has(code)) return { error: null };
+  exchangedCodes.add(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) console.error('[auth] OAuth code exchange failed', error);
+  return { error };
+}
 
 function toAuthEmail(identifier: string) {
   const trimmed = identifier.trim();
@@ -46,6 +73,15 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (identifier: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  /** Google OAuth through the system browser. Works in Expo Go (no native
+   * module). A new Google user lands in chef onboarding since intended_role
+   * can't travel through OAuth and onboarding.tsx defaults to chef. Returns a
+   * null error when the user simply closed the browser. */
+  signInWithGoogle: () => Promise<{ error: string | null }>;
+  /** Native Sign in with Apple (iOS only — the caller hides the button where
+   * AppleAuthentication.isAvailableAsync() is false). Same role handling as
+   * Google. Returns a null error when the user cancels the sheet. */
+  signInWithApple: () => Promise<{ error: string | null }>;
   /** Looks up a join code without needing to be signed in — used to validate
    * it on the join screen before any signup fields are even shown. */
   checkJoinCode: (joinCode: string) => Promise<{ companyName: string | null; error: string | null }>;
@@ -122,6 +158,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, [fetchProfile]);
 
+  // Finish an OAuth sign-in delivered as a deep link (see exchangeOAuthCode).
+  useEffect(() => {
+    const handle = (url: string | null) => {
+      const code = oauthCodeFromUrl(url);
+      if (code) void exchangeOAuthCode(code);
+    };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => handle(url));
+    return () => sub.remove();
+  }, []);
+
   // Apply profile edits without unmounting an active form or camera flow.
   useEffect(() => {
     if (!session) return;
@@ -185,6 +232,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           options: { data: { intended_role: 'chef' satisfies IntendedRole } },
         });
         return { error: error ? translateServerError(error.message, locale) : null };
+      },
+      signInWithGoogle: async () => {
+        const redirectTo = Linking.createURL(OAUTH_CALLBACK_PATH);
+        // Must be allow-listed under Authentication → URL Configuration in Supabase.
+        console.log('[auth] signInWithGoogle redirectTo', redirectTo);
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo, skipBrowserRedirect: true },
+        });
+        if (error || !data.url) {
+          console.error('[auth] signInWithGoogle: could not build OAuth URL', error);
+          return { error: translateServerError(error?.message ?? 'OAuth URL missing', locale) };
+        }
+
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type !== 'success') return { error: null };
+
+        const code = oauthCodeFromUrl(result.url);
+        if (!code) {
+          const { queryParams } = Linking.parse(result.url);
+          const providerError = queryParams?.error_description ?? queryParams?.error;
+          const message = typeof providerError === 'string' ? providerError : 'OAuth callback missing code';
+          console.error('[auth] signInWithGoogle: bad callback', { url: result.url, message });
+          return { error: translateServerError(message, locale) };
+        }
+
+        const { error: exchangeError } = await exchangeOAuthCode(code);
+        return { error: exchangeError ? translateServerError(exchangeError.message, locale) : null };
+      },
+      signInWithApple: async () => {
+        let credential: AppleAuthentication.AppleAuthenticationCredential;
+        try {
+          credential = await AppleAuthentication.signInAsync({
+            requestedScopes: [
+              AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+              AppleAuthentication.AppleAuthenticationScope.EMAIL,
+            ],
+          });
+        } catch (e) {
+          if ((e as { code?: string }).code === 'ERR_REQUEST_CANCELED') return { error: null };
+          console.error('[auth] signInWithApple: sheet failed', e);
+          return { error: translateServerError((e as Error).message, locale) };
+        }
+        if (!credential.identityToken) {
+          console.error('[auth] signInWithApple: no identityToken in credential');
+          return { error: translateServerError('Apple returned no identity token', locale) };
+        }
+
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+        if (error) {
+          console.error('[auth] signInWithApple failed', error);
+          return { error: translateServerError(error.message, locale) };
+        }
+
+        // Apple sends the name on the very first authorisation only, and
+        // never again — keep it in user_metadata so onboarding can use it.
+        const { givenName, familyName } = credential.fullName ?? {};
+        if (givenName || familyName) {
+          await supabase.auth
+            .updateUser({ data: { first_name: givenName ?? undefined, last_name: familyName ?? undefined } })
+            .catch((e) => console.warn('[auth] signInWithApple: could not store name', e));
+        }
+        return { error: null };
       },
       // Returning a null companyName with a null error is the "not found"
       // signal (as opposed to an actual RPC failure) so the caller can show
