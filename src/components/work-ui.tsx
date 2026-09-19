@@ -104,3 +104,5 @@ const styles = StyleSheet.create({
   action: { minHeight: 50, borderRadius: 16, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
   field: { borderWidth: 1, borderRadius: 14, padding: 14, minHeight: 50, fontSize: 16 },
 });
+/** For screens that need their own scroll view but the same page metrics as WorkPage. */
+export const pageStyles = { page: styles.page, heading: styles.heading };

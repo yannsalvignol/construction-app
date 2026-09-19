@@ -23,7 +23,7 @@ const fr = {
     employees: 'Employés',
     sites: 'Chantiers',
     schedule: 'Planning',
-    live: 'En direct',
+    live: 'Carte',
   },
 
   employeeTabs: {

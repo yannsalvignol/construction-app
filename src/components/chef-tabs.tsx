@@ -116,7 +116,7 @@ export default function ChefTabs() {
               </ChefTabButton>
             </TabTrigger>
             <TabTrigger name="live" href="/live" asChild>
-              <ChefTabButton icon="radio-outline">
+              <ChefTabButton icon="map-outline">
                 {t.chefTabs.live}
               </ChefTabButton>
             </TabTrigger>

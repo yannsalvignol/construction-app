@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
-import { AppState, Pressable, View } from 'react-native';
+import { AppState, Pressable, ScrollView, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import MapView, { Circle, Marker } from 'react-native-maps';
-import { Action, Card, Feedback } from './work-ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Action, Card, Feedback, pageStyles } from './work-ui';
 import { ThemedText } from './themed-text';
 import { OnSiteBadge } from './on-site-badge';
 import { SiteRow } from './site-row';
@@ -20,15 +21,19 @@ const MOROCCO = { latitude: 31.7917, longitude: -7.0926, latitudeDelta: 12, long
 /** Deltas used when centring on one pin picked from the lists below the map. */
 const CLOSE_UP = { latitudeDelta: 0.006, longitudeDelta: 0.006 };
 
-type Tab = 'people' | 'sites';
+/** Which pins and list are shown; null shows both. */
+type Tab = 'people' | 'sites' | null;
 
-export function LiveTeamMap() {
+/** Owns the page scroll: `header` scrolls away, the map and filter stay pinned
+ * at the top, and the employee / chantier lists scroll underneath. */
+export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   const { locale } = useI18n();
   const copy = workCopy(locale);
   const theme = useTheme();
   const [team, setTeam] = useState<LivePosition[] | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
-  const [tab, setTab] = useState<Tab>('people');
+  const [tab, setTab] = useState<Tab>(null);
+  const tabRef = useRef<Tab>(null);
   const [error, setError] = useState<string | null>(null);
   // Ticked with each refresh: reading the clock during render is not pure.
   const [now, setNow] = useState(() => Date.now());
@@ -42,8 +47,12 @@ export function LiveTeamMap() {
   const sitesRef = useRef<Site[]>([]);
   const teamRef = useRef<LivePosition[]>([]);
 
-  const frame = useCallback((rows: LivePosition[], pins: Site[]) => {
-    const key = [...rows.map(r => r.employee_id), ...pins.map(p => p.id)].sort().join(',');
+  // Frames only what the selected tab shows, so picking "Chantiers" zooms to the
+  // sites and picking "Employés" to the people.
+  const frame = useCallback((allRows: LivePosition[], allPins: Site[]) => {
+    const rows = tabRef.current === 'sites' ? [] : allRows;
+    const pins = tabRef.current === 'people' ? [] : allPins;
+    const key = [tabRef.current, ...rows.map(r => r.employee_id), ...pins.map(p => p.id)].sort().join(',');
     if (key === framed.current) return;
     framed.current = key;
     const points = [
@@ -56,6 +65,14 @@ export function LiveTeamMap() {
       { edgePadding: { top: 80, right: 80, bottom: 80, left: 80 }, animated: true });
   }, []);
 
+  /** Tapping the selected tab again deselects it: both kinds of pins come back. */
+  function selectTab(next: Exclude<Tab, null>) {
+    const value = tabRef.current === next ? null : next;
+    tabRef.current = value;
+    setTab(value);
+    frame(teamRef.current, sitesRef.current);
+  }
+
   /** Centring is a deliberate act, so it overrides framing until the pins change. */
   function centreOn(latitude: number, longitude: number) {
     map.current?.animateToRegion({ latitude, longitude, ...CLOSE_UP }, 500);
@@ -66,7 +83,10 @@ export function LiveTeamMap() {
     try {
       const rows = await fetchLiveTeam();
       if (sequence !== request.current) return;
-      teamRef.current = rows; setTeam(rows); setError(null); setNow(Date.now()); frame(rows, sitesRef.current);
+      teamRef.current = rows; setTeam(rows); setError(null); frame(rows, sitesRef.current);
+      // Runs after a network response, never during render; the lint cannot tell.
+      // eslint-disable-next-line react-hooks/purity
+      setNow(Date.now());
     } catch { if (sequence === request.current) setError(copy.failed); }
   }, [copy.failed, frame]);
 
@@ -90,34 +110,40 @@ export function LiveTeamMap() {
   const locatable = new Set((team ?? []).map(member => member.employee_id));
   // A position kept for the whole day can be old; say how old rather than drop it.
   const isStale = (recordedAt: string) => now - Date.parse(recordedAt) > STALE_AFTER_MS;
+  const showPeople = tab !== 'sites';
+  const showSites = tab !== 'people';
 
-  return <View style={{ gap: 16 }}>
-    <Feedback message={error} />
-    {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={{ flex: 1, backgroundColor: theme.background }}>
+   <ScrollView contentContainerStyle={pageStyles.page} stickyHeaderIndices={[1]}>
+    {header}
+    {/* Pinned block: opaque so the lists disappear behind it as they scroll up. */}
+    <View style={{ gap: 16, paddingBottom: 4, backgroundColor: theme.background }}>
     {/* The map is always mounted, empty team or not: an empty map on Morocco reads
         as "nobody is sharing", where no map at all just looks broken. */}
     <View style={{ height: 380, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
-      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO}>
-        {sites.map(site => site.latitude != null && site.longitude != null
+      {/* The map sits inside the page's scroll view: a drag scrolls the page rather
+          than panning the map. Pinch-zoom still works; the lists below centre pins. */}
+      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} scrollEnabled={false} rotateEnabled={false} pitchEnabled={false}>
+        {showSites && sites.map(site => site.latitude != null && site.longitude != null
           ? <Marker key={'site-' + site.id} coordinate={{ latitude: site.latitude, longitude: site.longitude }}
               title={site.name} description={site.address ?? undefined} pinColor={theme.accent} />
           : null)}
-        {team?.map(member => <Marker key={member.employee_id}
+        {showPeople && team?.map(member => <Marker key={member.employee_id}
           coordinate={{ latitude: member.latitude, longitude: member.longitude }}
           opacity={isStale(member.recorded_at) ? 0.5 : 1}
           pinColor={member.on_site === false ? theme.danger : theme.success}
           title={member.employee_name}
           description={`${member.site_name} · ${positionAge(member.recorded_at, copy, now)}`} />)}
         {/* The reported accuracy is drawn, so a coarse fix is never read as an exact spot. */}
-        {team?.map(member => <Circle key={member.employee_id + '-accuracy'}
+        {showPeople && team?.map(member => <Circle key={member.employee_id + '-accuracy'}
           center={{ latitude: member.latitude, longitude: member.longitude }}
           radius={member.accuracy_meters} strokeColor={theme.accent} fillColor={theme.accentSoft} />)}
       </MapView>
     </View>
-    <View style={{ flexDirection: 'row', gap: 10 }}>
+    <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
       {([['people', copy.employees], ['sites', copy.siteLegend]] as const).map(([key, label]) =>
         <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: tab === key }}
-          onPress={() => setTab(key)} style={({ pressed }) => ({
+          onPress={() => selectTab(key)} style={({ pressed }) => ({
             flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center', borderWidth: 1,
             backgroundColor: tab === key ? theme.accentSoft : theme.backgroundElement,
             borderColor: tab === key ? theme.accent : theme.backgroundSelected,
@@ -126,8 +152,12 @@ export function LiveTeamMap() {
           <ThemedText type="smallBold" themeColor={tab === key ? 'accentText' : 'textSecondary'}>{label}</ThemedText>
         </Pressable>)}
     </View>
+    </View>
 
-    {tab === 'people' ? <>
+    <Feedback message={error} />
+    {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
+
+    {showPeople && <>
       {!team && !error && <ThemedText>{copy.loading}</ThemedText>}
       {team && !team.length && <Card><ThemedText>{copy.noLive}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">{copy.noLiveHint}</ThemedText></Card>}
@@ -148,7 +178,8 @@ export function LiveTeamMap() {
           </ThemedText>
         </Card>
       </Pressable>)}
-    </> : <>
+    </>}
+    {showSites && <>
       {!sites.length && <Card><ThemedText>{copy.noSitesLocated}</ThemedText></Card>}
       {/* The same expanding row as the Sites tab, plus map behaviour: opening a site
           also centres on it, and a member who is sharing can be pointed at. */}
@@ -160,5 +191,6 @@ export function LiveTeamMap() {
           if (member) centreOn(member.latitude, member.longitude);
         }} />)}
     </>}
-  </View>;
+   </ScrollView>
+  </SafeAreaView>;
 }

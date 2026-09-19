@@ -8,6 +8,12 @@
 // Positions expire after 15 minutes without an update, so leave it running
 // during the demo and Ctrl-C afterwards.
 //
+// It also declares tasks the way the phones do: each worker has the tasks of
+// their S37 planning line mapped to catalogue codes with a realistic daily
+// target; a share proportional to the time of day is declared at start, then
+// quantities keep creeping up every few ticks so the chef sees the day's
+// production build up. Declarations stay after --stop (they are the record).
+//
 // Usage:
 //   node scripts/simulate-castor-live.mjs          # start / keep sharing
 //   node scripts/simulate-castor-live.mjs --stop   # close the days, delete positions
@@ -34,42 +40,43 @@ const COMPANY_NAME = 'Castor Ingénierie';
 const TIME_ZONE = 'Africa/Casablanca'; // UTC+1 all year
 const TICK_MS = 30_000;
 
-// username → chantier name (as seeded), plus where they are right now.
-// 'site' = inside the chantier; a number = that many km away, driving in.
+// username → chantier name (as seeded), where they are right now ('site' =
+// inside the chantier; a number = that many km away, driving in), and the
+// day's tasks as [catalogue code, realistic quantity for one day].
 const SHARING = [
   // Maison Porsche
-  { username: 'hicham.daou',        site: 'Maison Porsche',            where: 'site' },
-  { username: 'hamza.elfatihi',     site: 'Maison Porsche',            where: 'site' },
-  { username: 'yassine.chahid',     site: 'Maison Porsche',            where: 8 },
+  { username: 'hicham.daou',        site: 'Maison Porsche',            where: 'site', tasks: [['CVC_CALORIFUGE', 18], ['CVC_DIFFUSEUR', 3]] },
+  { username: 'hamza.elfatihi',     site: 'Maison Porsche',            where: 'site', tasks: [['CVC_CALORIFUGE', 14], ['CVC_DIFFUSEUR', 3]] },
+  { username: 'yassine.chahid',     site: 'Maison Porsche',            where: 8, tasks: [['PLB_PPR_DN40', 12], ['PLB_PVC_DN40', 8]] },
   // Kssora
-  { username: 'miloud.elkardouhi',  site: 'Kssora Immo — Hôtel Ksora', where: 'site' },
-  { username: 'youssef.elbdioui',   site: 'Kssora Immo — Hôtel Ksora', where: 'site' },
-  { username: 'nabil.zerraf',       site: 'Kssora Immo — Hôtel Ksora', where: 'site' },
-  { username: 'anass.elferkaty',    site: 'Kssora Immo — Hôtel Ksora', where: 'site' },
-  { username: 'rachid.serhani',     site: 'Kssora Immo — Hôtel Ksora', where: 'site' },
-  { username: 'driss.tla',          site: 'Kssora Immo — Hôtel Ksora', where: 11 },
+  { username: 'miloud.elkardouhi',  site: 'Kssora Immo — Hôtel Ksora', where: 'site', tasks: [['PLB_PVC_DN100', 6], ['SAN_WC', 2]] },
+  { username: 'youssef.elbdioui',   site: 'Kssora Immo — Hôtel Ksora', where: 'site', tasks: [['PLB_PPR_DN25', 16]] },
+  { username: 'nabil.zerraf',       site: 'Kssora Immo — Hôtel Ksora', where: 'site', tasks: [['PLB_PVC_DN40', 12]] },
+  { username: 'anass.elferkaty',    site: 'Kssora Immo — Hôtel Ksora', where: 'site', tasks: [['PLB_PVC_DN40', 11]] },
+  { username: 'rachid.serhani',     site: 'Kssora Immo — Hôtel Ksora', where: 'site', tasks: [['CVC_GAINE_DN125', 8]] },
+  { username: 'driss.tla',          site: 'Kssora Immo — Hôtel Ksora', where: 11, tasks: [['CVC_GAINE_DN200', 12]] },
   // Marriott
-  { username: 'abdessamad.belych',  site: 'Hôtel Marriott',            where: 'site' },
-  { username: 'tarik.elmekhrami',   site: 'Hôtel Marriott',            where: 'site' },
-  { username: 'ali.khadir',         site: 'Hôtel Marriott',            where: 'site' },
-  { username: 'youness.belych',     site: 'Hôtel Marriott',            where: 'site' },
-  { username: 'bouabid.hadmaoui',   site: 'Hôtel Marriott',            where: 7 },
+  { username: 'abdessamad.belych',  site: 'Hôtel Marriott',            where: 'site', tasks: [['PLB_PVC_DN100', 10], ['SAN_WC', 3]] },
+  { username: 'tarik.elmekhrami',   site: 'Hôtel Marriott',            where: 'site', tasks: [['PLB_PVC_DN100', 8]] },
+  { username: 'ali.khadir',         site: 'Hôtel Marriott',            where: 'site', tasks: [['PLB_PPR_DN40', 15]] },
+  { username: 'youness.belych',     site: 'Hôtel Marriott',            where: 'site', tasks: [['SAN_DOUCHE', 3]] },
+  { username: 'bouabid.hadmaoui',   site: 'Hôtel Marriott',            where: 7, tasks: [['PLB_PPR_DN40', 6]] },
   // Aston Martin
-  { username: 'hicham.amir',        site: 'Aston Martin',              where: 'site' },
-  { username: 'zaki.hamza',         site: 'Aston Martin',              where: 'site' },
+  { username: 'hicham.amir',        site: 'Aston Martin',              where: 'site', tasks: [['CVC_CLIM_MURAL', 1]] },
+  { username: 'zaki.hamza',         site: 'Aston Martin',              where: 'site', tasks: [['CVC_GAINE_DN200', 10], ['ELE_CABLE_U1000', 40]] },
   // Villas
-  { username: 'abdelhaq.elkhadiri', site: 'Villa Faiza',               where: 'site' },
-  { username: 'othmane.hayouti',    site: 'Villa Yacoubi',             where: 'site' },
-  { username: 'smail.abanaaim',     site: 'Villa Yacoubi',             where: 'site' },
-  { username: 'omar.kakih',         site: 'Villa Ghizlan Sentisi',     where: 'site' },
-  { username: 'ayoub.chergaoui',    site: 'Hôtel Casablanca',          where: 'site' },
+  { username: 'abdelhaq.elkhadiri', site: 'Villa Faiza',               where: 'site', tasks: [['SAN_EVIER', 3], ['SAN_ROBINET', 6], ['PLB_PPR_DN25', 10]] },
+  { username: 'othmane.hayouti',    site: 'Villa Yacoubi',             where: 'site', tasks: [['ELE_CABLE_U1000', 60], ['CVC_GAINE_DN125', 15]] },
+  { username: 'smail.abanaaim',     site: 'Villa Yacoubi',             where: 'site', tasks: [['SAN_BAIGNOIRE', 1], ['SAN_WC', 2]] },
+  { username: 'omar.kakih',         site: 'Villa Ghizlan Sentisi',     where: 'site', tasks: [['SAN_CHAUFFE_EAU', 1]] },
+  { username: 'ayoub.chergaoui',    site: 'Hôtel Casablanca',          where: 'site', tasks: [['CVC_GAINE_DN200', 4]] },
   // LBV Meknès
-  { username: 'osama.elmir',        site: 'LBV Meknès',                where: 'site' },
-  { username: 'abderrahim.achaano', site: 'LBV Meknès',                where: 'site' },
-  { username: 'armel.nkouka',       site: 'LBV Meknès',                where: 15 },
+  { username: 'osama.elmir',        site: 'LBV Meknès',                where: 'site', tasks: [['PLB_PVC_DN100', 12]] },
+  { username: 'abderrahim.achaano', site: 'LBV Meknès',                where: 'site', tasks: [['PLB_PVC_DN40', 10]] },
+  { username: 'armel.nkouka',       site: 'LBV Meknès',                where: 15, tasks: [['CVC_CLIM_MURAL', 1], ['CVC_DIFFUSEUR', 1]] },
   // Villa Bahia
-  { username: 'mohamed.elmir',      site: 'Villa Bahia — Bahia Beach', where: 'site' },
-  { username: 'taoufik.elmir',      site: 'Villa Bahia — Bahia Beach', where: 'site' },
+  { username: 'mohamed.elmir',      site: 'Villa Bahia — Bahia Beach', where: 'site', tasks: [['PLB_PVC_DN100', 9]] },
+  { username: 'taoufik.elmir',      site: 'Villa Bahia — Bahia Beach', where: 'site', tasks: [['PLB_PVC_DN100', 6], ['SAN_WC', 1]] },
 ];
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -113,12 +120,17 @@ const { data: sites, error: sitesError } = await admin.from('sites')
 if (sitesError) fail('sites', sitesError);
 const siteByName = Object.fromEntries(sites.map((s) => [s.name, s]));
 
+const { data: taskCodes, error: codesError } = await admin.from('task_codes').select('code, unit');
+if (codesError) fail('task codes', codesError);
+const unitByCode = Object.fromEntries(taskCodes.map((t) => [t.code, t.unit]));
+
 const members = SHARING.map((m) => {
   const profile = profileByUsername[m.username];
   const site = siteByName[m.site];
   if (!profile) fail('config', new Error(`no employee with username ${m.username}`));
   if (!site) fail('config', new Error(`no site named ${m.site}`));
-  return { ...m, profile, site };
+  for (const [code] of m.tasks) if (!unitByCode[code]) fail('config', new Error(`unknown task code ${code}`));
+  return { ...m, profile, site, declared: {} };
 });
 const memberIds = members.map((m) => m.profile.id);
 
@@ -162,6 +174,39 @@ for (const m of members) {
   workDayIds[m.profile.id] = data.id;
 }
 
+// --- declarations -------------------------------------------------------------
+const DAY_START = Date.parse(`${today}T08:00:00+01:00`);
+const DAY_END = Date.parse(`${today}T18:00:00+01:00`);
+const dayFraction = Math.min(1, Math.max(0, (Date.now() - DAY_START) / (DAY_END - DAY_START)));
+const round = (value, unit) => (unit === 'unit' ? Math.round(value) : Math.round(value * 2) / 2);
+
+async function declare(now) {
+  const rows = [];
+  for (const m of members) {
+    for (const [code, quantity] of Object.entries(m.declared)) {
+      if (quantity <= 0) continue;
+      rows.push({
+        work_day_id: workDayIds[m.profile.id], employee_id: m.profile.id, company_id: company.id,
+        site_id: m.site.id, task_code: code, quantity, declared_at: now,
+      });
+    }
+  }
+  if (!rows.length) return 0;
+  const { error } = await admin.from('task_declarations').upsert(rows, { onConflict: 'work_day_id,task_code' });
+  if (error) fail('declarations', error);
+  return rows.length;
+}
+
+// What has already been done at this hour: a share of the day's target, a bit
+// uneven from one worker to the next. Workers still on the road have nothing.
+for (const m of members) {
+  if (m.where !== 'site') continue;
+  for (const [code, target] of m.tasks) {
+    m.declared[code] = round(target * dayFraction * rand(0.55, 1.05), unitByCode[code]);
+  }
+}
+const declaredAtStart = await declare(new Date().toISOString());
+
 // --- initial positions --------------------------------------------------------
 for (const m of members) {
   if (m.where === 'site') {
@@ -201,10 +246,29 @@ async function tick() {
   });
   const { error } = await admin.from('live_positions').upsert(rows, { onConflict: 'employee_id' });
   if (error) fail('positions', error);
+
+  // Roughly one worker in five adds to a declaration each tick, until the day
+  // is done (a little over target is fine — some days go well).
+  let bumped = 0;
+  if (Date.now() < DAY_END + 3600_000) {
+    for (const m of members) {
+      if (m.where !== 'site' || Math.random() > 0.2) continue;
+      const [code, target] = m.tasks[Math.floor(Math.random() * m.tasks.length)];
+      const unit = unitByCode[code];
+      const current = m.declared[code] ?? 0;
+      if (current >= target * 1.3) continue;
+      const step = unit === 'unit' ? 1 : rand(1, Math.max(2, target / 4));
+      m.declared[code] = round(Math.min(current + step, target * 1.3), unit);
+      bumped++;
+    }
+  }
+  if (bumped) await declare(now);
+
   const away = members.filter((m) => m.where !== 'site').length;
-  console.log(`${now.slice(11, 19)} ${members.length} positions sent — ${members.length - away} sur chantier, ${away} en route`);
+  console.log(`${now.slice(11, 19)} ${members.length} positions — ${members.length - away} sur chantier, ${away} en route — ${bumped} déclaration(s) mise(s) à jour`);
 }
 
 await tick();
-console.log(`\nSharing for ${members.length} employees. Leave this running during the demo; Ctrl-C to pause, --stop to end the day.`);
+console.log(`\n${declaredAtStart} tâches déjà déclarées pour aujourd'hui (${Math.round(dayFraction * 100)} % de la journée écoulée).`);
+console.log(`Sharing for ${members.length} employees. Leave this running during the demo; Ctrl-C to pause, --stop to end the day.`);
 setInterval(() => tick().catch((e) => console.error(e)), TICK_MS);

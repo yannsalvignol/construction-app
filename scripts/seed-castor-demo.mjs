@@ -123,7 +123,7 @@ const PLANNING_ONLY_WORKERS = [
   'Oussama', 'Abdelkarim', 'Mourad', 'Mansour', 'Brahim', 'Mohamed', 'Abdessamad', 'Marwane', 'Kiki',
   'Samir', 'Dhina', 'Youssef', 'Chtaib', 'Chedmi', 'Montasir', 'Lmidi', 'Zakaria', 'Bahnini',
   'Yakin', 'Said', 'Mounim', 'Otman', 'Karim', 'Hamza', 'Abderahman',
-].map((first) => ({ key: `P_${first.toUpperCase()}`, first, last: 'À compléter', trade: 'à déclarer' }));
+].map((first) => ({ key: `P_${first.toUpperCase()}`, first, last: '', trade: 'à déclarer' }));
 
 const ALL_WORKERS = [...NAMED_WORKERS, ...PLANNING_ONLY_WORKERS];
 
@@ -198,7 +198,7 @@ function password(length = 8) {
 function usernames(workers) {
   const taken = new Set();
   return workers.map((w) => {
-    const base = (w.last === 'À compléter' ? ascii(w.first) : `${ascii(w.first)}.${ascii(w.last)}`).slice(0, 18);
+    const base = (w.last === '' ? ascii(w.first) : `${ascii(w.first)}.${ascii(w.last)}`).slice(0, 18);
     let name = base.length >= 3 ? base : `${base}000`.slice(0, 3);
     let n = 2;
     while (taken.has(name)) name = `${base.slice(0, 16)}${n++}`;

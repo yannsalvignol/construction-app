@@ -26,7 +26,7 @@ const en = {
     employees: 'Employees',
     sites: 'Sites',
     schedule: 'Schedule',
-    live: 'Live',
+    live: 'Map',
   },
 
   employeeTabs: {
