@@ -113,7 +113,7 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   const showPeople = tab !== 'sites';
   const showSites = tab !== 'people';
 
-  return <SafeAreaView edges={['left', 'right', 'bottom']} style={{ flex: 1, backgroundColor: theme.background }}>
+  return <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: theme.background }}>
    <ScrollView contentContainerStyle={pageStyles.page} stickyHeaderIndices={[1]}>
     {header}
     {/* Pinned block: opaque so the lists disappear behind it as they scroll up. */}

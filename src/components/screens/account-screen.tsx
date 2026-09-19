@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
@@ -18,6 +18,7 @@ import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
 
 export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const router = useRouter();
   const { t, locale } = useI18n();
@@ -148,8 +149,10 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
     <DismissKeyboardView style={styles.container}>
       <SafeAreaView
         style={styles.safeArea}
-        edges={topInset ? undefined : ['bottom', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        edges={topInset ? undefined : ['left', 'right']}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, !topInset && { paddingBottom: Spacing.six + insets.bottom }]}
+          keyboardShouldPersistTaps="handled">
           <View style={styles.toolbar}>
             <Pressable
               onPress={() => router.push('/settings')}

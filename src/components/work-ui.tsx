@@ -14,7 +14,9 @@ export function WorkPage({ title, subtitle, titleAccessory, children }: {
   children: React.ReactNode;
 }) {
   const theme = useTheme();
-  return <SafeAreaView edges={['left', 'right', 'bottom']} style={{ flex: 1, backgroundColor: theme.background }}>
+  // No bottom edge: the page scrolls under the home indicator; its own bottom
+  // padding keeps the last item clear of it.
+  return <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: theme.background }}>
     <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.page}>
       <View style={{ gap: 8, marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

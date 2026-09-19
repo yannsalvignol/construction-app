@@ -25,6 +25,9 @@ export type Workspace = {
 export type Dashboard = {
   date: string; employees: number; active_employees: number; confirmed: number; to_review: number; declared_hours: number; declarations: number; contributors: number;
   productivity: { code: string; label_fr: string; label_en: string; unit: TaskUnit; quantity: number; employees: number }[];
+  /** Today's chantiers (any open or closed work day), with what was declared on each. */
+  sites: { site_id: string; site_name: string; workers: number; declared_hours: number;
+    tasks: { code: string; label_fr: string; label_en: string; unit: TaskUnit; quantity: number; employees: number }[] }[];
   flags: { employee_id: string; employee_name: string; label_fr: string; label_en: string; quantity: number; unit: TaskUnit; site_name: string }[];
 };
 export const NOTICE_VERSION = '2026-09-07';

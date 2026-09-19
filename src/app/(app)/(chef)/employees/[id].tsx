@@ -2,7 +2,7 @@ import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Switch, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
@@ -47,6 +47,7 @@ function toggles(t: Translations): { key: ToggleKey; label: string; description:
 
 export default function EmployeeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { t, locale } = useI18n();
 
@@ -180,8 +181,8 @@ export default function EmployeeDetailScreen() {
   return (
     <DismissKeyboardView style={styles.container}>
       <Stack.Screen options={{ title: `${employee.first_name} ${employee.last_name}` }} />
-      <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.two + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <ThemedView style={[styles.credentialsCard, styles.transparent]}>
             <ThemedText type="smallBold">{t.employeeDetail.credentials.title}</ThemedText>
 

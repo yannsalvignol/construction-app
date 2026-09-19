@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, Pressable, ScrollView, Share, StyleSheet, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Image } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -168,6 +168,7 @@ type Employee = {
 };
 
 export default function EmployeesScreen() {
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -289,8 +290,8 @@ export default function EmployeesScreen() {
 
   return (
     <DismissKeyboardView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.four + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <JoinCodeCard />
 
           {removeError && (

@@ -37,6 +37,8 @@ export default function ChefHomeScreen() {
     return () => { clearInterval(timer); app.remove(); void supabase.removeChannel(channel); request.current++; };
   }, [companyId, refresh]));
   const label = locale === 'en' ? 'label_en' : 'label_fr';
+  // Absent until migration 20260919100000 is on the server; then the card list is simply empty.
+  const sites = data?.sites ?? [];
   return <WorkPage title={copy.teamOverview}>
     <Feedback message={error} />
     {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
@@ -59,20 +61,30 @@ export default function ChefHomeScreen() {
           </View>)}
       </View>
       <ThemedText type="small" themeColor="textSecondary">{copy.hoursHint}</ThemedText>
-      <Card>
+      <View style={{ gap: 6 }}>
         <ThemedText style={{ fontSize: 24, fontWeight: '700' }}>{copy.productivity}</ThemedText>
         <ThemedText themeColor="textSecondary" type="small">{copy.productivityHint}</ThemedText>
-        {!data.productivity.length && <ThemedText type="small" themeColor="textSecondary">{copy.noTasks}</ThemedText>}
-        {/* Ordered by volume server-side, so the biggest job of the day reads first.
-            Quantities are never compared across tasks: the units differ. */}
-        {data.productivity.map(task => <View key={task.code} style={{ gap: 10, paddingTop: 18, borderTopWidth: 1, borderTopColor: theme.backgroundSelected }}>
+      </View>
+      {!sites.length && <Card><ThemedText type="small" themeColor="textSecondary">{copy.noTasks}</ThemedText></Card>}
+      {/* One card per chantier with a work day today, busiest first. Inside, tasks
+          are ordered by volume server-side; quantities are never compared across
+          tasks since the units differ. */}
+      {sites.map(site => <Card key={site.site_id}>
+        <View style={{ gap: 4 }}>
+          <ThemedText style={{ fontSize: 20, fontWeight: '700' }}>{site.site_name}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {site.workers} {copy.perTask} · {site.declared_hours} h
+          </ThemedText>
+        </View>
+        {!site.tasks.length && <ThemedText type="small" themeColor="textSecondary">{copy.noTasks}</ThemedText>}
+        {site.tasks.map(task => <View key={task.code} style={{ gap: 6, paddingTop: 14, borderTopWidth: 1, borderTopColor: theme.backgroundSelected }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
             <ThemedText style={{ flex: 1 }}>{task[label]}</ThemedText>
             <ThemedText style={{ fontSize: 22, fontWeight: '700' }} themeColor="accentText">{task.quantity} {unitShort(task.unit, copy)}</ThemedText>
           </View>
-          <ThemedText type="small" themeColor="textSecondary">{task.employees} {copy.perTask}</ThemedText>
+          {task.employees > 1 && <ThemedText type="small" themeColor="textSecondary">{task.employees} {copy.perTask}</ThemedText>}
         </View>)}
-      </Card>
+      </Card>)}
       {!!data.flags.length && <Card>
         <ThemedText style={{ fontSize: 22, fontWeight: '700' }} themeColor="warning">{copy.consistency}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">{copy.consistencyHint}</ThemedText>
