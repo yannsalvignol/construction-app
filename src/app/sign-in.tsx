@@ -92,8 +92,10 @@ export default function SignInScreen() {
 
           <SocialSignInButtons />
 
+          {/* The question stays in body colour so only the action reads as tappable. */}
           <Link href="/register" style={styles.link}>
-            <ThemedText type="linkPrimary">{t.signIn.registerLink}</ThemedText>
+            <ThemedText type="link">{t.signIn.registerPrompt} </ThemedText>
+            <ThemedText type="linkPrimary">{t.signIn.registerAction}</ThemedText>
           </Link>
         </ThemedView>
       </SafeAreaView>

@@ -56,7 +56,8 @@ const en = {
     passwordPlaceholder: 'Password',
     submit: 'Sign in',
     submitting: 'Signing in…',
-    registerLink: "Don't have an account? Register now",
+    registerPrompt: "Don't have an account?",
+    registerAction: 'Register now',
   },
 
   register: {

@@ -53,7 +53,8 @@ const fr = {
     passwordPlaceholder: 'Mot de passe',
     submit: 'Se connecter',
     submitting: 'Connexion…',
-    registerLink: 'Pas encore de compte ? Inscrivez-vous',
+    registerPrompt: 'Pas encore de compte ?',
+    registerAction: 'Inscrivez-vous',
   },
 
   register: {
