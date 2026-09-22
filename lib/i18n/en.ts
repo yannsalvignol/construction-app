@@ -62,17 +62,8 @@ const en = {
 
   register: {
     title: 'Create an account',
-    subtitle: 'Two ways to start, depending on your role on site.',
-    chef: {
-      title: 'I am a site manager',
-      body: 'Create your company account, add your sites and your team.',
-      action: 'Create my company',
-    },
-    employee: {
-      title: 'I have a team code',
-      body: 'Your chef gave you an affiliation code? Join their company.',
-      action: 'Join with a code',
-    },
+    chef: 'I am a site manager',
+    employee: 'I have a team code',
     signInLink: 'Already have an account? Sign in',
   },
 

@@ -59,17 +59,8 @@ const fr = {
 
   register: {
     title: 'Créer un compte',
-    subtitle: 'Deux façons de commencer, selon votre rôle sur le chantier.',
-    chef: {
-      title: 'Je suis chef de chantier',
-      body: 'Créez le compte de votre entreprise, ajoutez vos chantiers et votre équipe.',
-      action: 'Créer mon entreprise',
-    },
-    employee: {
-      title: 'J’ai un code d’équipe',
-      body: 'Votre chef vous a donné un code d’affiliation ? Rejoignez son entreprise.',
-      action: 'Rejoindre avec un code',
-    },
+    chef: 'Je suis chef de chantier',
+    employee: 'J’ai un code d’équipe',
     signInLink: 'Vous avez déjà un compte ? Connectez-vous',
   },
 

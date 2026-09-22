@@ -10,27 +10,23 @@ import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * The fork between the two ways of creating an account. The sign-in screen
- * used to offer both paths at once, which asked people to read two sentences
- * before they could tell which one was theirs; here each path is a card with
- * its own heading and the one line that distinguishes it.
+ * The fork between the two ways of creating an account. Each card carries only
+ * what tells the two apart — the role — since anything else is read on the
+ * screen it leads to.
  */
 export default function RegisterScreen() {
   const theme = useTheme();
   const { t } = useI18n();
 
   const options = [
-    { key: 'chef', href: '/sign-up' as const, icon: 'business-outline' as const, ...t.register.chef },
-    { key: 'employee', href: '/join' as const, icon: 'key-outline' as const, ...t.register.employee },
+    { key: 'chef', href: '/sign-up' as const, icon: 'business-outline' as const, title: t.register.chef },
+    { key: 'employee', href: '/join' as const, icon: 'key-outline' as const, title: t.register.employee },
   ];
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.center}>{t.register.title}</ThemedText>
-          <ThemedText themeColor="textSecondary" style={styles.center}>{t.register.subtitle}</ThemedText>
-        </View>
+        <ThemedText type="title" style={styles.center}>{t.register.title}</ThemedText>
 
         <View style={styles.cards}>
           {options.map((option) => (
@@ -43,14 +39,10 @@ export default function RegisterScreen() {
                 { backgroundColor: theme.backgroundElement, borderColor: pressed ? theme.accent : theme.backgroundSelected, opacity: pressed ? 0.9 : 1 },
               ]}>
               <View style={[styles.iconCircle, { backgroundColor: theme.accentSoft }]}>
-                <Ionicons name={option.icon} size={26} color={theme.accentText} />
+                <Ionicons name={option.icon} size={24} color={theme.accentText} />
               </View>
-              <ThemedText type="subtitle">{option.title}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">{option.body}</ThemedText>
-              <View style={styles.cardFoot}>
-                <ThemedText type="smallBold" themeColor="accentText">{option.action}</ThemedText>
-                <Ionicons name="arrow-forward" size={16} color={theme.accentText} />
-              </View>
+              <ThemedText type="subtitle" style={styles.cardTitle}>{option.title}</ThemedText>
+              <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
             </Pressable>
           ))}
         </View>
@@ -74,23 +66,23 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-  header: { gap: Spacing.two },
   center: { textAlign: 'center' },
   cards: { gap: Spacing.three },
   card: {
     borderRadius: Spacing.four,
     borderWidth: 1,
     padding: Spacing.four,
-    gap: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
   },
   iconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.one,
   },
-  cardFoot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginTop: Spacing.one },
+  cardTitle: { flex: 1 },
   link: { textAlign: 'center' },
 });
