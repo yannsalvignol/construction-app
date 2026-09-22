@@ -92,12 +92,8 @@ export default function SignInScreen() {
 
           <SocialSignInButtons />
 
-          <Link href="/sign-up" style={styles.link}>
-            <ThemedText type="linkPrimary">{t.signIn.ownerLink}</ThemedText>
-          </Link>
-
-          <Link href="/join" style={styles.link}>
-            <ThemedText type="linkPrimary">{t.signIn.joinLink}</ThemedText>
+          <Link href="/register" style={styles.link}>
+            <ThemedText type="linkPrimary">{t.signIn.registerLink}</ThemedText>
           </Link>
         </ThemedView>
       </SafeAreaView>
