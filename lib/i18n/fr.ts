@@ -48,7 +48,7 @@ const fr = {
   },
 
   signIn: {
-    title: 'Content de vous revoir sur CASPROD !',
+    title: 'Content de vous revoir sur CASPROD',
     identifierPlaceholder: "E-mail ou nom d'utilisateur",
     passwordPlaceholder: 'Mot de passe',
     submit: 'Se connecter',
@@ -60,13 +60,10 @@ const fr = {
 
   forgotPassword: {
     title: 'Mot de passe oublié',
-    subtitle: 'Indiquez l’e-mail de votre compte : nous vous envoyons un lien pour en choisir un nouveau.',
     emailPlaceholder: 'E-mail',
     submit: 'Envoyer le lien',
     submitting: 'Envoi…',
     sent: (email: string) => `Si un compte existe pour ${email}, un lien vient d’être envoyé.`,
-    sentHint: 'Ouvrez le lien depuis ce téléphone : il vous connecte, puis changez votre mot de passe dans Compte → Sécurité.',
-    employeeHint: 'Vous vous connectez avec un nom d’utilisateur ? Demandez à votre chef de réinitialiser votre mot de passe depuis votre fiche.',
     employeeError: 'Entrez une adresse e-mail. Avec un nom d’utilisateur, seul votre chef peut réinitialiser le mot de passe.',
     backLink: 'Retour à la connexion',
   },

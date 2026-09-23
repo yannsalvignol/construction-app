@@ -52,14 +52,9 @@ export default function ForgotPasswordScreen() {
 
         <ThemedView style={styles.form}>
           {sent ? (
-            <>
-              <ThemedText themeColor="textSecondary">{t.forgotPassword.sent(email.trim())}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">{t.forgotPassword.sentHint}</ThemedText>
-            </>
+            <ThemedText themeColor="textSecondary">{t.forgotPassword.sent(email.trim())}</ThemedText>
           ) : (
             <>
-              <ThemedText themeColor="textSecondary">{t.forgotPassword.subtitle}</ThemedText>
-
               <TextInput
                 style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
                 placeholder={t.forgotPassword.emailPlaceholder}
@@ -92,8 +87,6 @@ export default function ForgotPasswordScreen() {
                   {submitting ? t.forgotPassword.submitting : t.forgotPassword.submit}
                 </ThemedText>
               </Pressable>
-
-              <ThemedText type="small" themeColor="textSecondary">{t.forgotPassword.employeeHint}</ThemedText>
             </>
           )}
 

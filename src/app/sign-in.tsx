@@ -40,6 +40,8 @@ export default function SignInScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="subtitle" style={styles.title}>
           {t.signIn.title}
+          {/* The full stop is the brand's, hence the accent colour. */}
+          <ThemedText type="subtitle" style={{ color: theme.accent }}>.</ThemedText>
         </ThemedText>
 
         <ThemedView style={styles.form}>
