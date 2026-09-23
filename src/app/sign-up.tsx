@@ -1,10 +1,10 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Keyboard, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedInput } from '@/components/animated-input';
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
-import { PasswordInput } from '@/components/password-input';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { SocialSignInButtons } from '@/components/social-sign-in-buttons';
 import { ThemedText } from '@/components/themed-text';
@@ -43,22 +43,23 @@ export default function SignUpScreen() {
         </ThemedText>
 
         <ThemedView style={styles.form}>
-          <TextInput
-            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
-            placeholder={t.signUp.emailPlaceholder}
-            placeholderTextColor={theme.textPlaceholder}
+          <AnimatedInput
+            label={t.signUp.emailPlaceholder}
+            icon="mail-outline"
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
+            textContentType="emailAddress"
             returnKeyType="next"
             value={email}
             onChangeText={setEmail}
           />
 
-          <PasswordInput
-            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
-            placeholder={t.signUp.passwordPlaceholder}
-            placeholderTextColor={theme.textPlaceholder}
+          <AnimatedInput
+            label={t.signUp.passwordPlaceholder}
+            icon="lock-closed-outline"
+            password
+            textContentType="newPassword"
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
             value={password}
@@ -80,7 +81,7 @@ export default function SignUpScreen() {
             ]}
             disabled={submitting || !email || !password}
             onPress={handleSubmit}>
-            <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+            <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
               {submitting ? t.signUp.submitting : t.signUp.submit}
             </ThemedText>
           </Pressable>
@@ -120,16 +121,14 @@ const styles = StyleSheet.create({
   form: {
     gap: Spacing.three,
   },
-  input: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-  },
   button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
+    borderRadius: Spacing.three + Spacing.one,
+    paddingVertical: Spacing.four,
     alignItems: 'center',
+  },
+  buttonLabel: {
+    fontSize: 17,
+    fontWeight: '400',
   },
   link: {
     alignSelf: 'center',
