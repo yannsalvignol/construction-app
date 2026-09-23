@@ -74,9 +74,20 @@ const fr = {
     signInLink: 'Vous avez déjà un compte ? Connectez-vous',
   },
 
+  verifyEmail: {
+    title: 'Confirmez votre e-mail',
+    subtitle: (email: string) => `Entrez le code à 6 chiffres envoyé à ${email}.`,
+    checking: 'Vérification…',
+    resend: 'Renvoyer le code',
+    resendIn: (seconds: number) => `Renvoyer le code dans ${seconds} s`,
+    wrongEmail: 'Ce n’est pas votre adresse ? Recommencer',
+    sendFailed: 'L’envoi du code a échoué. Réessayez dans un instant.',
+    wrongCode: 'Code incorrect.',
+  },
+
   signUp: {
-    title: 'Vous êtes chef de chantier ?',
-    subtitle: 'Créez le compte de votre entreprise pour commencer.',
+    alreadyRegistered: 'Un compte existe déjà pour cette adresse. Connectez-vous.',
+    title: 'Commencez à utiliser CASPROD',
     emailPlaceholder: 'E-mail',
     passwordPlaceholder: 'Mot de passe',
     rulePassword: 'Au moins 6 caractères',
@@ -116,13 +127,12 @@ const fr = {
     deleteAction: 'Supprimer définitivement',
     deleting: 'Suppression…',
     chef: {
-      title: 'Configurez votre entreprise',
-      subtitle: 'Vous êtes la première personne ici, vous serez donc le chef de chantier.',
+      title: 'Dernière étape avant de commencer',
       companyNamePlaceholder: "Nom de l'entreprise",
       firstNamePlaceholder: 'Votre prénom',
       lastNamePlaceholder: 'Votre nom',
       phonePlaceholder: 'Téléphone (facultatif)',
-      submit: "Créer l'entreprise",
+      submit: 'Créer',
       submitting: 'Configuration…',
     },
     employee: {
@@ -327,6 +337,9 @@ const fr = {
       confirmPasswordPlaceholder: 'Confirmer le nouveau mot de passe',
       passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères',
       passwordsDoNotMatch: 'Les mots de passe ne correspondent pas',
+      passwordsMatch: 'Les deux mots de passe sont identiques',
+      codeSentTo: (email: string) => `Entrez le code à 6 chiffres envoyé à ${email}, puis choisissez votre nouveau mot de passe.`,
+      sending: 'Envoi du code…',
       updating: 'Mise à jour…',
       updated: 'Mis à jour',
       update: 'Mettre à jour le mot de passe',

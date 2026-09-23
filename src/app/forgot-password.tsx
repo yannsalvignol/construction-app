@@ -84,7 +84,7 @@ export default function ForgotPasswordScreen() {
                 ]}
                 disabled={submitting || !email.trim()}
                 onPress={handleSubmit}>
-                <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
                   {submitting ? t.forgotPassword.submitting : t.forgotPassword.submit}
                 </ThemedText>
               </Pressable>
@@ -120,9 +120,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
+    borderRadius: Spacing.three + Spacing.one,
+    paddingVertical: Spacing.four,
     alignItems: 'center',
+  },
+  buttonLabel: {
+    fontSize: 17,
+    fontWeight: '400',
   },
   error: { textAlign: 'center' },
   link: { textAlign: 'center' },

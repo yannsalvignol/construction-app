@@ -3,11 +3,10 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
-import { PasswordInput } from '@/components/password-input';
 import { InfoRow, LinkRow, PillChoice } from '@/components/settings-rows';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -47,45 +46,12 @@ export function SettingsScreen() {
     : identities.find((i) => i.provider === 'google' || i.provider === 'apple')?.provider ?? null;
 
   const [themeChoice, setThemeChoice] = useState<ThemeChoice>(readStoredThemeChoice);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordChanged, setPasswordChanged] = useState(false);
   const [openLegalNote, setOpenLegalNote] = useState<'privacy' | 'terms' | null>(null);
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
 
   if (!profile) return null;
-
-  async function handleChangePassword() {
-    setPasswordError(null);
-    setPasswordChanged(false);
-
-    if (newPassword.length < 6) {
-      setPasswordError(t.account.security.passwordTooShort);
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError(t.account.security.passwordsDoNotMatch);
-      return;
-    }
-
-    setChangingPassword(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setChangingPassword(false);
-
-    if (error) {
-      setPasswordError(translateServerError(error.message, locale));
-      return;
-    }
-
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordChanged(true);
-  }
 
   function changeTheme(choice: ThemeChoice) {
     setThemeChoice(choice);
@@ -159,71 +125,19 @@ export function SettingsScreen() {
             <ThemedView style={[styles.section, styles.transparent]}>
               <ThemedText type="smallBold">{t.account.security.title}</ThemedText>
 
+              {/* The change itself is confirmed by a code emailed to the
+                  account, so it lives on its own screen rather than inline. */}
               <LinkRow
                 label={t.account.security.changePassword}
                 note={
-                  socialOnlyProvider && showPasswordForm
+                  socialOnlyProvider
                     ? t.account.security.socialOnly(socialOnlyProvider === 'apple' ? 'Apple' : 'Google')
                     : null
                 }
-                onPress={() => setShowPasswordForm((value) => !value)}
+                onPress={() => {
+                  if (!socialOnlyProvider) router.push('/change-password');
+                }}
               />
-
-              {showPasswordForm && !socialOnlyProvider && (
-                <ThemedView style={[styles.expandedForm, styles.transparent]}>
-                  <PasswordInput
-                    style={[
-                      styles.input,
-                      { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                    ]}
-                    placeholder={t.account.security.newPasswordPlaceholder}
-                    placeholderTextColor={theme.textSecondary}
-                    returnKeyType="next"
-                    value={newPassword}
-                    onChangeText={(value) => {
-                      setNewPassword(value);
-                      setPasswordChanged(false);
-                    }}
-                  />
-                  <PasswordInput
-                    style={[
-                      styles.input,
-                      { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                    ]}
-                    placeholder={t.account.security.confirmPasswordPlaceholder}
-                    placeholderTextColor={theme.textSecondary}
-                    returnKeyType="done"
-                    onSubmitEditing={() => Keyboard.dismiss()}
-                    value={confirmPassword}
-                    onChangeText={(value) => {
-                      setConfirmPassword(value);
-                      setPasswordChanged(false);
-                    }}
-                  />
-
-                  {passwordError && (
-                    <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
-                      {passwordError}
-                    </ThemedText>
-                  )}
-
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.button,
-                      { backgroundColor: theme.accent, opacity: pressed || changingPassword ? 0.7 : 1 },
-                    ]}
-                    disabled={changingPassword || !newPassword || !confirmPassword}
-                    onPress={handleChangePassword}>
-                    <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
-                      {changingPassword
-                        ? t.account.security.updating
-                        : passwordChanged
-                          ? t.account.security.updated
-                          : t.account.security.update}
-                    </ThemedText>
-                  </Pressable>
-                </ThemedView>
-              )}
             </ThemedView>
           )}
 

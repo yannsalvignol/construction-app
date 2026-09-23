@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Keyboard, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 export default function SignUpScreen() {
   const theme = useTheme();
   const { t } = useI18n();
-  const { signUp } = useAuth();
+  const { startSignUp } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,25 +27,27 @@ export default function SignUpScreen() {
   async function handleSubmit() {
     setError(null);
     setSubmitting(true);
-    const { error } = await signUp(email.trim(), password);
+    const { error } = await startSignUp(email.trim(), password);
     setSubmitting(false);
-    if (error) setError(error);
+    if (error) {
+      setError(error);
+      return;
+    }
+    router.push('/verify-email');
   }
 
   return (
     <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
+        <ThemedText type="subtitle" style={styles.title}>
           {t.signUp.title}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-          {t.signUp.subtitle}
+          {/* The dot is the brand's, as on the sign-in heading. */}
+          <ThemedText type="subtitle" style={{ color: theme.accent }}>.</ThemedText>
         </ThemedText>
 
         <ThemedView style={styles.form}>
           <AnimatedInput
             label={t.signUp.emailPlaceholder}
-            icon="mail-outline"
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -59,7 +61,6 @@ export default function SignUpScreen() {
 
           <AnimatedInput
             label={t.signUp.passwordPlaceholder}
-            icon="lock-closed-outline"
             password
             autoComplete="off"
             textContentType="none"
@@ -109,7 +110,10 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    // Same as the sign-in screen: centred, then lifted, so the heading sits in
+    // the upper third rather than level with the fields.
     justifyContent: 'center',
+    paddingBottom: Spacing.six * 3,
     paddingHorizontal: Spacing.four,
     gap: Spacing.four,
     maxWidth: MaxContentWidth,
@@ -117,10 +121,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   title: {
-    textAlign: 'center',
-  },
-  subtitle: {
-    textAlign: 'center',
+    textAlign: 'left',
   },
   form: {
     gap: Spacing.three,

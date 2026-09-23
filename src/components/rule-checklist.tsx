@@ -16,7 +16,7 @@ export function RuleChecklist({ rules }: { rules: Rule[] }) {
     {rules.map(rule => <View key={rule.label} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
       <Ionicons
         accessibilityElementsHidden
-        name={rule.met ? 'checkmark-outline' : 'close-outline'}
+        name={rule.met ? 'checkmark-outline' : 'close-circle-outline'}
         size={18}
         color={rule.met ? theme.success : theme.danger}
         style={{ width: 18 }}

@@ -73,7 +73,23 @@ type AuthContextValue = {
   profile: Profile | null;
   loading: boolean;
   signIn: (identifier: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  /** Emails a 6-digit code to a chef's address. Nothing is created yet: the
+   * account only exists once completeSignUp() accepts the code, so a failed
+   * send or an abandoned screen leaves the address free to try again. The
+   * password stays in memory here and is sent only with the code. */
+  startSignUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  /** The signup in progress, read by the confirmation screen. */
+  pendingSignUp: { email: string; password: string } | null;
+  /** Sends the code back; on success the account is created and signed in. */
+  completeSignUp: (code: string) => Promise<{ error: string | null }>;
+  /** Emails a fresh code for the signup in progress. */
+  resendSignUpCode: () => Promise<{ error: string | null }>;
+  /** Drops the signup in progress, sending the user back to the form. */
+  cancelSignUp: () => void;
+  /** Emails a code confirming a password change from inside the app. */
+  startPasswordChange: () => Promise<{ error: string | null }>;
+  /** Checks the code and sets the new password. */
+  completePasswordChange: (code: string, password: string) => Promise<{ error: string | null }>;
   /** Emails a recovery link. Only chefs have a real address — an employee's
    * username maps to a synthetic @employee.local one that receives nothing,
    * so the caller refuses those before asking. */
@@ -121,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { locale, t } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [pendingSignUp, setPendingSignUp] = useState<{ email: string; password: string } | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
 
@@ -234,13 +251,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         return { error: error ? translateServerError(error.message, locale) : null };
       },
-      signUp: async (email, password) => {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { intended_role: 'chef' satisfies IntendedRole } },
+      startSignUp: async (rawEmail, password) => {
+        const email = rawEmail.trim().toLowerCase();
+        const { error } = await supabase.functions.invoke('start-signup', {
+          method: 'POST',
+          body: { email, locale },
         });
-        return { error: error ? translateServerError(error.message, locale) : null };
+        if (error) {
+          const message = await resolveFunctionError('start-signup', error);
+          if (message === 'already_registered') return { error: t.signUp.alreadyRegistered };
+          return { error: message ? translateServerError(message, locale) : t.verifyEmail.sendFailed };
+        }
+        // Held here rather than passed through the route: a password has no
+        // business in a URL that deep links and history can keep.
+        setPendingSignUp({ email, password });
+        return { error: null };
+      },
+      pendingSignUp,
+      resendSignUpCode: async () => {
+        if (!pendingSignUp) return { error: t.verifyEmail.sendFailed };
+        const { error } = await supabase.functions.invoke('start-signup', {
+          method: 'POST',
+          body: { email: pendingSignUp.email, locale },
+        });
+        if (!error) return { error: null };
+        const message = await resolveFunctionError('start-signup', error);
+        return { error: message ? translateServerError(message, locale) : t.verifyEmail.sendFailed };
+      },
+      cancelSignUp: () => setPendingSignUp(null),
+      completeSignUp: async (code) => {
+        if (!pendingSignUp) return { error: t.verifyEmail.sendFailed };
+        const { email, password } = pendingSignUp;
+        const { error } = await supabase.functions.invoke('complete-signup', {
+          method: 'POST',
+          body: { email, code, password },
+        });
+        if (error) {
+          const message = await resolveFunctionError('complete-signup', error);
+          if (message === 'already_registered') return { error: t.signUp.alreadyRegistered };
+          return { error: message ? translateServerError(message, locale) : t.verifyEmail.wrongCode };
+        }
+
+        // The account exists now; signing in produces the session the navigator
+        // routes on, which lands the chef in onboarding.
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+          console.error('[auth] completeSignUp: sign-in after creation failed', signInError);
+          return { error: translateServerError(signInError.message, locale) };
+        }
+        setPendingSignUp(null);
+        return { error: null };
+      },
+      startPasswordChange: async () => {
+        const { error } = await supabase.functions.invoke('start-password-change', {
+          method: 'POST',
+          body: { locale },
+        });
+        if (!error) return { error: null };
+        const message = await resolveFunctionError('start-password-change', error);
+        return { error: message ? translateServerError(message, locale) : t.verifyEmail.sendFailed };
+      },
+      completePasswordChange: async (code, password) => {
+        const { error } = await supabase.functions.invoke('complete-password-change', {
+          method: 'POST',
+          body: { code, password },
+        });
+        if (!error) return { error: null };
+        const message = await resolveFunctionError('complete-password-change', error);
+        return { error: message ? translateServerError(message, locale) : t.verifyEmail.wrongCode };
       },
       sendPasswordReset: async (email) => {
         // The link comes back through the OAuth callback path, which exchanges
@@ -405,7 +483,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: null };
       },
     }),
-    [session, profile, sessionLoading, profileLoading, fetchProfile, locale, t]
+    [session, profile, pendingSignUp, sessionLoading, profileLoading, fetchProfile, locale, t]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

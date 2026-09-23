@@ -6,7 +6,9 @@
 // position every 30 s while the script runs: most of them jitter around inside
 // the chantier, a few are far away (fournisseur, route) and drive in slowly.
 // Positions expire after 15 minutes without an update, so leave it running
-// during the demo and Ctrl-C afterwards.
+// during the demo and Ctrl-C afterwards. Demo crews work around the clock: the
+// day never expires, and at midnight (Casablanca) a new work day is opened for
+// the new date so the Accueil "today" figures keep flowing.
 //
 // It also declares tasks the way the phones do: each worker has the tasks of
 // their S37 planning line mapped to catalogue codes with a realistic daily
@@ -102,9 +104,10 @@ function randomInDisc(lat, lng, radiusM) {
 function localDate() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
-const today = localDate();
-const startedAt = new Date(`${today}T08:00:00+01:00`);
-const plannedEndAt = new Date(Math.max(Date.parse(`${today}T19:00:00+01:00`), Date.now() + 2 * 3600_000));
+let today = localDate();
+// A day runs from its first minute to its last: the crews never clock off.
+const dayStart = (date) => new Date(`${date}T00:00:00+01:00`);
+const dayEnd = (date) => new Date(`${date}T23:59:59+01:00`);
 
 // --- lookups ----------------------------------------------------------------
 const { data: company, error: companyError } = await admin.from('companies').select('id').eq('name', COMPANY_NAME).single();
@@ -150,34 +153,37 @@ const { error: modeError } = await admin.from('profiles').update({ location_mode
 if (modeError) fail('set location_mode', modeError);
 
 const { error: consentError } = await admin.from('live_location_consents').upsert(
-  memberIds.map((employee_id) => ({ employee_id, notice_version: '2026-09-08', accepted_at: startedAt.toISOString(), revoked_at: null })),
+  memberIds.map((employee_id) => ({ employee_id, notice_version: '2026-09-08', accepted_at: dayStart(today).toISOString(), revoked_at: null })),
   { onConflict: 'employee_id' });
 if (consentError) fail('consents', consentError);
 
 const workDayIds = {};
-for (const m of members) {
-  const { data: existing } = await admin.from('work_days').select('id, ended_at')
-    .eq('employee_id', m.profile.id).eq('work_date', today).maybeSingle();
-  if (existing) {
-    if (existing.ended_at) {
-      const { error } = await admin.from('work_days').update({ ended_at: null, planned_end_at: plannedEndAt.toISOString() }).eq('id', existing.id);
+/** Opens (or reuses) every member's work day for `date`, open until midnight. */
+async function openDays(date) {
+  const started = dayStart(date).toISOString();
+  const plannedEnd = dayEnd(date).toISOString();
+  for (const m of members) {
+    const { data: existing } = await admin.from('work_days').select('id')
+      .eq('employee_id', m.profile.id).eq('work_date', date).maybeSingle();
+    if (existing) {
+      const { error } = await admin.from('work_days').update({ ended_at: null, planned_end_at: plannedEnd }).eq('id', existing.id);
       if (error) fail(`reopen day ${m.username}`, error);
+      workDayIds[m.profile.id] = existing.id;
+      continue;
     }
-    workDayIds[m.profile.id] = existing.id;
-    continue;
+    const { data, error } = await admin.from('work_days').insert({
+      employee_id: m.profile.id, company_id: company.id, site_id: m.site.id, work_date: date,
+      started_at: started, planned_end_at: plannedEnd,
+    }).select('id').single();
+    if (error) fail(`open day ${m.username}`, error);
+    workDayIds[m.profile.id] = data.id;
   }
-  const { data, error } = await admin.from('work_days').insert({
-    employee_id: m.profile.id, company_id: company.id, site_id: m.site.id, work_date: today,
-    started_at: startedAt.toISOString(), planned_end_at: plannedEndAt.toISOString(),
-  }).select('id').single();
-  if (error) fail(`open day ${m.username}`, error);
-  workDayIds[m.profile.id] = data.id;
 }
+await openDays(today);
 
 // --- declarations -------------------------------------------------------------
-const DAY_START = Date.parse(`${today}T08:00:00+01:00`);
-const DAY_END = Date.parse(`${today}T18:00:00+01:00`);
-const dayFraction = Math.min(1, Math.max(0, (Date.now() - DAY_START) / (DAY_END - DAY_START)));
+// Share of the 24 h already worked when the script starts.
+const dayFraction = (Date.now() - dayStart(today).getTime()) / (24 * 3600_000);
 const round = (value, unit) => (unit === 'unit' ? Math.round(value) : Math.round(value * 2) / 2);
 
 async function declare(now) {
@@ -220,6 +226,18 @@ for (const m of members) {
 }
 
 async function tick() {
+  // Midnight in Casablanca: yesterday's day closes, a new one opens, counters reset.
+  const date = localDate();
+  if (date !== today) {
+    const { error } = await admin.from('work_days').update({ ended_at: dayEnd(today).toISOString() })
+      .in('employee_id', memberIds).eq('work_date', today).is('ended_at', null);
+    if (error) fail('close previous day', error);
+    today = date;
+    await openDays(today);
+    for (const m of members) m.declared = {};
+    console.log(`--- nouvelle journée ${today} ---`);
+  }
+
   const now = new Date().toISOString();
   const rows = members.map((m) => {
     if (m.where === 'site') {
@@ -247,20 +265,21 @@ async function tick() {
   const { error } = await admin.from('live_positions').upsert(rows, { onConflict: 'employee_id' });
   if (error) fail('positions', error);
 
-  // Roughly one worker in five adds to a declaration each tick, until the day
-  // is done (a little over target is fine — some days go well).
+  // Roughly one worker in five adds to a declaration each tick. The daily
+  // target is paced over 24 h: the quantity may run a little ahead of the
+  // clock (some days go well) but never finishes the day at 9 am.
   let bumped = 0;
-  if (Date.now() < DAY_END + 3600_000) {
-    for (const m of members) {
-      if (m.where !== 'site' || Math.random() > 0.2) continue;
-      const [code, target] = m.tasks[Math.floor(Math.random() * m.tasks.length)];
-      const unit = unitByCode[code];
-      const current = m.declared[code] ?? 0;
-      if (current >= target * 1.3) continue;
-      const step = unit === 'unit' ? 1 : rand(1, Math.max(2, target / 4));
-      m.declared[code] = round(Math.min(current + step, target * 1.3), unit);
-      bumped++;
-    }
+  const elapsed = (Date.now() - dayStart(today).getTime()) / (24 * 3600_000);
+  for (const m of members) {
+    if (m.where !== 'site' || Math.random() > 0.2) continue;
+    const [code, target] = m.tasks[Math.floor(Math.random() * m.tasks.length)];
+    const unit = unitByCode[code];
+    const current = m.declared[code] ?? 0;
+    const ceiling = target * Math.min(1.3, elapsed * 1.3 + 0.15);
+    if (current >= ceiling) continue;
+    const step = unit === 'unit' ? 1 : rand(1, Math.max(2, target / 4));
+    m.declared[code] = round(Math.min(current + step, ceiling), unit);
+    bumped++;
   }
   if (bumped) await declare(now);
 
@@ -270,5 +289,5 @@ async function tick() {
 
 await tick();
 console.log(`\n${declaredAtStart} tâches déjà déclarées pour aujourd'hui (${Math.round(dayFraction * 100)} % de la journée écoulée).`);
-console.log(`Sharing for ${members.length} employees. Leave this running during the demo; Ctrl-C to pause, --stop to end the day.`);
+console.log(`Sharing for ${members.length} employees, around the clock. Ctrl-C to pause (resumes where it left off), --stop to end the day.`);
 setInterval(() => tick().catch((e) => console.error(e)), TICK_MS);

@@ -15,6 +15,8 @@ export default function AppLayout() {
         </Stack.Protected>
         {/* Réglages: shared by both roles, pushed over the tabs from Compte. */}
         <Stack.Screen name="settings" />
+        {/* Pushed from Réglages; confirmed by a code emailed to the account. */}
+        <Stack.Screen name="change-password" />
       </Stack>
   );
 }

@@ -3,8 +3,8 @@ import { useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedInput } from '@/components/animated-input';
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
-import { PasswordInput } from '@/components/password-input';
 import { SocialSignInButtons } from '@/components/social-sign-in-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -46,10 +46,8 @@ export default function SignInScreen() {
         </ThemedText>
 
         <ThemedView style={styles.form}>
-          <TextInput
-            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
-            placeholder={t.signIn.identifierPlaceholder}
-            placeholderTextColor={theme.textPlaceholder}
+          <AnimatedInput
+            label={t.signIn.identifierPlaceholder}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="next"
@@ -64,11 +62,10 @@ export default function SignInScreen() {
             onChangeText={setIdentifier}
           />
 
-          <PasswordInput
+          <AnimatedInput
             ref={passwordInput}
-            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
-            placeholder={t.signIn.passwordPlaceholder}
-            placeholderTextColor={theme.textPlaceholder}
+            label={t.signIn.passwordPlaceholder}
+            password
             returnKeyType="done"
             submitBehavior="blurAndSubmit"
             onSubmitEditing={handleSubmit}
@@ -139,12 +136,6 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.three,
-  },
-  input: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three + Spacing.one,
-    fontSize: 16,
   },
   buttonLabel: {
     fontSize: 17,

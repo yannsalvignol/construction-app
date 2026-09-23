@@ -94,6 +94,7 @@ function page({ title, body, slug }) {
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 <link rel="icon" href="/img/logo.png" type="image/png">
+<link rel="canonical" href="https://casprod.app/${slug}">
 </head>
 <body>
 <header><a class="brand" href="/"><img src="/img/logo.png" alt="">CASPROD</a><nav>${nav}</nav></header>

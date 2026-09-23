@@ -3,7 +3,13 @@ import * as Haptics from 'expo-haptics';
 import { Link, router } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -21,7 +27,6 @@ const ENTER_STAGGER_MS = 110;
  * options rather than one block of interface.
  */
 export default function RegisterScreen() {
-  const theme = useTheme();
   const { t } = useI18n();
 
   // One tap per panel, timed with its spring, so the arrival is felt as well
@@ -50,21 +55,7 @@ export default function RegisterScreen() {
             key={option.key}
             style={styles.cardWrapper}
             entering={FadeInDown.springify().damping(16).mass(0.6).delay(index * ENTER_STAGGER_MS)}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push(option.href)}
-              style={({ pressed }) => [
-                styles.card,
-                {
-                  backgroundColor: pressed ? theme.accentSoft : theme.backgroundElement,
-                  borderColor: pressed ? theme.accent : theme.backgroundSelected,
-                },
-              ]}>
-              <ThemedView style={[styles.iconCircle, { backgroundColor: theme.accentSoft }]}>
-                <Ionicons name={option.icon} size={38} color={theme.accentText} />
-              </ThemedView>
-              <ThemedText type="title" style={styles.cardTitle}>{option.title}</ThemedText>
-            </Pressable>
+            <RoleCard icon={option.icon} title={option.title} onPress={() => router.push(option.href)} />
           </Animated.View>
         ))}
 
@@ -73,6 +64,54 @@ export default function RegisterScreen() {
         </Link>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+/**
+ * One of the two panels. Pressing it sinks the card slightly and lifts its
+ * shadow away, the way a physical key gives under a thumb — read at a glance
+ * on a screen whose only content is this choice.
+ */
+function RoleCard({
+  icon,
+  title,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  title: string;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const pressed = useSharedValue(0);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - pressed.value * 0.02 }],
+    shadowOpacity: (theme.isDark ? 0.45 : 0.12) * (1 - pressed.value * 0.7),
+    shadowRadius: 22 - pressed.value * 12,
+    elevation: 6 - pressed.value * 4,
+  }));
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      onPressIn={() => { pressed.value = withTiming(1, { duration: 90 }); }}
+      onPressOut={() => { pressed.value = withSpring(0, { damping: 14, stiffness: 240 }); }}
+      style={styles.cardWrapper}>
+      <Animated.View
+        style={[
+          styles.card,
+          { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected },
+          cardStyle,
+        ]}>
+        <Ionicons name={icon} size={44} color={theme.text} />
+        <ThemedText type="title" style={styles.cardTitle}>
+          {title}
+          {/* The dot is the brand's, as on the sign-in heading. */}
+          <ThemedText type="title" style={{ color: theme.accent }}>.</ThemedText>
+        </ThemedText>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -96,13 +135,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.four,
-  },
-  iconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    // Raised off the background, so the two panels read as objects to press.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
   },
   cardTitle: { textAlign: 'center' },
   link: { textAlign: 'center', paddingBottom: Spacing.two },

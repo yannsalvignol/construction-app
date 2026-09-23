@@ -152,6 +152,15 @@ max_indexes = 5
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 
+# Sign-up codes are requested and redeemed before the account exists, so these
+# two cannot require a session. They validate their own input and rate limit
+# per address (see supabase/functions/*-signup).
+[functions.start-signup]
+verify_jwt = false
+
+[functions.complete-signup]
+verify_jwt = false
+
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used

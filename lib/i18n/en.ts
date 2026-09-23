@@ -77,9 +77,20 @@ const en = {
     signInLink: 'Already have an account? Sign in',
   },
 
+  verifyEmail: {
+    title: 'Confirm your email',
+    subtitle: (email: string) => `Enter the 6-digit code sent to ${email}.`,
+    checking: 'Checking…',
+    resend: 'Send a new code',
+    resendIn: (seconds: number) => `Send a new code in ${seconds}s`,
+    wrongEmail: 'Not your address? Start over',
+    sendFailed: 'The code could not be sent. Try again in a moment.',
+    wrongCode: 'Incorrect code.',
+  },
+
   signUp: {
-    title: "You're the owner?",
-    subtitle: 'Create your company account to get started.',
+    alreadyRegistered: 'An account already exists for this address. Sign in instead.',
+    title: 'Get started with CASPROD',
     emailPlaceholder: 'Email',
     passwordPlaceholder: 'Password',
     rulePassword: 'At least 6 characters',
@@ -118,13 +129,12 @@ const en = {
     deleteAction: 'Delete for good',
     deleting: 'Deleting…',
     chef: {
-      title: 'Set up your company',
-      subtitle: "You're the first person here, so you'll be the chef de chantier.",
+      title: 'One last step before you start',
       companyNamePlaceholder: 'Company name',
       firstNamePlaceholder: 'Your first name',
       lastNamePlaceholder: 'Your last name',
       phonePlaceholder: 'Phone (optional)',
-      submit: 'Create company',
+      submit: 'Create',
       submitting: 'Setting up…',
     },
     employee: {
@@ -332,6 +342,9 @@ const en = {
       confirmPasswordPlaceholder: 'Confirm new password',
       passwordTooShort: 'Password must be at least 6 characters',
       passwordsDoNotMatch: 'Passwords do not match',
+      passwordsMatch: 'Both passwords match',
+      codeSentTo: (email: string) => `Enter the 6-digit code sent to ${email}, then choose your new password.`,
+      sending: 'Sending the code…',
       updating: 'Updating…',
       updated: 'Updated',
       update: 'Update password',

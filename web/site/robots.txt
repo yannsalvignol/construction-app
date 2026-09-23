@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+# Chef workspace: private, and every route serves the same SPA shell.
+Disallow: /login
+Disallow: /signup
+Disallow: /onboarding
+Disallow: /dashboard
+Disallow: /employees
+Disallow: /sites
+Disallow: /planning
+Disallow: /live
+Disallow: /account
+
+Sitemap: https://casprod.app/sitemap.xml

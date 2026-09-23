@@ -80,8 +80,9 @@ journée.
 
 ## 9. Suppression du compte
 
-Vous pouvez supprimer votre compte depuis l’écran **Compte → Supprimer mon
-compte**.
+Vous pouvez supprimer votre compte depuis l’application : **Compte →
+Réglages → Supprimer mon compte**. La marche à suivre détaillée est publiée
+sur <https://casprod.app/delete-account>.
 
 - **Employé** : votre identifiant, nom, téléphone, photo de profil, jetons de
   notification, position en direct, et vos photos et positions de vérification

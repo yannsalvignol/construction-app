@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedInput } from '@/components/animated-input';
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { LevelMark } from '@/components/level-mark';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -44,42 +46,37 @@ function ChefOnboarding() {
 
   return (
     <>
-      <ThemedText type="title" style={styles.title}>
+      <ThemedView style={styles.mark}>
+        <LevelMark />
+      </ThemedView>
+
+      <ThemedText type="subtitle" style={styles.chefTitle}>
         {t.onboarding.chef.title}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-        {t.onboarding.chef.subtitle}
+        {/* The dot is the brand's, as on the sign-in and sign-up headings. */}
+        <ThemedText type="subtitle" style={{ color: theme.accent }}>.</ThemedText>
       </ThemedText>
 
       <ThemedView style={styles.form}>
-        <TextInput
-          style={inputStyle(theme)}
-          placeholder={t.onboarding.chef.companyNamePlaceholder}
-          placeholderTextColor={theme.textPlaceholder}
+        <AnimatedInput
+          label={t.onboarding.chef.companyNamePlaceholder}
           returnKeyType="next"
           value={companyName}
           onChangeText={setCompanyName}
         />
-        <TextInput
-          style={inputStyle(theme)}
-          placeholder={t.onboarding.chef.firstNamePlaceholder}
-          placeholderTextColor={theme.textPlaceholder}
+        <AnimatedInput
+          label={t.onboarding.chef.firstNamePlaceholder}
           returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
         />
-        <TextInput
-          style={inputStyle(theme)}
-          placeholder={t.onboarding.chef.lastNamePlaceholder}
-          placeholderTextColor={theme.textPlaceholder}
+        <AnimatedInput
+          label={t.onboarding.chef.lastNamePlaceholder}
           returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
         />
-        <TextInput
-          style={inputStyle(theme)}
-          placeholder={t.onboarding.chef.phonePlaceholder}
-          placeholderTextColor={theme.textPlaceholder}
+        <AnimatedInput
+          label={t.onboarding.chef.phonePlaceholder}
           keyboardType="phone-pad"
           returnKeyType="done"
           onSubmitEditing={() => Keyboard.dismiss()}
@@ -100,15 +97,18 @@ function ChefOnboarding() {
           ]}
           disabled={submitting || !canSubmit}
           onPress={handleSubmit}>
-          <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+          <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
             {submitting ? t.onboarding.chef.submitting : t.onboarding.chef.submit}
           </ThemedText>
         </Pressable>
 
-        <Pressable onPress={signOut}>
-          <ThemedText type="linkPrimary" style={styles.link}>
-            {t.common.signOut}
-          </ThemedText>
+        <Pressable
+          onPress={signOut}
+          style={({ pressed }) => [
+            styles.pillButton,
+            { borderColor: theme.backgroundSelected, opacity: pressed ? 0.7 : 1 },
+          ]}>
+          <ThemedText type="smallBold">{t.common.signOut}</ThemedText>
         </Pressable>
 
         <DeleteAccountLink />
@@ -279,8 +279,13 @@ function DeleteAccountLink() {
 
   if (!confirming) {
     return (
-      <Pressable onPress={() => setConfirming(true)}>
-        <ThemedText type="small" style={[styles.link, { color: theme.textSecondary }]}>
+      <Pressable
+        onPress={() => setConfirming(true)}
+        style={({ pressed }) => [
+          styles.pillButton,
+          { borderColor: theme.danger, opacity: pressed ? 0.7 : 1 },
+        ]}>
+        <ThemedText type="smallBold" style={{ color: theme.danger }}>
           {t.onboarding.deleteAccount}
         </ThemedText>
       </Pressable>
@@ -297,8 +302,14 @@ function DeleteAccountLink() {
           {error}
         </ThemedText>
       )}
-      <Pressable disabled={busy} onPress={handleDelete}>
-        <ThemedText type="smallBold" style={[styles.link, { color: theme.danger }]}>
+      <Pressable
+        disabled={busy}
+        onPress={handleDelete}
+        style={({ pressed }) => [
+          styles.pillButton,
+          { backgroundColor: theme.danger, borderColor: theme.danger, opacity: pressed || busy ? 0.7 : 1 },
+        ]}>
+        <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
           {busy ? t.onboarding.deleting : t.onboarding.deleteAction}
         </ThemedText>
       </Pressable>
@@ -333,8 +344,20 @@ const styles = StyleSheet.create({
   title: {
     textAlign: 'center',
   },
+  chefTitle: {
+    textAlign: 'left',
+  },
   subtitle: {
     textAlign: 'center',
+  },
+  mark: {
+    // Air above, then the heading close underneath: the two read as one block,
+    // with the space separating them from the form rather than from each other.
+    paddingTop: Spacing.four,
+    // Trims the layout gap without closing it: the heading stays close, but
+    // not touching.
+    marginBottom: Spacing.three,
+    backgroundColor: 'transparent',
   },
   form: {
     gap: Spacing.three,
@@ -346,12 +369,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
+    borderRadius: Spacing.three + Spacing.one,
+    paddingVertical: Spacing.four,
     alignItems: 'center',
+  },
+  buttonLabel: {
+    fontSize: 17,
+    fontWeight: '400',
   },
   link: {
     alignSelf: 'center',
+  },
+  // Oval, for the two actions that leave this screen rather than finish it.
+  pillButton: {
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: Spacing.two + Spacing.half,
+    paddingHorizontal: Spacing.five,
+    alignItems: 'center',
   },
   error: {
     
