@@ -49,7 +49,9 @@ export default function SignUpScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
-            textContentType="emailAddress"
+            autoComplete="off"
+            textContentType="none"
+            importantForAutofill="no"
             returnKeyType="next"
             value={email}
             onChangeText={setEmail}
@@ -59,7 +61,9 @@ export default function SignUpScreen() {
             label={t.signUp.passwordPlaceholder}
             icon="lock-closed-outline"
             password
-            textContentType="newPassword"
+            autoComplete="off"
+            textContentType="none"
+            importantForAutofill="no"
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
             value={password}
