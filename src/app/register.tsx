@@ -22,7 +22,7 @@ export default function RegisterScreen() {
 
   const options = [
     { key: 'chef', href: '/sign-up' as const, icon: 'business-outline' as const, title: t.register.chef },
-    { key: 'employee', href: '/join' as const, icon: 'key-outline' as const, title: t.register.employee },
+    { key: 'employee', href: '/join' as const, icon: 'qr-code-outline' as const, title: t.register.employee },
   ];
 
   return (
