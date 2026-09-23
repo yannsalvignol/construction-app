@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     // The form's gap would leave it floating between the button and the social
     // buttons; pulled up so it reads as belonging to the button above it.
-    marginTop: -Spacing.three,
+    marginTop: -(Spacing.three + Spacing.half),
   },
   link: {
     alignSelf: 'center',
