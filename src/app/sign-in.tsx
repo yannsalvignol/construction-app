@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: Spacing.two,
-    paddingVertical: Spacing.four,
+    paddingVertical: Spacing.three + Spacing.half,
     alignItems: 'center',
   },
   forgotLink: {
