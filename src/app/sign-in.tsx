@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     // Centred, then lifted: the welcome sits in the upper third rather than
     // level with the fields, which reads as a greeting instead of a label.
     justifyContent: 'center',
-    paddingBottom: Spacing.six * 2,
+    paddingBottom: Spacing.six * 3,
     paddingHorizontal: Spacing.four,
     gap: Spacing.four,
     maxWidth: MaxContentWidth,
