@@ -61,7 +61,6 @@ const en = {
   },
 
   register: {
-    title: 'Create an account',
     chef: 'I am a site manager',
     employee: 'I have a team code',
     signInLink: 'Already have an account? Sign in',

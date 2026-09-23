@@ -58,7 +58,6 @@ const fr = {
   },
 
   register: {
-    title: 'Créer un compte',
     chef: 'Je suis chef de chantier',
     employee: 'J’ai un code d’équipe',
     signInLink: 'Vous avez déjà un compte ? Connectez-vous',
