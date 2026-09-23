@@ -58,7 +58,7 @@ const fr = {
   },
 
   register: {
-    chef: 'Je suis chef de chantier',
+    chef: 'Je pilote les chantiers',
     employee: 'J’ai un code d’équipe',
     signInLink: 'Vous avez déjà un compte ? Connectez-vous',
   },
