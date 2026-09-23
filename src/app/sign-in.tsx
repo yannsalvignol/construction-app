@@ -55,8 +55,11 @@ export default function SignInScreen() {
             returnKeyType="next"
             submitBehavior="submit"
             onSubmitEditing={() => passwordInput.current?.focus()}
-            autoComplete="username"
-            textContentType="username"
+            // No autofill hints: they are what makes the system draw its own
+            // envelope and key glyphs inside the fields.
+            autoComplete="off"
+            textContentType="none"
+            importantForAutofill="no"
             value={identifier}
             onChangeText={setIdentifier}
           />
@@ -69,8 +72,9 @@ export default function SignInScreen() {
             returnKeyType="done"
             submitBehavior="blurAndSubmit"
             onSubmitEditing={handleSubmit}
-            autoComplete="current-password"
-            textContentType="password"
+            autoComplete="off"
+            textContentType="none"
+            importantForAutofill="no"
             value={password}
             onChangeText={setPassword}
           />
