@@ -117,7 +117,10 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    // Centred, then lifted: the welcome sits in the upper third rather than
+    // level with the fields, which reads as a greeting instead of a label.
     justifyContent: 'center',
+    paddingBottom: Spacing.six * 2,
     paddingHorizontal: Spacing.four,
     gap: Spacing.four,
     maxWidth: MaxContentWidth,

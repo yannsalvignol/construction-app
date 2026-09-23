@@ -48,7 +48,7 @@ const fr = {
   },
 
   signIn: {
-    title: 'Bon retour ! Content de vous revoir.',
+    title: 'Content de vous revoir sur CASPROD !',
     identifierPlaceholder: "E-mail ou nom d'utilisateur",
     passwordPlaceholder: 'Mot de passe',
     submit: 'Se connecter',

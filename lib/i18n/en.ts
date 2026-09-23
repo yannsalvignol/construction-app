@@ -51,7 +51,7 @@ const en = {
   },
 
   signIn: {
-    title: 'Welcome back! Glad to see you again.',
+    title: 'Glad to see you again on CASPROD!',
     identifierPlaceholder: 'Email or username',
     passwordPlaceholder: 'Password',
     submit: 'Sign in',
