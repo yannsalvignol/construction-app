@@ -1,6 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Haptics from 'expo-haptics';
 import { Link, router } from 'expo-router';
-import { Pressable, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +11,8 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+
+const ENTER_STAGGER_MS = 110;
 
 /**
  * The fork between the two ways of creating an account: two panels filling the
@@ -19,6 +23,19 @@ import { useTheme } from '@/hooks/use-theme';
 export default function RegisterScreen() {
   const theme = useTheme();
   const { t } = useI18n();
+
+  // One tap per panel, timed with its spring, so the arrival is felt as well
+  // as seen. Haptics have no web implementation, hence the platform check.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const timers = [0, ENTER_STAGGER_MS].map((delay, index) =>
+      setTimeout(
+        () => Haptics.impactAsync(index === 0 ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium).catch(() => {}),
+        delay + 60
+      )
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   const options = [
     { key: 'chef', href: '/sign-up' as const, icon: 'business-outline' as const, title: t.register.chef },
@@ -32,7 +49,7 @@ export default function RegisterScreen() {
           <Animated.View
             key={option.key}
             style={styles.cardWrapper}
-            entering={FadeInDown.springify().damping(16).mass(0.6).delay(index * 110)}>
+            entering={FadeInDown.springify().damping(16).mass(0.6).delay(index * ENTER_STAGGER_MS)}>
             <Pressable
               accessibilityRole="button"
               onPress={() => router.push(option.href)}
