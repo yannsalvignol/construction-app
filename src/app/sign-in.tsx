@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    borderRadius: Spacing.two,
+    borderRadius: Spacing.three,
     paddingVertical: Spacing.three + Spacing.half,
     alignItems: 'center',
   },
