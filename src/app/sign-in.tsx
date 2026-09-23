@@ -94,7 +94,7 @@ export default function SignInScreen() {
             ]}
             disabled={submitting || !identifier || !password}
             onPress={handleSubmit}>
-            <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+            <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
               {submitting ? t.signIn.submitting : t.signIn.submit}
             </ThemedText>
           </Pressable>
@@ -141,6 +141,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three + Spacing.one,
     fontSize: 16,
+  },
+  buttonLabel: {
+    fontSize: 17,
+    fontWeight: '500',
   },
   button: {
     borderRadius: Spacing.three + Spacing.one,
