@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     fontSize: 17,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   button: {
     borderRadius: Spacing.three + Spacing.one,
