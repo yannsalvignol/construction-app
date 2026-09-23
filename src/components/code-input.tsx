@@ -3,7 +3,7 @@ import { AccessibilityInfo, Pressable, StyleSheet, TextInput, View } from 'react
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -112,14 +112,17 @@ function Box({ character, active, filled, hasError, reduceMotion }: {
   const boxStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const caretStyle = useAnimatedStyle(() => ({ opacity: caret.value }));
 
-  const borderColor = hasError ? theme.danger : active ? theme.accent : filled ? theme.accentText : theme.backgroundSelected;
+  // The boxes keep the light palette in both schemes: a code is read back
+  // character by character, and dark ink on a pale field is what stays legible
+  // on a bright site, phone held at arm's length.
+  const borderColor = hasError ? theme.danger : active ? theme.accent : filled ? theme.accentText : Colors.light.backgroundSelected;
 
   return (
     <Animated.View
       style={[
         styles.box,
         boxStyle,
-        { borderColor, backgroundColor: active ? theme.accentSoft : theme.backgroundElement, borderWidth: active || filled ? 2 : 1 },
+        { borderColor, backgroundColor: active ? Colors.light.accentSoft : Colors.light.backgroundElement, borderWidth: active || filled ? 2 : 1 },
       ]}>
       {character ? (
         <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(120)}>
@@ -143,7 +146,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  character: { fontSize: 24, lineHeight: 30, fontWeight: '700' },
+  character: { fontSize: 24, lineHeight: 30, fontWeight: '700', color: Colors.light.text },
   caret: { width: 2, height: 24, borderRadius: 1 },
   hidden: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0, color: 'transparent', fontSize: 1 },
 });
