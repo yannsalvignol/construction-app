@@ -75,6 +75,12 @@ export default function SignInScreen() {
             onChangeText={setPassword}
           />
 
+          {/* Next to the field it is about, aligned right so it reads as a way
+              out of the form rather than another action to take. */}
+          <Link href="/forgot-password" style={styles.forgotLink}>
+            <ThemedText type="linkPrimary">{t.signIn.forgotLink}</ThemedText>
+          </Link>
+
           {error && (
             <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
               {error}
@@ -92,12 +98,6 @@ export default function SignInScreen() {
               {submitting ? t.signIn.submitting : t.signIn.submit}
             </ThemedText>
           </Pressable>
-
-          {/* Right under the button it belongs to, aligned right so it reads as
-              a way out of the form rather than another action to take. */}
-          <Link href="/forgot-password" style={styles.forgotLink}>
-            <ThemedText type="linkPrimary">{t.signIn.forgotLink}</ThemedText>
-          </Link>
 
           <SocialSignInButtons />
 
