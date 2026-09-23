@@ -18,7 +18,7 @@ export const Colors = {
     textSecondary: '#655A75',
     /** Placeholders only: a step past textSecondary, since the field's own
      * tone already separates it from the page. */
-    textPlaceholder: '#8C82A0',
+    textPlaceholder: '#A49BB5',
     buttonText: '#ffffff',
     accent: '#8358D8',
     accentText: '#7B49CF',
@@ -38,7 +38,7 @@ export const Colors = {
     textSecondary: '#C0B3CE',
     /** Placeholders only: a step past textSecondary, since the field's own
      * tone already separates it from the page. */
-    textPlaceholder: '#8E82A0',
+    textPlaceholder: '#7C7190',
     buttonText: '#ffffff',
     accent: '#9163E6',
     accentText: '#D9BDFF',
