@@ -90,7 +90,9 @@ export default function SignInScreen() {
             </ThemedText>
           </Pressable>
 
-          <Link href="/forgot-password" style={styles.link}>
+          {/* Right under the button it belongs to, aligned right so it reads as
+              a way out of the form rather than another action to take. */}
+          <Link href="/forgot-password" style={styles.forgotLink}>
             <ThemedText type="linkPrimary">{t.signIn.forgotLink}</ThemedText>
           </Link>
 
@@ -137,8 +139,12 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
+    paddingVertical: Spacing.four,
     alignItems: 'center',
+  },
+  forgotLink: {
+    textAlign: 'right',
+    marginTop: -Spacing.two,
   },
   link: {
     alignSelf: 'center',
