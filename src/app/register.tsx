@@ -63,13 +63,13 @@ export default function RegisterScreen() {
               <ThemedView style={[styles.iconCircle, { backgroundColor: theme.accentSoft }]}>
                 <Ionicons name={option.icon} size={38} color={theme.accentText} />
               </ThemedView>
-              <ThemedText display type="title" style={styles.cardTitle}>{option.title}</ThemedText>
+              <ThemedText type="title" style={styles.cardTitle}>{option.title}</ThemedText>
             </Pressable>
           </Animated.View>
         ))}
 
         <Link href="/sign-in" style={styles.link}>
-          <ThemedText display type="linkPrimary">{t.register.signInLink}</ThemedText>
+          <ThemedText type="linkPrimary">{t.register.signInLink}</ThemedText>
         </Link>
       </SafeAreaView>
     </ThemedView>

@@ -56,8 +56,22 @@ const en = {
     passwordPlaceholder: 'Password',
     submit: 'Sign in',
     submitting: 'Signing in…',
+    forgotLink: 'Forgotten password?',
     registerPrompt: "Don't have an account?",
     registerAction: 'Register now',
+  },
+
+  forgotPassword: {
+    title: 'Forgotten password',
+    subtitle: 'Enter your account email and we send you a link to choose a new password.',
+    emailPlaceholder: 'Email',
+    submit: 'Send the link',
+    submitting: 'Sending…',
+    sent: (email: string) => `If an account exists for ${email}, a link has just been sent.`,
+    sentHint: 'Open the link on this phone: it signs you in, then change your password in Account → Security.',
+    employeeHint: 'You sign in with a username? Ask your chef to reset your password from your page.',
+    employeeError: 'Enter an email address. With a username, only your chef can reset the password.',
+    backLink: 'Back to sign in',
   },
 
   register: {

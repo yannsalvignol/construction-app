@@ -8,7 +8,7 @@ import { PasswordInput } from '@/components/password-input';
 import { SocialSignInButtons } from '@/components/social-sign-in-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DisplayFont, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
@@ -38,7 +38,7 @@ export default function SignInScreen() {
   return (
     <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText display type="title" style={styles.title}>
+        <ThemedText type="title" style={styles.title}>
           {t.signIn.title}
         </ThemedText>
 
@@ -73,7 +73,7 @@ export default function SignInScreen() {
           />
 
           {error && (
-            <ThemedText display type="small" style={[styles.error, { color: theme.danger }]}>
+            <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
               {error}
             </ThemedText>
           )}
@@ -85,17 +85,21 @@ export default function SignInScreen() {
             ]}
             disabled={submitting || !identifier || !password}
             onPress={handleSubmit}>
-            <ThemedText display type="smallBold" style={{ color: theme.buttonText }}>
+            <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
               {submitting ? t.signIn.submitting : t.signIn.submit}
             </ThemedText>
           </Pressable>
+
+          <Link href="/forgot-password" style={styles.link}>
+            <ThemedText type="linkPrimary">{t.signIn.forgotLink}</ThemedText>
+          </Link>
 
           <SocialSignInButtons />
 
           {/* The question stays in body colour so only the action reads as tappable. */}
           <Link href="/register" style={styles.link}>
-            <ThemedText display type="link">{t.signIn.registerPrompt} </ThemedText>
-            <ThemedText display type="linkPrimary">{t.signIn.registerAction}</ThemedText>
+            <ThemedText type="link">{t.signIn.registerPrompt} </ThemedText>
+            <ThemedText type="linkPrimary">{t.signIn.registerAction}</ThemedText>
           </Link>
         </ThemedView>
       </SafeAreaView>
@@ -130,7 +134,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 16,
-    fontFamily: DisplayFont,
   },
   button: {
     borderRadius: Spacing.two,

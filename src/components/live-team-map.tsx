@@ -121,9 +121,9 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
     {/* The map is always mounted, empty team or not: an empty map on Morocco reads
         as "nobody is sharing", where no map at all just looks broken. */}
     <View style={{ height: 380, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
-      {/* The map sits inside the page's scroll view: a drag scrolls the page rather
-          than panning the map. Pinch-zoom still works; the lists below centre pins. */}
-      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} scrollEnabled={false} rotateEnabled={false} pitchEnabled={false}>
+      {/* Panning and zooming belong to the map; the page is scrolled from the lists
+          below it, which is why the map is pinned rather than scrolling away. */}
+      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}>
         {showSites && sites.map(site => site.latitude != null && site.longitude != null
           ? <Marker key={'site-' + site.id} coordinate={{ latitude: site.latitude, longitude: site.longitude }}
               title={site.name} description={site.address ?? undefined} pinColor={theme.accent} />

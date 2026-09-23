@@ -8,7 +8,7 @@ import { PasswordInput } from '@/components/password-input';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DisplayFont, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
@@ -93,13 +93,13 @@ export default function JoinScreen() {
   return (
     <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText display type="title" style={styles.title}>
+        <ThemedText type="title" style={styles.title}>
           {t.join.title}
         </ThemedText>
 
         {!companyName ? (
           <>
-            <ThemedText display type="small" themeColor="textSecondary" style={styles.subtitle}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
               {t.join.codeSubtitle}
             </ThemedText>
 
@@ -117,7 +117,7 @@ export default function JoinScreen() {
               />
 
               {codeError && (
-                <ThemedText display type="small" style={[styles.error, { color: theme.danger }]}>
+                <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                   {codeError}
                 </ThemedText>
               )}
@@ -129,20 +129,20 @@ export default function JoinScreen() {
                 ]}
                 disabled={!canSubmitCode}
                 onPress={handleCheckCode}>
-                <ThemedText display type="smallBold" style={{ color: theme.buttonText }}>
+                <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
                   {checking ? t.join.checking : t.join.continue}
                 </ThemedText>
               </Pressable>
 
               <Link href="/sign-in" style={styles.link}>
-                <ThemedText display type="linkPrimary">{t.join.signInLink}</ThemedText>
+                <ThemedText type="linkPrimary">{t.join.signInLink}</ThemedText>
               </Link>
             </ThemedView>
           </>
         ) : (
           <>
-            <ThemedText display type="small" themeColor="textSecondary" style={styles.subtitle}>
-              {t.join.joiningPrefix} <ThemedText display type="smallBold">{companyName}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+              {t.join.joiningPrefix} <ThemedText type="smallBold">{companyName}</ThemedText>
               {t.join.joiningSuffix}
             </ThemedText>
 
@@ -178,7 +178,7 @@ export default function JoinScreen() {
               ]} />
 
               {signupError && (
-                <ThemedText display type="small" style={[styles.error, { color: theme.danger }]}>
+                <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
                   {signupError}
                 </ThemedText>
               )}
@@ -193,13 +193,13 @@ export default function JoinScreen() {
                 ]}
                 disabled={submitting || !canSubmitSignup}
                 onPress={handleSubmitSignup}>
-                <ThemedText display type="smallBold" style={{ color: theme.buttonText }}>
+                <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
                   {submitting ? t.join.creatingAccount : t.join.createAccount}
                 </ThemedText>
               </Pressable>
 
               <Pressable onPress={handleChangeCode} disabled={submitting}>
-                <ThemedText display type="linkPrimary" style={styles.link}>
+                <ThemedText type="linkPrimary" style={styles.link}>
                   {t.join.changeCode}
                 </ThemedText>
               </Pressable>
@@ -241,7 +241,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 16,
-    fontFamily: DisplayFont,
   },
   button: {
     borderRadius: Spacing.two,

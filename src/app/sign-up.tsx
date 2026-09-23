@@ -9,7 +9,7 @@ import { RuleChecklist } from '@/components/rule-checklist';
 import { SocialSignInButtons } from '@/components/social-sign-in-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DisplayFont, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
@@ -35,10 +35,10 @@ export default function SignUpScreen() {
   return (
     <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText display type="title" style={styles.title}>
+        <ThemedText type="title" style={styles.title}>
           {t.signUp.title}
         </ThemedText>
-        <ThemedText display type="small" themeColor="textSecondary" style={styles.subtitle}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
           {t.signUp.subtitle}
         </ThemedText>
 
@@ -68,7 +68,7 @@ export default function SignUpScreen() {
           <RuleChecklist rules={[{ label: t.signUp.rulePassword, met: password.length >= 6 }]} />
 
           {error && (
-            <ThemedText display type="small" style={[styles.error, { color: theme.danger }]}>
+            <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
               {error}
             </ThemedText>
           )}
@@ -80,7 +80,7 @@ export default function SignUpScreen() {
             ]}
             disabled={submitting || !email || !password}
             onPress={handleSubmit}>
-            <ThemedText display type="smallBold" style={{ color: theme.buttonText }}>
+            <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
               {submitting ? t.signUp.submitting : t.signUp.submit}
             </ThemedText>
           </Pressable>
@@ -88,7 +88,7 @@ export default function SignUpScreen() {
           <SocialSignInButtons />
 
           <Link href="/sign-in" style={styles.link}>
-            <ThemedText display type="linkPrimary">{t.signUp.signInLink}</ThemedText>
+            <ThemedText type="linkPrimary">{t.signUp.signInLink}</ThemedText>
           </Link>
         </ThemedView>
       </SafeAreaView>
@@ -126,7 +126,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 16,
-    fontFamily: DisplayFont,
   },
   button: {
     borderRadius: Spacing.two,

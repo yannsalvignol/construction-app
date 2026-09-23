@@ -1,16 +1,14 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { DisplayFont, Fonts, ThemeColor } from '@/constants/theme';
+import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
   themeColor?: ThemeColor;
-  /** Opt into MuseoModerno; the app's own screens keep the system font. */
-  display?: boolean;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, display = false, ...rest }: ThemedTextProps) {
+export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
   // A caller that overrides fontSize but not lineHeight would otherwise keep the
   // preset's line height (24 for `default`) and get its glyphs clipped, so scale
@@ -33,7 +31,6 @@ export function ThemedText({ style, type = 'default', themeColor, display = fals
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
-        display && { fontFamily: DisplayFont },
         style,
         scaled,
       ]}
@@ -71,10 +68,12 @@ const styles = StyleSheet.create({
   link: {
     lineHeight: 30,
     fontSize: 14,
+    fontWeight: 600,
   },
   linkPrimary: {
     lineHeight: 30,
     fontSize: 14,
+    fontWeight: 600,
   },
   code: {
     fontFamily: Fonts.mono,

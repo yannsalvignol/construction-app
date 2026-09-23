@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DisplayFont, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { IntendedRole, useAuth, usernameFromAuthEmail } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
@@ -44,10 +44,10 @@ function ChefOnboarding() {
 
   return (
     <>
-      <ThemedText display type="title" style={styles.title}>
+      <ThemedText type="title" style={styles.title}>
         {t.onboarding.chef.title}
       </ThemedText>
-      <ThemedText display type="small" themeColor="textSecondary" style={styles.subtitle}>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
         {t.onboarding.chef.subtitle}
       </ThemedText>
 
@@ -88,7 +88,7 @@ function ChefOnboarding() {
         />
 
         {error && (
-          <ThemedText display type="small" style={[styles.error, { color: theme.danger }]}>
+          <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
             {error}
           </ThemedText>
         )}
@@ -100,13 +100,13 @@ function ChefOnboarding() {
           ]}
           disabled={submitting || !canSubmit}
           onPress={handleSubmit}>
-          <ThemedText display type="smallBold" style={{ color: theme.buttonText }}>
+          <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
             {submitting ? t.onboarding.chef.submitting : t.onboarding.chef.submit}
           </ThemedText>
         </Pressable>
 
         <Pressable onPress={signOut}>
-          <ThemedText display type="linkPrimary" style={styles.link}>
+          <ThemedText type="linkPrimary" style={styles.link}>
             {t.common.signOut}
           </ThemedText>
         </Pressable>
@@ -151,17 +151,17 @@ function EmployeeOnboarding({
 
   return (
     <>
-      <ThemedText display type="title" style={styles.title}>
+      <ThemedText type="title" style={styles.title}>
         {t.onboarding.employee.title}
       </ThemedText>
-      <ThemedText display type="small" themeColor="textSecondary" style={styles.subtitle}>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
         {username ? t.onboarding.employee.willSignInAs(username) : ''}
         {t.onboarding.employee.subtitle}
       </ThemedText>
 
       <ThemedView style={styles.form}>
         {!joinCode && (
-          <ThemedText display type="small" style={[styles.error, { color: theme.danger }]}>
+          <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
             {t.onboarding.employee.missingCodeError}
           </ThemedText>
         )}
@@ -193,7 +193,7 @@ function EmployeeOnboarding({
         />
 
         {error && (
-          <ThemedText display type="small" style={[styles.error, { color: theme.danger }]}>
+          <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
             {error}
           </ThemedText>
         )}
@@ -205,13 +205,13 @@ function EmployeeOnboarding({
           ]}
           disabled={submitting || !canSubmit}
           onPress={handleSubmit}>
-          <ThemedText display type="smallBold" style={{ color: theme.buttonText }}>
+          <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
             {submitting ? t.onboarding.employee.submitting : t.onboarding.employee.submit}
           </ThemedText>
         </Pressable>
 
         <Pressable onPress={signOut}>
-          <ThemedText display type="linkPrimary" style={styles.link}>
+          <ThemedText type="linkPrimary" style={styles.link}>
             {t.common.signOut}
           </ThemedText>
         </Pressable>
@@ -281,7 +281,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 16,
-    fontFamily: DisplayFont,
   },
   button: {
     borderRadius: Spacing.two,

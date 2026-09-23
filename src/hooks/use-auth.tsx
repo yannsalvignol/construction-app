@@ -73,6 +73,10 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (identifier: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  /** Emails a recovery link. Only chefs have a real address — an employee's
+   * username maps to a synthetic @employee.local one that receives nothing,
+   * so the caller refuses those before asking. */
+  sendPasswordReset: (email: string) => Promise<{ error: string | null }>;
   /** Google OAuth through the system browser. Works in Expo Go (no native
    * module). A new Google user lands in chef onboarding since intended_role
    * can't travel through OAuth and onboarding.tsx defaults to chef. Returns a
@@ -231,6 +235,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           password,
           options: { data: { intended_role: 'chef' satisfies IntendedRole } },
         });
+        return { error: error ? translateServerError(error.message, locale) : null };
+      },
+      sendPasswordReset: async (email) => {
+        // The link comes back through the OAuth callback path, which exchanges
+        // the code for a session; the account screen is where the new password
+        // is set.
+        const redirectTo = Linking.createURL(OAUTH_CALLBACK_PATH);
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+        if (error) console.error('[auth] sendPasswordReset failed', { email, error });
         return { error: error ? translateServerError(error.message, locale) : null };
       },
       signInWithGoogle: async () => {

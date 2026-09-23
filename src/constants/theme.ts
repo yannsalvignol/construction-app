@@ -42,13 +42,6 @@ export const Colors = {
 
 export type ThemeColor = Exclude<keyof typeof Colors.light & keyof typeof Colors.dark, 'isDark'>;
 
-/**
- * MuseoModerno at its regular weight, used on the screens people meet before
- * signing in. Loaded in the root layout; referencing it before that renders
- * the system font, which is why the layout waits for the load.
- */
-export const DisplayFont = 'MuseoModerno_400Regular';
-
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */

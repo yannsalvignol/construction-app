@@ -23,7 +23,7 @@ export function RuleChecklist({ rules }: { rules: Rule[] }) {
       />
       {/* The state is spoken as part of the label so a screen reader is not left
           with a bare tick character to interpret. */}
-      <ThemedText display
+      <ThemedText
         type="small"
         accessibilityLabel={`${rule.label} — ${rule.met ? '✓' : '✗'}`}
         style={{ flex: 1, color: rule.met ? theme.success : theme.textSecondary }}>

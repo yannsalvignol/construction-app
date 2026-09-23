@@ -42,7 +42,7 @@ export function SocialSignInButtons() {
     <>
       <View style={styles.divider}>
         <View style={[styles.dividerLine, { backgroundColor: theme.backgroundSelected }]} />
-        <ThemedText display type="small" style={{ color: theme.textSecondary }}>
+        <ThemedText type="small" style={{ color: theme.textSecondary }}>
           {t.social.or}
         </ThemedText>
         <View style={[styles.dividerLine, { backgroundColor: theme.backgroundSelected }]} />
@@ -56,7 +56,7 @@ export function SocialSignInButtons() {
         disabled={!!busy}
         onPress={() => handle('google')}>
         <Ionicons name="logo-google" size={20} color={theme.text} />
-        <ThemedText display type="smallBold">{busy === 'google' ? t.social.googleBusy : t.social.google}</ThemedText>
+        <ThemedText type="smallBold">{busy === 'google' ? t.social.googleBusy : t.social.google}</ThemedText>
       </Pressable>
 
       {appleAvailable && (
@@ -68,12 +68,12 @@ export function SocialSignInButtons() {
           disabled={!!busy}
           onPress={() => handle('apple')}>
           <Ionicons name="logo-apple" size={20} color={theme.text} />
-          <ThemedText display type="smallBold">{busy === 'apple' ? t.social.appleBusy : t.social.apple}</ThemedText>
+          <ThemedText type="smallBold">{busy === 'apple' ? t.social.appleBusy : t.social.apple}</ThemedText>
         </Pressable>
       )}
 
       {error && (
-        <ThemedText display type="small" style={{ color: theme.danger }}>
+        <ThemedText type="small" style={{ color: theme.danger }}>
           {error}
         </ThemedText>
       )}
