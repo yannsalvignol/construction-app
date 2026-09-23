@@ -144,7 +144,9 @@ const styles = StyleSheet.create({
   },
   forgotLink: {
     textAlign: 'right',
-    marginTop: -Spacing.two,
+    // The form's gap would leave it floating between the button and the social
+    // buttons; pulled up so it reads as belonging to the button above it.
+    marginTop: -Spacing.three,
   },
   link: {
     alignSelf: 'center',
