@@ -1,3 +1,4 @@
+import { MuseoModerno_400Regular } from '@expo-google-fonts/museomoderno';
 import {
   SpaceGrotesk_700Bold,
   useFonts,
@@ -24,7 +25,7 @@ SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
   const { session, profile, loading } = useAuth();
-  const [fontsLoaded] = useFonts({ SpaceGrotesk_700Bold });
+  const [fontsLoaded] = useFonts({ SpaceGrotesk_700Bold, MuseoModerno_400Regular });
 
   if (loading || !fontsLoaded) return null;
 

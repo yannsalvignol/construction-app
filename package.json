@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@expo-google-fonts/museomoderno": "^0.4.2",
     "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/ui": "~57.0.12",
     "@expo/vector-icons": "^15.0.2",
