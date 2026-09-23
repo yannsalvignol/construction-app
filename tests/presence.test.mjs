@@ -531,4 +531,11 @@ test('presence and productivity database contracts', async t => {
     assert.equal((await as(null, 'select * from public.planning_push_targets($1)', [[staffB]], 'service_role')).length, 0);
     await db.query('update public.profiles set notifications_enabled = true where id = $1', [staffB]);
   });
+  await t.test('an account abandoned at onboarding can still delete itself', async () => {
+    const stranded = '80000000-0000-0000-0000-000000000001';
+    await db.query("insert into auth.users(id,email) values ($1,'stranded@example.test')", [stranded]);
+    assert.equal((await as(stranded, 'select public.delete_own_account()'))[0].delete_own_account.files.length, 0);
+    assert.equal((await db.query('select * from auth.users where id=$1', [stranded])).rows.length, 0);
+    await assert.rejects(as(null, 'select public.delete_own_account()', [], 'anon'), /permission denied/);
+  });
 });

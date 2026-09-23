@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useI18n } from '@/hooks/use-i18n';
+import { resolveFunctionError } from '@/lib/edge-function-error';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
 import { unregisterPresenceNotifications } from '@/lib/presence-notifications';
@@ -94,6 +95,10 @@ type AuthContextValue = {
     password: string,
     joinCode: string
   ) => Promise<{ error: string | null }>;
+  /** Deletes the signed-in account (the delete-account Edge Function does the
+   * work), then clears the local session. Available before onboarding too,
+   * where there is no profile yet — just the sign-in. */
+  deleteAccount: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   completeChefOnboarding: (params: {
@@ -352,6 +357,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         return { error: error ? translateServerError(error.message, locale) : null };
+      },
+      deleteAccount: async () => {
+        const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+        if (error) {
+          const message = await resolveFunctionError('delete-account', error);
+          return { error: message ? translateServerError(message, locale) : null };
+        }
+        // The auth user is gone, so the server-side sign-out would fail.
+        await supabase.auth.signOut({ scope: 'local' });
+        return { error: null };
       },
       signOut: async () => {
         await unregisterPresenceNotifications().catch(() => {});

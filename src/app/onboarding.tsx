@@ -110,6 +110,8 @@ function ChefOnboarding() {
             {t.common.signOut}
           </ThemedText>
         </Pressable>
+
+        <DeleteAccountLink />
       </ThemedView>
     </>
   );
@@ -215,6 +217,8 @@ function EmployeeOnboarding({
             {t.common.signOut}
           </ThemedText>
         </Pressable>
+
+        <DeleteAccountLink />
       </ThemedView>
     </>
   );
@@ -251,7 +255,67 @@ export default function OnboardingScreen() {
   );
 }
 
+/**
+ * The account exists from signup on, before a profile does; without this the
+ * only way out of a half-finished signup would be to abandon the account.
+ */
+function DeleteAccountLink() {
+  const theme = useTheme();
+  const { t } = useI18n();
+  const { deleteAccount } = useAuth();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    setBusy(true);
+    setError(null);
+    const { error } = await deleteAccount();
+    if (error) {
+      setError(error);
+      setBusy(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <Pressable onPress={() => setConfirming(true)}>
+        <ThemedText type="small" style={[styles.link, { color: theme.textSecondary }]}>
+          {t.onboarding.deleteAccount}
+        </ThemedText>
+      </Pressable>
+    );
+  }
+
+  return (
+    <ThemedView style={styles.deleteBlock}>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.link}>
+        {t.onboarding.deleteConfirm}
+      </ThemedText>
+      {error && (
+        <ThemedText type="small" style={[styles.link, { color: theme.danger }]}>
+          {error}
+        </ThemedText>
+      )}
+      <Pressable disabled={busy} onPress={handleDelete}>
+        <ThemedText type="smallBold" style={[styles.link, { color: theme.danger }]}>
+          {busy ? t.onboarding.deleting : t.onboarding.deleteAction}
+        </ThemedText>
+      </Pressable>
+      <Pressable disabled={busy} onPress={() => setConfirming(false)}>
+        <ThemedText type="linkPrimary" style={styles.link}>
+          {t.common.cancel}
+        </ThemedText>
+      </Pressable>
+    </ThemedView>
+  );
+}
+
 const styles = StyleSheet.create({
+  deleteBlock: {
+    gap: Spacing.two,
+    backgroundColor: 'transparent',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',

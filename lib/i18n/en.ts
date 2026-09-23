@@ -113,6 +113,10 @@ const en = {
   },
 
   onboarding: {
+    deleteAccount: 'Delete this account',
+    deleteConfirm: 'This account has no company or team yet: it will be deleted for good.',
+    deleteAction: 'Delete for good',
+    deleting: 'Deleting…',
     chef: {
       title: 'Set up your company',
       subtitle: "You're the first person here, so you'll be the chef de chantier.",

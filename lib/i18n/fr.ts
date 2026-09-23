@@ -111,6 +111,10 @@ const fr = {
   },
 
   onboarding: {
+    deleteAccount: 'Supprimer ce compte',
+    deleteConfirm: 'Ce compte n’a pas encore d’entreprise ni d’équipe : il sera supprimé définitivement.',
+    deleteAction: 'Supprimer définitivement',
+    deleting: 'Suppression…',
     chef: {
       title: 'Configurez votre entreprise',
       subtitle: 'Vous êtes la première personne ici, vous serez donc le chef de chantier.',
