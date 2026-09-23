@@ -22,7 +22,7 @@ const JOIN_CODE_CHARACTER = /[A-Z0-9]/;
 
 const inputStyle = (theme: ReturnType<typeof useTheme>) => [
   styles.input,
-  { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
+  { color: theme.text, backgroundColor: theme.backgroundInput, borderColor: theme.backgroundSelected },
 ];
 
 /**

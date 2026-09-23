@@ -47,7 +47,7 @@ export default function SignInScreen() {
 
         <ThemedView style={styles.form}>
           <TextInput
-            style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
+            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput, borderColor: theme.backgroundSelected }]}
             placeholder={t.signIn.identifierPlaceholder}
             placeholderTextColor={theme.textSecondary}
             autoCapitalize="none"
@@ -63,7 +63,7 @@ export default function SignInScreen() {
 
           <PasswordInput
             ref={passwordInput}
-            style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
+            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput, borderColor: theme.backgroundSelected }]}
             placeholder={t.signIn.passwordPlaceholder}
             placeholderTextColor={theme.textSecondary}
             returnKeyType="done"
