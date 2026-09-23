@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    borderRadius: Spacing.three,
-    paddingVertical: Spacing.three + Spacing.half,
+    borderRadius: Spacing.three + Spacing.one,
+    paddingVertical: Spacing.four,
     alignItems: 'center',
   },
   forgotLink: {
