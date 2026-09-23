@@ -44,7 +44,7 @@ export default function SignUpScreen() {
 
         <ThemedView style={styles.form}>
           <TextInput
-            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput, borderColor: theme.backgroundSelected }]}
+            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
             placeholder={t.signUp.emailPlaceholder}
             placeholderTextColor={theme.textSecondary}
             autoCapitalize="none"
@@ -56,7 +56,7 @@ export default function SignUpScreen() {
           />
 
           <PasswordInput
-            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput, borderColor: theme.backgroundSelected }]}
+            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
             placeholder={t.signUp.passwordPlaceholder}
             placeholderTextColor={theme.textSecondary}
             returnKeyType="done"
@@ -122,7 +122,6 @@ const styles = StyleSheet.create({
   },
   input: {
     borderRadius: Spacing.two,
-    borderWidth: 1,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 16,

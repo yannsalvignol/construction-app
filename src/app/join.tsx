@@ -22,7 +22,7 @@ const JOIN_CODE_CHARACTER = /[A-Z0-9]/;
 
 const inputStyle = (theme: ReturnType<typeof useTheme>) => [
   styles.input,
-  { color: theme.text, backgroundColor: theme.backgroundInput, borderColor: theme.backgroundSelected },
+  { color: theme.text, backgroundColor: theme.backgroundInput },
 ];
 
 /**
@@ -257,7 +257,6 @@ const styles = StyleSheet.create({
   },
   input: {
     borderRadius: Spacing.two,
-    borderWidth: 1,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 16,

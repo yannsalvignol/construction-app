@@ -13,7 +13,7 @@ export const Colors = {
     background: '#F8F6FC',
     backgroundElement: '#FFFFFF',
     /** Text fields: a shade under the page, so a form reads as recessed. */
-    backgroundInput: '#EEE9F6',
+    backgroundInput: '#F3F0FA',
     backgroundSelected: '#E3DDED',
     textSecondary: '#655A75',
     buttonText: '#ffffff',
@@ -30,7 +30,7 @@ export const Colors = {
     background: '#15111D',
     backgroundElement: '#211A2D',
     /** Text fields: a shade under the page, so a form reads as recessed. */
-    backgroundInput: '#100C17',
+    backgroundInput: '#1B1626',
     backgroundSelected: '#44364F',
     textSecondary: '#C0B3CE',
     buttonText: '#ffffff',
