@@ -105,10 +105,6 @@ export default function JoinScreen() {
 
         {!companyName ? (
           <>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-              {t.join.codeSubtitle}
-            </ThemedText>
-
             <ThemedView style={styles.form}>
               <CodeInput
                 value={joinCode}

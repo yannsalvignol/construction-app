@@ -93,7 +93,6 @@ const en = {
 
   join: {
     title: 'Join your team',
-    codeSubtitle: "Ask your chef for your company's join code.",
     codePlaceholder: 'Join code',
     continue: 'Continue',
     checking: 'Checking…',

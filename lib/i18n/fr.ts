@@ -90,7 +90,6 @@ const fr = {
 
   join: {
     title: 'Rejoindre votre équipe',
-    codeSubtitle: "Demandez à votre chef le code d'invitation de votre entreprise.",
     codePlaceholder: "Code d'invitation",
     continue: 'Continuer',
     checking: 'Vérification…',
