@@ -170,7 +170,7 @@ export default function JoinScreen() {
               <TextInput
                 style={inputStyle(theme)}
                 placeholder={t.join.usernamePlaceholder}
-                placeholderTextColor={theme.textSecondary}
+                placeholderTextColor={theme.textPlaceholder}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="next"
@@ -186,7 +186,7 @@ export default function JoinScreen() {
               <PasswordInput
                 style={inputStyle(theme)}
                 placeholder={t.join.passwordPlaceholder}
-                placeholderTextColor={theme.textSecondary}
+                placeholderTextColor={theme.textPlaceholder}
                 returnKeyType="done"
                 onSubmitEditing={() => Keyboard.dismiss()}
                 value={password}

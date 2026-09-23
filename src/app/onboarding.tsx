@@ -55,7 +55,7 @@ function ChefOnboarding() {
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.chef.companyNamePlaceholder}
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.textPlaceholder}
           returnKeyType="next"
           value={companyName}
           onChangeText={setCompanyName}
@@ -63,7 +63,7 @@ function ChefOnboarding() {
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.chef.firstNamePlaceholder}
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.textPlaceholder}
           returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
@@ -71,7 +71,7 @@ function ChefOnboarding() {
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.chef.lastNamePlaceholder}
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.textPlaceholder}
           returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
@@ -79,7 +79,7 @@ function ChefOnboarding() {
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.chef.phonePlaceholder}
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.textPlaceholder}
           keyboardType="phone-pad"
           returnKeyType="done"
           onSubmitEditing={() => Keyboard.dismiss()}
@@ -168,7 +168,7 @@ function EmployeeOnboarding({
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.employee.firstNamePlaceholder}
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.textPlaceholder}
           returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
@@ -176,7 +176,7 @@ function EmployeeOnboarding({
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.employee.lastNamePlaceholder}
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.textPlaceholder}
           returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
@@ -184,7 +184,7 @@ function EmployeeOnboarding({
         <TextInput
           style={inputStyle(theme)}
           placeholder={t.onboarding.employee.phonePlaceholder}
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.textPlaceholder}
           keyboardType="phone-pad"
           returnKeyType="done"
           onSubmitEditing={() => Keyboard.dismiss()}

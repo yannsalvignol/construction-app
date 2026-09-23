@@ -46,7 +46,7 @@ export default function SignUpScreen() {
           <TextInput
             style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
             placeholder={t.signUp.emailPlaceholder}
-            placeholderTextColor={theme.textSecondary}
+            placeholderTextColor={theme.textPlaceholder}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -58,7 +58,7 @@ export default function SignUpScreen() {
           <PasswordInput
             style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
             placeholder={t.signUp.passwordPlaceholder}
-            placeholderTextColor={theme.textSecondary}
+            placeholderTextColor={theme.textPlaceholder}
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
             value={password}

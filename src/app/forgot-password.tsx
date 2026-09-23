@@ -58,7 +58,7 @@ export default function ForgotPasswordScreen() {
               <TextInput
                 style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
                 placeholder={t.forgotPassword.emailPlaceholder}
-                placeholderTextColor={theme.textSecondary}
+                placeholderTextColor={theme.textPlaceholder}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"

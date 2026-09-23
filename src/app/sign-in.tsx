@@ -49,7 +49,7 @@ export default function SignInScreen() {
           <TextInput
             style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
             placeholder={t.signIn.identifierPlaceholder}
-            placeholderTextColor={theme.textSecondary}
+            placeholderTextColor={theme.textPlaceholder}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="next"
@@ -65,7 +65,7 @@ export default function SignInScreen() {
             ref={passwordInput}
             style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundInput }]}
             placeholder={t.signIn.passwordPlaceholder}
-            placeholderTextColor={theme.textSecondary}
+            placeholderTextColor={theme.textPlaceholder}
             returnKeyType="done"
             submitBehavior="blurAndSubmit"
             onSubmitEditing={handleSubmit}
