@@ -48,7 +48,8 @@ const fr = {
   },
 
   signIn: {
-    title: 'Connexion',
+    title: 'Bon retour !',
+    subtitle: 'Content de vous revoir.',
     identifierPlaceholder: "E-mail ou nom d'utilisateur",
     passwordPlaceholder: 'Mot de passe',
     submit: 'Se connecter',
