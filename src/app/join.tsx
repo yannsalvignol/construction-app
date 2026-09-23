@@ -1,6 +1,7 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
@@ -42,6 +43,7 @@ export default function JoinScreen() {
   const [joinCode, setJoinCode] = useState('');
   const [checking, setChecking] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [codeHelpOpen, setCodeHelpOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string | null>(null);
 
   const [username, setUsername] = useState('');
@@ -108,7 +110,7 @@ export default function JoinScreen() {
             <ThemedView style={styles.form}>
               <CodeInput
                 value={joinCode}
-                onChange={(next) => { setJoinCode(next); setCodeError(null); }}
+                onChange={(next) => { setJoinCode(next); setCodeError(null); setCodeHelpOpen(false); }}
                 onComplete={handleCheckCode}
                 length={JOIN_CODE_LENGTH}
                 allowed={JOIN_CODE_CHARACTER}
@@ -118,8 +120,25 @@ export default function JoinScreen() {
               />
 
               {codeError && (
-                <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
-                  {codeError}
+                <View style={styles.errorRow}>
+                  <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
+                    {codeError}
+                  </ThemedText>
+                  {/* What to do about it, one tap away rather than always on screen. */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t.join.codeHelpLabel}
+                    accessibilityState={{ expanded: codeHelpOpen }}
+                    hitSlop={10}
+                    onPress={() => setCodeHelpOpen((open) => !open)}>
+                    <Ionicons name="information-circle-outline" size={18} color={theme.textSecondary} />
+                  </Pressable>
+                </View>
+              )}
+
+              {codeError && codeHelpOpen && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.join.codeHelp}
                 </ThemedText>
               )}
 
@@ -250,6 +269,12 @@ const styles = StyleSheet.create({
   },
   link: {
     alignSelf: 'center',
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
   },
   error: {
     

@@ -109,6 +109,8 @@ const fr = {
     passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères.',
     rulePassword: 'Au moins 6 caractères',
     codeNotFound: 'Ce code ne correspond à aucune entreprise.',
+    codeHelpLabel: 'Que faire si le code ne fonctionne pas',
+    codeHelp: 'Vérifiez avec votre chef que le code transmis est bien celui de son entreprise : il peut l’avoir régénéré depuis. Si cela ne fonctionne toujours pas, demandez-lui de vous créer un compte et de vous donner vos identifiants.',
   },
 
   onboarding: {

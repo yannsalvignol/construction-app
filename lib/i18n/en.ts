@@ -111,6 +111,8 @@ const en = {
     passwordTooShort: 'The password must be at least 6 characters.',
     rulePassword: 'At least 6 characters',
     codeNotFound: "That code doesn't match any company.",
+    codeHelpLabel: 'What to do if the code does not work',
+    codeHelp: 'Check with your chef that the code they gave you is their company’s: they may have regenerated it since. If it still does not work, ask them to create your account and give you your credentials.',
   },
 
   onboarding: {
