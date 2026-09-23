@@ -34,6 +34,29 @@ Les colonnes historiques de dernier emplacement sont vidées et l’ancienne fon
 
 Les créneaux (`planned_shifts` : personne, chantier, date, heures, consigne) sont créés uniquement depuis l’espace web par le chef ; le mobile les lit. Un employé ne voit que ses créneaux **envoyés** (`published_at`), le chef voit tout. `publish_planning(from, to)` marque la période envoyée, journalise dans `planning_sends`, et retourne les personnes concernées ; la fonction Edge `send-planning` l’appelle avec le jeton du chef puis notifie ces personnes via Expo à partir de `planning_push_targets` (rôle service, respecte `notifications_enabled`). Toute modification d’un créneau envoyé efface `published_at` : il redevient invisible jusqu’au prochain envoi. L’ancienne table `shifts` inutilisée est supprimée.
 
+## E-mails transactionnels (Resend)
+
+Par défaut Supabase envoie les e-mails d’authentification depuis son service partagé, limité à quelques messages par heure et souvent classé en indésirable. La récupération de mot de passe en dépend, donc le projet passe par **Resend** en SMTP personnalisé.
+
+**Sous-domaine d’envoi.** `casprod.app` porte déjà les MX de Cloudflare Email Routing (pour `contact@casprod.app`). L’envoi se fait donc depuis `send.casprod.app` : Resend y pose ses propres MX et DKIM sans toucher à la réception sur le domaine racine.
+
+Enregistrements DNS à créer dans Cloudflare (zone `casprod.app`), tels que Resend les affiche après l’ajout du domaine :
+
+| Type | Nom | Valeur | Proxy |
+|---|---|---|---|
+| MX | `send` | `feedback-smtp.eu-west-1.amazonses.com` (priorité 10) | DNS only |
+| TXT | `send` | `v=spf1 include:amazonses.com ~all` | DNS only |
+| TXT | `resend._domainkey` | clé DKIM fournie par Resend | DNS only |
+| TXT | `_dmarc` | `v=DMARC1; p=none;` (si absent) | DNS only |
+
+Les valeurs exactes (région, clé) viennent du tableau de bord Resend ; ne pas activer le proxy orange, ce sont des enregistrements de messagerie.
+
+**SMTP côté Supabase** (Dashboard → Project Settings → Authentication → SMTP Settings) : hôte `smtp.resend.com`, port `465`, utilisateur `resend`, mot de passe = clé API Resend, expéditeur `no-reply@send.casprod.app`, nom `CASPROD`. Relever ensuite la limite d’envoi (Authentication → Rate Limits), le défaut de 2 e-mails/heure n’ayant plus de raison d’être.
+
+**Modèles.** `supabase/templates/recovery.html` et `confirmation.html` sont les versions françaises à coller dans Authentication → Emails. Elles s’appuient sur `{{ .ConfirmationURL }}` et `{{ .Email }}` ; le lien revient sur `constructionapp://auth/callback`, qui doit rester dans Authentication → URL Configuration → Redirect URLs.
+
+**Limite connue.** Un employé se connecte avec un identifiant traduit en adresse `@employee.local` : aucun e-mail ne lui parvient, et c’est le chef qui réinitialise son mot de passe depuis sa fiche. Les e-mails d’authentification ne concernent donc que les chefs.
+
 ## Notifications
 
 `presence-dispatch` doit être invoquée chaque minute. Elle exige un secret dédié dans `Authorization: Bearer …` ; `verify_jwt = false` n’en fait pas une fonction publique sans authentification.
