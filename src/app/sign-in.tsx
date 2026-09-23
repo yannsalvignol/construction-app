@@ -38,7 +38,7 @@ export default function SignInScreen() {
   return (
     <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
+        <ThemedText type="subtitle" style={styles.title}>
           {t.signIn.title}
         </ThemedText>
 
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   title: {
-    textAlign: 'center',
+    textAlign: 'left',
   },
   form: {
     gap: Spacing.three,
