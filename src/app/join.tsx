@@ -4,6 +4,7 @@ import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { CodeInput } from '@/components/code-input';
 import { PasswordInput } from '@/components/password-input';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { ThemedText } from '@/components/themed-text';
@@ -14,6 +15,9 @@ import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 const USERNAME_PATTERN = /^[a-z0-9_.]{3,20}$/;
+/** generate_join_code() builds six characters from an unambiguous alphabet. */
+const JOIN_CODE_LENGTH = 6;
+const JOIN_CODE_CHARACTER = /[A-Z0-9]/;
 
 const inputStyle = (theme: ReturnType<typeof useTheme>) => [
   styles.input,
@@ -46,13 +50,15 @@ export default function JoinScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const trimmedUsername = username.trim().toLowerCase();
-  const canSubmitCode = joinCode.trim().length >= 4 && !checking;
+  const canSubmitCode = joinCode.length === JOIN_CODE_LENGTH && !checking;
   const canSubmitSignup = !!trimmedUsername && !!password;
 
-  async function handleCheckCode() {
+  async function handleCheckCode(code = joinCode) {
+    if (checking) return;
+    Keyboard.dismiss();
     setCodeError(null);
     setChecking(true);
-    const { companyName, error } = await checkJoinCode(joinCode.trim());
+    const { companyName, error } = await checkJoinCode(code.trim());
     setChecking(false);
     if (error) {
       setCodeError(error);
@@ -104,16 +110,15 @@ export default function JoinScreen() {
             </ThemedText>
 
             <ThemedView style={styles.form}>
-              <TextInput
-                style={inputStyle(theme)}
-                placeholder={t.join.codePlaceholder}
-                placeholderTextColor={theme.textSecondary}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={() => Keyboard.dismiss()}
+              <CodeInput
                 value={joinCode}
-                onChangeText={setJoinCode}
+                onChange={(next) => { setJoinCode(next); setCodeError(null); }}
+                onComplete={handleCheckCode}
+                length={JOIN_CODE_LENGTH}
+                allowed={JOIN_CODE_CHARACTER}
+                autoFocus
+                hasError={!!codeError}
+                accessibilityLabel={t.join.codePlaceholder}
               />
 
               {codeError && (
@@ -128,7 +133,7 @@ export default function JoinScreen() {
                   { backgroundColor: theme.accent, opacity: pressed || !canSubmitCode ? 0.7 : 1 },
                 ]}
                 disabled={!canSubmitCode}
-                onPress={handleCheckCode}>
+                onPress={() => handleCheckCode()}>
                 <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
                   {checking ? t.join.checking : t.join.continue}
                 </ThemedText>
