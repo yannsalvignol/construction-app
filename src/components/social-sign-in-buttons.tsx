@@ -86,6 +86,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
+    // Sits closer to what precedes it than to the buttons it introduces.
+    marginTop: -Spacing.one,
   },
   dividerLine: {
     flex: 1,
