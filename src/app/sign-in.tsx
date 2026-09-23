@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
+    paddingVertical: Spacing.three + Spacing.one,
     fontSize: 16,
   },
   button: {
