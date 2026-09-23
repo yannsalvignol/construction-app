@@ -51,8 +51,7 @@ const en = {
   },
 
   signIn: {
-    title: 'Welcome back!',
-    subtitle: 'Glad to see you again.',
+    title: 'Welcome back! Glad to see you again.',
     identifierPlaceholder: 'Email or username',
     passwordPlaceholder: 'Password',
     submit: 'Sign in',

@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
@@ -38,14 +38,9 @@ export default function SignInScreen() {
   return (
     <DismissKeyboardView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            {t.signIn.title}
-          </ThemedText>
-          <ThemedText themeColor="textSecondary" style={styles.title}>
-            {t.signIn.subtitle}
-          </ThemedText>
-        </View>
+        <ThemedText type="title" style={styles.title}>
+          {t.signIn.title}
+        </ThemedText>
 
         <ThemedView style={styles.form}>
           <TextInput
@@ -128,9 +123,6 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     width: '100%',
-  },
-  header: {
-    gap: Spacing.two,
   },
   title: {
     textAlign: 'center',
