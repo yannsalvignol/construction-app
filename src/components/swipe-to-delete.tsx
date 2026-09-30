@@ -1,5 +1,6 @@
 import { useRef } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { BrandSpinner } from '@/components/brand-spinner';
+import { Pressable, View } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, { type SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { ThemedText } from './themed-text';
@@ -26,7 +27,7 @@ function DeleteAction({ translation, label, busy, radius, onPress }: {
         opacity: pressed ? 0.8 : 1,
       })}>
       {busy
-        ? <ActivityIndicator color={theme.buttonText} />
+        ? <BrandSpinner color={theme.buttonText} />
         : <ThemedText type="smallBold" style={{ color: theme.buttonText }}>{label}</ThemedText>}
     </Pressable>
   </Animated.View>;

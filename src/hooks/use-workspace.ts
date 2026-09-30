@@ -5,7 +5,7 @@ import { useAuth } from './use-auth';
 import { useI18n } from './use-i18n';
 import { supabase } from '@/lib/supabase';
 import { NOTICE_VERSION, type Workspace } from '@/lib/presence';
-import { LIVE_NOTICE_VERSION, pushCurrentPosition, startLiveLocation, stopLiveLocation } from '@/lib/live-location';
+import { LIVE_NOTICE_VERSION, pushCurrentPosition, startSafetyWatch, stopSafetyWatch } from '@/lib/live-location';
 import { enablePresenceNotifications, onPresenceNotification } from '@/lib/presence-notifications';
 import { workCopy } from '@/lib/work-copy';
 
@@ -52,19 +52,25 @@ export function useWorkspace({ manageSharing = true }: { manageSharing?: boolean
   const liveConsented = data?.live_consent?.notice_version === LIVE_NOTICE_VERSION && !data.live_consent.revoked_at;
   const liveEligible = data?.location_mode === 'live' && !!liveConsented;
   const dayOpen = !!data?.day && !data.day.ended_at && Date.parse(data.day.planned_end_at) > now;
-  // Sharing is bound to the declared day: it starts with the day and is torn down
-  // the moment the day closes, the chef turns the mode off, or agreement is pulled.
+  // The position feed belongs to the declared day, not to the chef's map. It runs
+  // for protection du travailleur isolé whenever the worker has a day open and has
+  // not turned the watch off; live sharing, when it applies, rides the same fixes.
+  // Either way it is torn down the moment the day closes.
+  // The server decides whether he is still; the phone only has to keep reporting.
+  const watchEnabled = data?.lone_worker_watch !== false;
+  const watching = dayOpen && (watchEnabled || liveEligible);
   useEffect(() => {
     if (!manageSharing) return;
-    if (!(liveEligible && dayOpen)) { void stopLiveLocation(); return; }
-    void startLiveLocation();
-    // iOS only emits background updates on movement, so a worker standing on a
-    // site would age out of the chef's map. While the app is open, refresh the
-    // position on a timer so they stay visible without moving.
+    if (!watching) { void stopSafetyWatch(); return; }
+    void startSafetyWatch();
+    // iOS only emits background updates on movement, so a worker standing still on
+    // a site would never emit a fix — he would age out of the chef's map, and the
+    // watch would never learn he had stopped. While the app is open, refresh on a
+    // timer instead.
     const beat = setInterval(() => {
       if (AppState.currentState === 'active') void pushCurrentPosition();
     }, 120_000);
     return () => clearInterval(beat);
-  }, [liveEligible, dayOpen, manageSharing]);
-  return { data, error, loading, refresh, now, consented, liveConsented, liveEligible };
+  }, [watching, manageSharing]);
+  return { data, error, loading, refresh, now, consented, liveConsented, liveEligible, watchEnabled, watching };
 }

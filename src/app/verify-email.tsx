@@ -1,15 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandSpinner } from '@/components/brand-spinner';
 import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { OtpInput } from '@/components/otp-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -23,6 +25,7 @@ const RESEND_COOLDOWN_S = 45;
  */
 export default function VerifyEmailScreen() {
   const theme = useTheme();
+  const palette = useAuthPalette();
   const { t } = useI18n();
   const { pendingSignUp, completeSignUp, resendSignUpCode, cancelSignUp } = useAuth();
   const email = pendingSignUp?.email ?? '';
@@ -65,7 +68,7 @@ export default function VerifyEmailScreen() {
   }
 
   return (
-    <DismissKeyboardView style={styles.container}>
+    <DismissKeyboardView style={[styles.container, { backgroundColor: palette.page }]}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="subtitle" style={styles.title}>
           {t.verifyEmail.title}
@@ -74,8 +77,9 @@ export default function VerifyEmailScreen() {
           {t.verifyEmail.subtitle(email)}
         </ThemedText>
 
-        <ThemedView style={styles.form}>
+        <ThemedView style={[styles.form, { backgroundColor: palette.page }]}>
           <OtpInput
+            surface={palette.field}
             value={code}
             onChange={(next) => { setCode(next); setError(null); }}
             onComplete={handleComplete}
@@ -84,7 +88,7 @@ export default function VerifyEmailScreen() {
 
           {checking && (
             <Animated.View entering={FadeInDown.duration(160)} style={styles.status}>
-              <ActivityIndicator color={theme.accentText} />
+              <BrandSpinner color={theme.accentText} />
               <ThemedText type="small" themeColor="textSecondary">{t.verifyEmail.checking}</ThemedText>
             </Animated.View>
           )}

@@ -1,9 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { BrandSpinner } from '@/components/brand-spinner';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
@@ -15,8 +17,14 @@ WebBrowser.maybeCompleteAuthSession();
 
 type Provider = 'google' | 'apple';
 
+/** Google's own mark: its brand rules do not allow a redrawn or tinted one. */
+const GOOGLE_MARK = require('../../assets/images/google_icon.jpg');
+
 /** "or" divider followed by Google and (on iOS) Apple buttons. */
-export function SocialSignInButtons() {
+export function SocialSignInButtons({ surface }: {
+  /** Fills the two buttons where a screen sets its own palette. */
+  surface?: string;
+} = {}) {
   const theme = useTheme();
   const { t } = useI18n();
   const { signInWithGoogle, signInWithApple } = useAuth();
@@ -58,13 +66,13 @@ export function SocialSignInButtons() {
           accessibilityState={{ busy: busy === 'google' }}
           style={({ pressed }) => [
             styles.iconButton,
-            { borderColor: theme.backgroundSelected, opacity: pressed || busy ? 0.7 : 1 },
+            { backgroundColor: surface, borderColor: theme.backgroundSelected, opacity: pressed || busy ? 0.7 : 1 },
           ]}
           disabled={!!busy}
           onPress={() => handle('google')}>
           {busy === 'google'
-            ? <ActivityIndicator color={theme.text} />
-            : <Ionicons name="logo-google" size={24} color={theme.text} />}
+            ? <BrandSpinner color={theme.text} />
+            : <Image source={GOOGLE_MARK} style={styles.googleMark} contentFit="contain" />}
         </Pressable>
 
         {appleAvailable && (
@@ -74,12 +82,12 @@ export function SocialSignInButtons() {
             accessibilityState={{ busy: busy === 'apple' }}
             style={({ pressed }) => [
               styles.iconButton,
-              { borderColor: theme.backgroundSelected, opacity: pressed || busy ? 0.7 : 1 },
+              { backgroundColor: surface, borderColor: theme.backgroundSelected, opacity: pressed || busy ? 0.7 : 1 },
             ]}
             disabled={!!busy}
             onPress={() => handle('apple')}>
             {busy === 'apple'
-              ? <ActivityIndicator color={theme.text} />
+              ? <BrandSpinner color={theme.text} />
               : <Ionicons name="logo-apple" size={24} color={theme.text} />}
           </Pressable>
         )}
@@ -109,6 +117,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: Spacing.three,
+  },
+  googleMark: {
+    width: 24,
+    height: 24,
   },
   iconButton: {
     // Each takes half the row, so the pair spans the form like the buttons

@@ -25,12 +25,15 @@ export function OtpInput({
   onComplete,
   disabled = false,
   autoFocus = true,
+  surface,
 }: {
   value: string;
   onChange: (value: string) => void;
   onComplete?: (value: string) => void;
   disabled?: boolean;
   autoFocus?: boolean;
+  /** Overrides the cells' fill where a screen sets its own palette. */
+  surface?: string;
 }) {
   const input = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
@@ -56,6 +59,7 @@ export function OtpInput({
           // The cell after the last digit is the one being typed into; once the
           // code is complete every cell is settled, so none is highlighted.
           active={focused && !disabled && index === Math.min(value.length, CELL_COUNT - 1) && value.length < CELL_COUNT}
+          surface={surface}
         />
       ))}
 
@@ -80,7 +84,7 @@ export function OtpInput({
   );
 }
 
-function Cell({ digit, active }: { digit: string; active: boolean }) {
+function Cell({ digit, active, surface }: { digit: string; active: boolean; surface?: string }) {
   const theme = useTheme();
   const on = useDerivedValue(() => withTiming(active ? 1 : 0, { duration: 140 }));
   const filled = useDerivedValue(() => withSpring(digit ? 1 : 0, { damping: 18, stiffness: 240 }));
@@ -95,7 +99,7 @@ function Cell({ digit, active }: { digit: string; active: boolean }) {
   }));
 
   return (
-    <Animated.View style={[styles.cell, { backgroundColor: theme.backgroundInput }, boxStyle]}>
+    <Animated.View style={[styles.cell, { backgroundColor: surface ?? theme.backgroundInput }, boxStyle]}>
       <Animated.View style={digitStyle}>
         <ThemedText style={styles.digit}>{digit}</ThemedText>
       </Animated.View>

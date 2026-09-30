@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Action, Card, Feedback } from './work-ui';
+import { BrandSpinner } from './brand-spinner';
 import { ThemedText } from './themed-text';
 import { OnSiteBadge } from './on-site-badge';
 import { SiteRow } from './site-row';
@@ -60,6 +61,8 @@ export function LiveTeamMap() {
   const [error, setError] = useState<string | null>(null);
   // Ticked with each refresh: reading the clock during render is not pure.
   const [now, setNow] = useState(() => Date.now());
+  // The embed is a network fetch of its own; it should not show as a blank frame.
+  const [mapReady, setMapReady] = useState(false);
   const request = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -95,19 +98,31 @@ export function LiveTeamMap() {
       <iframe
         title={copy.liveTitle}
         src={embedUrl(team ?? [], sites, focus)}
+        onLoad={() => setMapReady(true)}
         style={{ border: 0, width: '100%', height: '100%' }}
       />
+      {!mapReady && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            alignItems: 'center', justifyContent: 'center',
+            backgroundColor: theme.backgroundInput,
+          }}>
+          <BrandSpinner size={44} />
+        </View>
+      )}
     </View>
     <View style={{ flexDirection: 'row', gap: 10 }}>
       {([['people', copy.employees], ['sites', copy.siteLegend]] as const).map(([key, label]) =>
         <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: tab === key }}
           onPress={() => setTab(key)} style={({ pressed }) => ({
             flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center', borderWidth: 1,
-            backgroundColor: tab === key ? theme.accentSoft : theme.backgroundElement,
-            borderColor: tab === key ? theme.accent : theme.backgroundSelected,
+            backgroundColor: tab === key ? theme.backgroundElement : theme.background,
+            borderColor: tab === key ? 'transparent' : theme.text,
             opacity: pressed ? 0.7 : 1,
           })}>
-          <ThemedText type="smallBold" themeColor={tab === key ? 'accentText' : 'textSecondary'}>{label}</ThemedText>
+          <ThemedText type="smallBold" themeColor={tab === key ? 'text' : 'textSecondary'}>{label}</ThemedText>
         </Pressable>)}
     </View>
 

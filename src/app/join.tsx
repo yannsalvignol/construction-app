@@ -12,6 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -37,6 +38,7 @@ const inputStyle = (theme: ReturnType<typeof useTheme>) => [
  */
 export default function JoinScreen() {
   const theme = useTheme();
+  const palette = useAuthPalette();
   const { t } = useI18n();
   const { checkJoinCode, signUpAsEmployee } = useAuth();
 
@@ -99,7 +101,7 @@ export default function JoinScreen() {
   }
 
   return (
-    <DismissKeyboardView style={styles.container}>
+    <DismissKeyboardView style={[styles.container, { backgroundColor: palette.page }]}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="title" style={styles.title}>
           {t.join.title}
@@ -107,7 +109,7 @@ export default function JoinScreen() {
 
         {!companyName ? (
           <>
-            <ThemedView style={styles.form}>
+            <ThemedView style={[styles.form, { backgroundColor: palette.page }]}>
               <CodeInput
                 value={joinCode}
                 onChange={(next) => { setJoinCode(next); setCodeError(null); setCodeHelpOpen(false); }}
@@ -149,13 +151,16 @@ export default function JoinScreen() {
                 ]}
                 disabled={!canSubmitCode}
                 onPress={() => handleCheckCode()}>
-                <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
                   {checking ? t.join.checking : t.join.continue}
                 </ThemedText>
               </Pressable>
 
               <Link href="/sign-in" style={styles.link}>
-                <ThemedText type="linkPrimary">{t.join.signInLink}</ThemedText>
+                <ThemedText type="small">
+                  {t.join.signInPrompt}
+                  <ThemedText type="linkPrimary">{t.join.signInLink}</ThemedText>
+                </ThemedText>
               </Link>
             </ThemedView>
           </>
@@ -166,7 +171,7 @@ export default function JoinScreen() {
               {t.join.joiningSuffix}
             </ThemedText>
 
-            <ThemedView style={styles.form}>
+            <ThemedView style={[styles.form, { backgroundColor: palette.page }]}>
               <TextInput
                 style={inputStyle(theme)}
                 placeholder={t.join.usernamePlaceholder}
@@ -239,7 +244,9 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    // Centred, then lifted, as on the sign-in and sign-up screens.
     justifyContent: 'center',
+    paddingBottom: Spacing.six * 3,
     paddingHorizontal: Spacing.four,
     gap: Spacing.four,
     maxWidth: MaxContentWidth,
@@ -262,9 +269,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
+    borderRadius: Spacing.three + Spacing.one,
+    paddingVertical: Spacing.four,
     alignItems: 'center',
+  },
+  buttonLabel: {
+    fontSize: 17,
+    fontWeight: '400',
   },
   link: {
     alignSelf: 'center',

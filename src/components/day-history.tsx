@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, View } from 'react-native';
+import { BrandSpinner } from '@/components/brand-spinner';
+import { Modal, Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Action, Card, Feedback, WorkPage } from './work-ui';
 import { ThemedText } from './themed-text';
@@ -68,7 +69,7 @@ export function DayHistory({ days, error, onOpen, onPick }: {
       <WorkPage title={copy.history30}>
         <Action secondary label={copy.close} onPress={() => setOpen(false)} />
         <Feedback message={error} />
-        {!dates && !error && <ActivityIndicator color={theme.accent} />}
+        {!dates && !error && <BrandSpinner color={theme.accent} />}
         {dates && !dates.length && <Card><ThemedText>{copy.historyEmpty}</ThemedText></Card>}
         {dates?.map(date => {
           const onDate = days!.filter(day => day.work_date === date);

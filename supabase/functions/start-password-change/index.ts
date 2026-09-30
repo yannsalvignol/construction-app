@@ -89,7 +89,6 @@ Deno.serve(async (req) => {
   if (!authHeader) return json({ error: 'Missing authorization header' }, 401);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const resendKey = Deno.env.get('RESEND_API_KEY');
   if (!resendKey) {
@@ -97,9 +96,16 @@ Deno.serve(async (req) => {
     return json({ error: 'Email delivery is not configured' }, 500);
   }
 
-  const caller = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-  const { data: { user }, error: userError } = await caller.auth.getUser();
-  if (userError || !user) return json({ error: 'Not authenticated' }, 401);
+  // The token is read directly rather than through a second client built on
+  // the anon key: that key is one more thing to be missing or rotated, and a
+  // service-role client can validate a JWT on its own.
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const token = authHeader.replace(/^Bearer /i, '');
+  const { data: { user }, error: userError } = await admin.auth.getUser(token);
+  if (userError || !user) {
+    console.error('[start-password-change] token rejected', userError?.message);
+    return json({ error: 'Not authenticated' }, 401);
+  }
 
   const email = user.email;
   // Employees sign in with a username mapped to a synthetic address that
@@ -110,8 +116,6 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const locale: 'fr' | 'en' = body?.locale === 'en' ? 'en' : 'fr';
-
-  const admin = createClient(supabaseUrl, serviceRoleKey);
 
   const { data: existing } = await admin
     .from('password_change_codes')

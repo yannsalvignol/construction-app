@@ -65,6 +65,8 @@ const fr = {
   failed: 'Impossible de charger les données. Réessayez.', invalidQuantity: 'Saisissez une quantité positive valide (un nombre entier pour les unités).',
   proofFailed: 'La vérification n’a pas été enregistrée. Reprenez une photo et réessayez pendant la fenêtre de réponse.',
   inactive: 'Ce compte est suspendu. Contactez votre chef.',
+  quoteTooLarge: 'Ce fichier dépasse 20 Mo. Photographiez le devis page par page ou réduisez le PDF.',
+  quoteUploadFailed: 'Le devis n’a pas été envoyé. Vérifiez votre connexion et réessayez.',
 };
 const en: typeof fr = {
   today: 'Today', teamOverview: 'Your team at a glance.',
@@ -130,6 +132,8 @@ const en: typeof fr = {
   failed: 'Unable to load data. Please retry.', invalidQuantity: 'Enter a valid positive quantity (a whole number for units).',
   proofFailed: 'The check was not saved. Take a new photo and retry within the response window.',
   inactive: 'This account is suspended. Contact your chef.',
+  quoteTooLarge: 'This file is over 20 MB. Photograph the quote page by page, or shrink the PDF.',
+  quoteUploadFailed: 'The quote was not uploaded. Check your connection and try again.',
 };
 export function workCopy(locale: Locale) { return locale === 'en' ? en : fr; }
 

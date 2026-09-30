@@ -16,6 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useI18n } from '@/hooks/use-i18n';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useTheme } from '@/hooks/use-theme';
 
 const ENTER_STAGGER_MS = 110;
@@ -28,6 +29,7 @@ const ENTER_STAGGER_MS = 110;
  */
 export default function RegisterScreen() {
   const { t } = useI18n();
+  const palette = useAuthPalette();
 
   // One tap per panel, timed with its spring, so the arrival is felt as well
   // as seen. Haptics have no web implementation, hence the platform check.
@@ -48,7 +50,7 @@ export default function RegisterScreen() {
   ];
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: palette.page }]}>
       <SafeAreaView style={styles.safeArea}>
         {options.map((option, index) => (
           <Animated.View
@@ -60,7 +62,10 @@ export default function RegisterScreen() {
         ))}
 
         <Link href="/sign-in" style={styles.link}>
-          <ThemedText type="linkPrimary">{t.register.signInLink}</ThemedText>
+          <ThemedText type="small">
+            {t.register.signInPrompt}
+            <ThemedText type="linkPrimary">{t.register.signInLink}</ThemedText>
+          </ThemedText>
         </Link>
       </SafeAreaView>
     </ThemedView>

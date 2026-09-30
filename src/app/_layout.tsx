@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/theme';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { SessionLoadingScreen } from '@/components/session-loading';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { I18nProvider } from '@/hooks/use-i18n';
 // Registers the live-location background task at startup: a background wake
@@ -23,10 +24,16 @@ applyThemeChoice(readStoredThemeChoice());
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, profileStalled } = useAuth();
   const [fontsLoaded] = useFonts({ SpaceGrotesk_700Bold });
 
-  if (loading || !fontsLoaded) return null;
+  // Nothing to draw yet, and the native splash is still up: this is the cold
+  // start, not a wait the user is watching.
+  if (!fontsLoaded || (loading && !session)) return null;
+
+  // Signed in, profile not known yet. Rendering null here is what made the app
+  // look frozen after sign-in, so the wait is now visible and escapable.
+  if (session && (loading || (profileStalled && !profile))) return <SessionLoadingScreen />;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

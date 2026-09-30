@@ -1,6 +1,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // Checks the code sent by start-password-change and sets the new password.
+//
+// Called twice by the app: once with the code alone, to find out whether it is
+// right before asking for a new password, and once with the password to make
+// the change. A code survives the first call so the second can use it, and is
+// burned by the second.
 // The comparison, the attempt counter and the expiry live here because the app
 // may not see any of them: a six-digit secret is only safe if the counting
 // happens somewhere the holder of the phone cannot reach.
@@ -42,19 +47,26 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => null);
   const code = typeof body?.code === 'string' ? body.code.trim() : '';
-  const password = typeof body?.password === 'string' ? body.password : '';
+  const password = typeof body?.password === 'string' ? body.password : null;
+  // No password means "is this code right?", which is the app's first screen.
+  const checkOnly = password === null;
   if (!/^\d{6}$/.test(code)) return json({ error: 'Enter the 6-digit code' }, 400);
-  if (password.length < 6) return json({ error: 'Password must be at least 6 characters' }, 400);
+  if (!checkOnly && password.length < 6) return json({ error: 'Password must be at least 6 characters' }, 400);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-  const caller = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-  const { data: { user }, error: userError } = await caller.auth.getUser();
-  if (userError || !user) return json({ error: 'Not authenticated' }, 401);
-
+  // The token is read directly rather than through a second client built on
+  // the anon key: that key is one more thing to be missing or rotated, and a
+  // service-role client can validate a JWT on its own.
   const admin = createClient(supabaseUrl, serviceRoleKey);
+  const token = authHeader.replace(/^Bearer /i, '');
+  const { data: { user }, error: userError } = await admin.auth.getUser(token);
+  if (userError || !user) {
+    console.error('[complete-password-change] token rejected', userError?.message);
+    return json({ error: 'Not authenticated' }, 401);
+  }
+
   const { data: row } = await admin
     .from('password_change_codes')
     .select('code_hash, attempts, expires_at')
@@ -70,6 +82,13 @@ Deno.serve(async (req) => {
     await admin.from('password_change_codes').update({ attempts }).eq('user_id', user.id);
     console.warn('[complete-password-change] wrong code', { userId: user.id, attempts });
     return json({ error: 'Incorrect code', attemptsLeft: Math.max(0, MAX_ATTEMPTS - attempts) }, 400);
+  }
+
+  if (checkOnly) {
+    // Right code, nothing changed yet: the attempt counter is reset so the
+    // second call starts clean, and the code stays usable until it is spent.
+    await admin.from('password_change_codes').update({ attempts: 0 }).eq('user_id', user.id);
+    return json({ valid: true }, 200);
   }
 
   const { error: updateError } = await admin.auth.admin.updateUserById(user.id, { password });

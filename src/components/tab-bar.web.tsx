@@ -1,11 +1,11 @@
 import { TabTriggerSlotProps, TabListProps } from 'expo-router/ui';
 import { Pressable, View, StyleSheet } from 'react-native';
 
+import { BrandName } from './brand-name';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useI18n } from '@/hooks/use-i18n';
 
 export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
@@ -22,13 +22,12 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 }
 
 export function CustomTabList(props: TabListProps) {
-  const { t } = useI18n();
 
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
-          {t.common.appName}
+          <BrandName />
         </ThemedText>
 
         {props.children}

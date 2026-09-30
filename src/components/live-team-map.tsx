@@ -5,6 +5,7 @@ import MapView, { Circle, Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Action, Card, Feedback, pageStyles } from './work-ui';
 import { ThemedText } from './themed-text';
+import { BrandSpinner } from './brand-spinner';
 import { OnSiteBadge } from './on-site-badge';
 import { SiteRow } from './site-row';
 import { useI18n } from '@/hooks/use-i18n';
@@ -46,6 +47,9 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   // of both through refs so whichever finishes second still frames the full picture.
   const sitesRef = useRef<Site[]>([]);
   const teamRef = useRef<LivePosition[]>([]);
+  // Tiles take a moment to arrive; until they do the map is a blank rectangle,
+  // which reads as broken rather than loading.
+  const [mapReady, setMapReady] = useState(false);
 
   // Frames only what the selected tab shows, so picking "Chantiers" zooms to the
   // sites and picking "Employés" to the people.
@@ -123,7 +127,8 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
     <View style={{ height: 380, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
       {/* Panning and zooming belong to the map; the page is scrolled from the lists
           below it, which is why the map is pinned rather than scrolling away. */}
-      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}>
+      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}
+        onMapReady={() => setMapReady(true)}>
         {showSites && sites.map(site => site.latitude != null && site.longitude != null
           ? <Marker key={'site-' + site.id} coordinate={{ latitude: site.latitude, longitude: site.longitude }}
               title={site.name} description={site.address ?? undefined} pinColor={theme.accent} />
@@ -139,17 +144,28 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
           center={{ latitude: member.latitude, longitude: member.longitude }}
           radius={member.accuracy_meters} strokeColor={theme.accent} fillColor={theme.accentSoft} />)}
       </MapView>
+      {!mapReady && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            alignItems: 'center', justifyContent: 'center',
+            backgroundColor: theme.backgroundInput,
+          }}>
+          <BrandSpinner size={44} />
+        </View>
+      )}
     </View>
     <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
       {([['people', copy.employees], ['sites', copy.siteLegend]] as const).map(([key, label]) =>
         <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: tab === key }}
           onPress={() => selectTab(key)} style={({ pressed }) => ({
             flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center', borderWidth: 1,
-            backgroundColor: tab === key ? theme.accentSoft : theme.backgroundElement,
-            borderColor: tab === key ? theme.accent : theme.backgroundSelected,
+            backgroundColor: tab === key ? theme.backgroundElement : theme.background,
+            borderColor: tab === key ? 'transparent' : theme.text,
             opacity: pressed ? 0.7 : 1,
           })}>
-          <ThemedText type="smallBold" themeColor={tab === key ? 'accentText' : 'textSecondary'}>{label}</ThemedText>
+          <ThemedText type="smallBold" themeColor={tab === key ? 'text' : 'textSecondary'}>{label}</ThemedText>
         </Pressable>)}
     </View>
     </View>

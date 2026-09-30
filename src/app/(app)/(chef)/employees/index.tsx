@@ -1,24 +1,29 @@
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard, Pressable, ScrollView, Share, StyleSheet, TextInput } from 'react-native';
+import { Alert, Keyboard, Pressable, ScrollView, Share, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Image } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { AnimatedInput } from '@/components/animated-input';
+import { AppModal, ModalButton } from '@/components/app-modal';
+import { PhoneInput } from '@/components/phone-input';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { SwipeToDelete } from '@/components/swipe-to-delete';
 import { ThemedText } from '@/components/themed-text';
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { cardShadow, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { resolveFunctionError } from '@/lib/edge-function-error';
 import { generatePassword, generateUsername } from '@/lib/generate-credentials';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
+import { invalidate, useCached } from '@/hooks/use-cached';
+import { employeesKey, loadEmployees } from '@/lib/tab-data';
 
 function JoinCodeCard() {
   const theme = useTheme();
@@ -93,7 +98,11 @@ function JoinCodeCard() {
   }
 
   return (
-    <ThemedView style={[styles.joinCard, { borderColor: theme.backgroundSelected }]}>
+    <ThemedView
+      style={[
+        styles.joinCard,
+        { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected },
+      ]}>
       <ThemedView style={[styles.transparent, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
         <ThemedText type="smallBold" style={{ flex: 1 }}>{t.employees.joinCode.title}</ThemedText>
         {/* The explanation is read once and never again, so it hides behind the icon. */}
@@ -170,14 +179,13 @@ type Employee = {
 export default function EmployeesScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const palette = useAuthPalette();
   const { t, locale } = useI18n();
   const router = useRouter();
   const { profile } = useAuth();
 
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [removing, setRemoving] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [firstName, setFirstName] = useState('');
@@ -190,21 +198,17 @@ export default function EmployeesScreen() {
 
   const canSubmit = firstName.trim() && lastName.trim() && username.trim() && password.trim();
 
+  // Served from the cache the home screen warmed, then revalidated on focus:
+  // the list is there on arrival instead of appearing a moment later.
+  const companyId = profile?.company_id ?? '';
+  const loader = useCallback(() => loadEmployees(companyId), [companyId]);
+  const cached = useCached(employeesKey(companyId), loader);
+  const employees = cached.data ?? [];
+  const loading = cached.loading;
   const fetchEmployees = useCallback(async () => {
-    if (!profile) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, phone, username, avatar_url')
-      .eq('company_id', profile.company_id)
-      .eq('role', 'employee')
-      // Deleted accounts keep an anonymous profile row so their declared work
-      // stays attributable to the company; they are not staff to list.
-      .is('deleted_at', null)
-      .order('first_name');
-    setEmployees(data ?? []);
-    setLoading(false);
-  }, [profile]);
+    invalidate(employeesKey(companyId));
+    await cached.refresh();
+  }, [companyId, cached]);
 
   async function removeEmployee(employee: Employee) {
     setRemoving(employee.id); setRemoveError(null);
@@ -231,12 +235,6 @@ export default function EmployeesScreen() {
       ],
     );
   }
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchEmployees();
-    }, [fetchEmployees])
-  );
 
   function resetForm() {
     setFirstName('');
@@ -289,9 +287,10 @@ export default function EmployeesScreen() {
   }
 
   return (
-    <DismissKeyboardView style={styles.container}>
+    <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.four + insets.bottom }]} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.four + insets.bottom }]} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
           <JoinCodeCard />
 
           {removeError && (
@@ -306,79 +305,88 @@ export default function EmployeesScreen() {
             </ThemedText>
           )}
 
-          {employees.map((employee) => (
-            <SwipeToDelete
-              key={employee.id}
-              label={t.employees.remove.action}
-              radius={Spacing.three}
-              busy={removing === employee.id}
-              onDelete={() => confirmRemove(employee)}>
-              <Pressable
-                style={({ pressed }) => pressed && styles.pressed}
-                onPress={() => router.push(`/employees/${employee.id}`)}>
-                <ThemedView
-                  style={[
-                    styles.employeeRow,
-                    styles.transparent,
-                    { borderColor: theme.backgroundSelected },
-                  ]}>
-                  {employee.avatar_url ? (
-                    <Image source={{ uri: employee.avatar_url }} style={styles.employeeAvatar} />
-                  ) : (
+          {employees.length > 0 && (
+            <ThemedView style={[styles.employeeList, styles.transparent]}>
+              {employees.map((employee) => (
+                <SwipeToDelete
+                  key={employee.id}
+                  label={t.employees.remove.action}
+                  radius={Spacing.three + Spacing.one}
+                  busy={removing === employee.id}
+                  onDelete={() => confirmRemove(employee)}>
+                  <Pressable
+                    style={({ pressed }) => pressed && styles.pressed}
+                    onPress={() => router.push(`/employees/${employee.id}`)}>
                     <ThemedView
                       style={[
-                        styles.employeeAvatar,
-                        styles.employeeAvatarEmpty,
-                        { borderColor: theme.backgroundSelected },
+                        styles.employeeRow,
+                        styles.transparent,
+                        cardShadow(theme.isDark),
+                        { backgroundColor: theme.backgroundElement, borderColor: theme.text },
                       ]}>
-                      <Ionicons name="person" size={22} color={theme.textSecondary} />
+                      {employee.avatar_url ? (
+                        <Image source={{ uri: employee.avatar_url }} style={styles.employeeAvatar} />
+                      ) : (
+                        <ThemedView
+                          style={[
+                            styles.employeeAvatar,
+                            styles.employeeAvatarEmpty,
+                            // The form grey, so an empty avatar reads as a slot
+                            // waiting for a photograph, not a hole in the card.
+                            { backgroundColor: palette.avatar },
+                          ]}>
+                          <Ionicons name="person" size={22} color={theme.textSecondary} />
+                        </ThemedView>
+                      )}
+                      <ThemedView style={[styles.employeeIdentity, styles.transparent]}>
+                        <ThemedText type="smallBold">
+                          {employee.first_name} {employee.last_name}
+                        </ThemedText>
+                        {!!employee.username && (
+                          <ThemedText type="small" themeColor="textSecondary">
+                            {employee.username}
+                          </ThemedText>
+                        )}
+                      </ThemedView>
+                      <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
                     </ThemedView>
-                  )}
-                  <ThemedText type="smallBold" style={{ flex: 1 }}>
-                    {employee.first_name} {employee.last_name}
-                  </ThemedText>
-                  <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
-                </ThemedView>
-              </Pressable>
-            </SwipeToDelete>
-          ))}
+                  </Pressable>
+                </SwipeToDelete>
+              ))}
+            </ThemedView>
+          )}
 
           {showAddForm ? (
             <ThemedView style={[styles.form, styles.transparent]}>
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                ]}
-                placeholder={t.employees.form.firstNamePlaceholder}
-                placeholderTextColor={theme.textSecondary}
+              <AnimatedInput
+                surface={palette.field}
+                labelColor={palette.fieldText}
+                label={t.employees.form.firstNamePlaceholder}
                 returnKeyType="next"
                 value={firstName}
                 onChangeText={setFirstName}
               />
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                ]}
-                placeholder={t.employees.form.lastNamePlaceholder}
-                placeholderTextColor={theme.textSecondary}
+              <AnimatedInput
+                surface={palette.field}
+                labelColor={palette.fieldText}
+                label={t.employees.form.lastNamePlaceholder}
                 returnKeyType="next"
                 value={lastName}
                 onChangeText={setLastName}
               />
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                ]}
-                placeholder={t.employees.form.phonePlaceholder}
-                placeholderTextColor={theme.textSecondary}
-                keyboardType="phone-pad"
+              <PhoneInput
+                surface={palette.field}
+                labelColor={palette.fieldText}
+                label={t.employees.form.phonePlaceholder}
                 value={phone}
                 onChangeText={setPhone}
               />
-              <ThemedView style={[styles.credentials, { borderColor: theme.backgroundSelected }]}>
+              <ThemedView
+                style={[
+                  styles.credentials,
+                  cardShadow(theme.isDark),
+                  { backgroundColor: theme.backgroundElement },
+                ]}>
                 <ThemedView style={[styles.transparent, { flexDirection: 'row', alignItems: 'center', gap: Spacing.two }]}>
                   <ThemedText type="smallBold" style={{ flex: 1 }}>
                     {t.employees.form.credentialsTitle}
@@ -404,13 +412,10 @@ export default function EmployeesScreen() {
                   {t.employees.form.credentialsHint}
                 </ThemedText>
 
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                  ]}
-                  placeholder={t.employees.form.usernamePlaceholder}
-                  placeholderTextColor={theme.textSecondary}
+                <AnimatedInput
+                  surface={palette.field}
+                  labelColor={palette.fieldText}
+                  label={t.employees.form.usernamePlaceholder}
                   autoCapitalize="none"
                   autoCorrect={false}
                   returnKeyType="next"
@@ -423,13 +428,10 @@ export default function EmployeesScreen() {
                   { label: t.employees.form.ruleNoAccent, met: username.trim().length > 0 && !/[\s-]|[^\x00-\x7F]/.test(username.trim()) },
                 ]} />
 
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                  ]}
-                  placeholder={t.employees.form.passwordPlaceholder}
-                  placeholderTextColor={theme.textSecondary}
+                <AnimatedInput
+                  surface={palette.field}
+                  labelColor={palette.fieldText}
+                  label={t.employees.form.passwordPlaceholder}
                   autoCapitalize="none"
                   autoCorrect={false}
                   returnKeyType="done"
@@ -444,20 +446,14 @@ export default function EmployeesScreen() {
 
               </ThemedView>
 
-              {formError && (
-                <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
-                  {formError}
-                </ThemedText>
-              )}
-
               <Pressable
                 style={({ pressed }) => [
-                  styles.button,
+                  styles.primary,
                   { backgroundColor: theme.accent, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
                 ]}
                 disabled={submitting || !canSubmit}
                 onPress={handleAddEmployee}>
-                <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
                   {submitting ? t.employees.form.submitting : t.employees.form.submit}
                 </ThemedText>
               </Pressable>
@@ -479,11 +475,11 @@ export default function EmployeesScreen() {
               </ThemedText>
               <Pressable
                 style={({ pressed }) => [
-                  styles.button,
+                  styles.primary,
                   { backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => setShowAddForm(true)}>
-                <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
                   {t.employees.addManually}
                 </ThemedText>
               </Pressable>
@@ -491,7 +487,16 @@ export default function EmployeesScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
-    </DismissKeyboardView>
+
+      <AppModal
+        visible={!!formError}
+        onClose={() => setFormError(null)}
+        title={t.employees.form.errorTitle}
+        icon="alert-circle-outline"
+        actions={<ModalButton label={t.common.done} onPress={() => setFormError(null)} />}>
+        <ThemedText type="small" themeColor="textSecondary">{formError}</ThemedText>
+      </AppModal>
+    </ThemedView>
   );
 }
 
@@ -509,6 +514,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.four,
+    // The tab row is pinned above the content, so the first card needs its own
+    // clearance or it reads as tucked under the pills.
+    paddingTop: Spacing.three,
     paddingBottom: Spacing.four,
     gap: Spacing.three,
   },
@@ -522,20 +530,27 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
+  employeeList: {
+    // Each employee is their own bubble; just enough air to keep them apart.
+    gap: Spacing.two,
+  },
+  employeeIdentity: {
+    flex: 1,
+    gap: 2,
+  },
   employeeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: Spacing.three,
+    borderRadius: Spacing.three + Spacing.one,
     borderWidth: 1,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     gap: Spacing.two,
   },
   credentials: {
-    borderRadius: Spacing.three,
-    borderWidth: 1,
+    borderRadius: Spacing.three + Spacing.one,
     padding: Spacing.three,
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
   generateButton: {
     flexDirection: 'row',
@@ -552,7 +567,6 @@ const styles = StyleSheet.create({
     borderRadius: 23,
   },
   employeeAvatarEmpty: {
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -597,9 +611,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
+    borderRadius: Spacing.three + Spacing.one,
+    paddingVertical: Spacing.four,
     alignItems: 'center',
+  },
+  // The oval used everywhere else for a screen's main action.
+  primary: {
+    minHeight: 56,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLabel: {
+    fontSize: 17,
+    fontWeight: '400',
   },
   error: {
     

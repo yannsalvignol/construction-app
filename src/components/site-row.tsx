@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import { BrandSpinner } from '@/components/brand-spinner';
+import { Alert, Pressable, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Card } from './work-ui';
 import { ThemedText } from './themed-text';
@@ -94,7 +95,7 @@ export function SiteRow({ site, onPressSite, onLocate, locatable, onRemoved }: {
 
     {open && <View style={{ gap: 14, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.backgroundSelected }}>
       <ThemedText type="smallBold">{copy.siteTeam}</ThemedText>
-      {!team && !error && <ActivityIndicator color={theme.accent} />}
+      {!team && !error && <BrandSpinner color={theme.accent} />}
       {error && <ThemedText type="small" themeColor="danger">{error}</ThemedText>}
       {team && !team.length && <ThemedText type="small" themeColor="textSecondary">{copy.siteTeamEmpty}</ThemedText>}
       {team?.map(member => {

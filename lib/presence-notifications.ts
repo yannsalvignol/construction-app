@@ -32,6 +32,28 @@ export async function enablePresenceNotifications(locale: Locale, requestPermiss
     return true;
   } catch { return false; }
 }
+/**
+ * The chef's side: he is not consenting to be watched, he is asking to be told
+ * when one of his men stops answering, so this asks for permission outright
+ * rather than waiting on an agreement he never has to give.
+ */
+export async function enableChefAlerts(locale: Locale): Promise<boolean> {
+  if (!Device.isDevice || !Notifications) return false;
+  try {
+    if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('presence', { name: 'CASPROD · Présence', importance: Notifications.AndroidImportance.HIGH });
+    let permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted) permission = await Notifications.requestPermissionsAsync();
+    if (!permission.granted) return false;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    if (!projectId) return false;
+    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    const { error } = await supabase.rpc('register_chef_push', { push_token: token, language: locale });
+    if (error) return false;
+    localStorage.setItem(TOKEN_KEY, token);
+    return true;
+  } catch { return false; }
+}
+
 export async function unregisterPresenceNotifications() {
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) await supabase.rpc('unregister_presence_push', { push_token: token });

@@ -1,22 +1,21 @@
 import { useCallback, useRef, useState } from 'react';
 import { Keyboard } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { Action, Card, Feedback, Field, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
 import { PresenceHistory } from '@/components/screens/presence-history';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { supabase } from '@/lib/supabase';
+import { invalidate, useCached } from '@/hooks/use-cached';
+import { loadSites, sitesKey } from '@/lib/tab-data';
 import { SitePicker } from '@/components/site-picker';
 import { SiteRow } from '@/components/site-row';
 import { workCopy } from '@/lib/work-copy';
-import type { Site } from '@/lib/presence';
 
 export default function SitesScreen() {
   const { profile } = useAuth();
   const { locale } = useI18n();
   const copy = workCopy(locale);
-  const [sites, setSites] = useState<Site[]>([]);
   const [name, setName] = useState('');
   const [located, setLocated] = useState<{ latitude: number; longitude: number; address: string } | null>(null);
   const [adding, setAdding] = useState(false);
@@ -24,15 +23,13 @@ export default function SitesScreen() {
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
   const companyId = profile?.company_id;
-  const refresh = useCallback(async () => {
-    if (!companyId) return;
-    const { data, error: failure } = await supabase.from('sites')
-      .select('id,name,address,is_active,latitude,longitude')
-      .eq('company_id', companyId).eq('is_active', true).order('name');
-    if (failure) setError(workCopy(locale).failed);
-    else { setSites(data ?? []); setError(null); }
-  }, [companyId, locale]);
-  useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
+  // Served from the cache the home screen warmed, then revalidated on focus,
+  // so arriving here shows the chantiers rather than an empty page.
+  const loader = useCallback(() => loadSites(companyId ?? ''), [companyId]);
+  const cached = useCached(sitesKey(companyId ?? ''), loader);
+  const refresh = cached.refresh;
+  const sites = cached.data ?? [];
+  const loadError = cached.error ? workCopy(locale).failed : null;
   async function save() {
     Keyboard.dismiss();
     if (!companyId || !name.trim() || lock.current) return;
@@ -44,12 +41,13 @@ export default function SitesScreen() {
         latitude: located.latitude, longitude: located.longitude,
       });
       if (failure) throw failure;
-      setName(''); setLocated(null); setAdding(false); await refresh();
+      setName(''); setLocated(null); setAdding(false);
+      invalidate(sitesKey(companyId)); await refresh();
     } catch { setError(copy.failed); }
     finally { lock.current = false; setBusy(false); }
   }
   return <WorkPage title={copy.sitesTitle}>
-    <Feedback message={error} />
+    <Feedback message={error ?? loadError} />
     {sites.map(site => <SiteRow key={site.id} site={site} onRemoved={refresh} />)}
     {!!sites.length && <ThemedText type="small" themeColor="textSecondary">{copy.removeSiteHint}</ThemedText>}
     {adding ? <Card>

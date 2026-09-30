@@ -13,63 +13,87 @@ export type LivePosition = {
 };
 
 /**
- * Runs outside React, including while the app is backgrounded. Every guard that
- * matters (mode still 'live', consent still given, day still open) is enforced by
- * update_live_position server-side, so a rejected point simply stops the task
- * rather than being retried against a state the client cannot verify.
+ * One call per fix, serving the watch first and the chef's map second.
+ *
+ * Returns whether the declared day is still open, which is the only reason the
+ * task has to keep running. A failure — no signal, server down — is not an
+ * answer, and is reported as "keep going": a worker in a basement with no bars
+ * is exactly the worker the watch exists for.
+ */
+async function heartbeat(fix: { latitude: number; longitude: number; accuracy: number | null } | null) {
+  const { data, error } = await supabase.rpc('safety_heartbeat', {
+    lat: fix?.latitude ?? null,
+    lng: fix?.longitude ?? null,
+    accuracy: fix?.accuracy ?? null,
+  });
+  if (error) return true;
+  return (data as { day_open?: boolean } | null)?.day_open !== false;
+}
+
+/**
+ * Runs outside React, including while the app is backgrounded.
+ *
+ * Protection du travailleur isolé is what this task is for. It reports where the
+ * phone is whenever it moves, and that is all it does: the server holds the
+ * deadline and treats silence as the signal, because a phone lying next to an
+ * unconscious man runs no code at all. Live sharing, when the chef has turned it
+ * on and the worker has agreed, rides the same fixes and costs no extra battery.
  */
 TaskManager.defineTask(LIVE_TASK, async ({ data, error }) => {
   if (error) return;
   const locations = (data as { locations?: Location.LocationObject[] } | null)?.locations;
   const last = locations?.[locations.length - 1];
   if (!last) return;
-  const { error: failure } = await supabase.rpc('update_live_position', {
-    lat: last.coords.latitude,
-    lng: last.coords.longitude,
-    accuracy: last.coords.accuracy ?? 0,
+
+  const open = await heartbeat({
+    latitude: last.coords.latitude,
+    longitude: last.coords.longitude,
+    accuracy: last.coords.accuracy,
   });
-  // The server refuses once sharing no longer applies; stop rather than keep waking.
-  if (failure) await stopLiveLocation();
+  // The day is over, or this account has no business being watched. Nothing left
+  // to watch over, so stop waking the phone.
+  if (!open) await stopSafetyWatch();
 });
 
 /**
  * Sends one position immediately. Background updates alone are not enough: on iOS
  * `timeInterval` is ignored and only `distanceInterval` applies, so somebody who
- * stays put on a site would never emit a point and would never reach the map.
+ * stays put on a site would never emit a point — neither to the chef's map nor,
+ * more importantly, to the watch that is meant to notice he stopped moving.
  */
 export async function pushCurrentPosition() {
   try {
     const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    const { error } = await supabase.rpc('update_live_position', {
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-      accuracy: position.coords.accuracy ?? 0,
+    return await heartbeat({
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy,
     });
-    return !error;
   } catch { return false; }
 }
 
-export async function isLiveLocationRunning() {
+export async function isSafetyWatchRunning() {
   try { return await Location.hasStartedLocationUpdatesAsync(LIVE_TASK); }
   catch { return false; }
 }
 
 /**
- * Starts sharing and returns whether anything is being shared at all.
+ * Starts the position feed and returns whether anything is running at all.
  *
  * Foreground permission is the only hard requirement. Background permission is
  * asked for but not required: iOS commonly grants "While Using" first, and
- * refusing to share anything in that case left the employee invisible to their
- * chef entirely. Without it the position still goes out whenever the app is
- * open, and the chef keeps seeing the last known one in between.
+ * refusing to do anything in that case would leave the worker unwatched and
+ * invisible to his chef both. Without it the watch only runs while the app is
+ * open — which is worth saying plainly in the UI, since the whole point is the
+ * phone in a pocket.
  */
-export async function startLiveLocation() {
+export async function startSafetyWatch() {
   try {
     const foreground = await Location.requestForegroundPermissionsAsync();
     if (!foreground.granted) return false;
     // Background permission must be requested after foreground on both platforms.
     const background = await Location.requestBackgroundPermissionsAsync();
-    if (background.granted && !await isLiveLocationRunning()) {
+    if (background.granted && !await isSafetyWatchRunning()) {
       await Location.startLocationUpdatesAsync(LIVE_TASK, {
         accuracy: Location.Accuracy.Balanced,
         // Android honours timeInterval; iOS only reacts to distance, hence the
@@ -77,16 +101,17 @@ export async function startLiveLocation() {
         timeInterval: 120_000,
         distanceInterval: 25,
         pausesUpdatesAutomatically: false,
-        // The iOS status-bar indicator stays on so the employee can always see
-        // that sharing is active; the Android notification does the same.
+        // The iOS status-bar indicator stays on so the worker can always see the
+        // watch is running; the Android notification does the same.
         showsBackgroundLocationIndicator: true,
         foregroundService: {
-          notificationTitle: 'Partage de position actif',
-          notificationBody: 'Votre position est partagée avec votre chef pendant votre journée déclarée.',
+          notificationTitle: 'Protection du travailleur isolé active',
+          notificationBody: 'Votre position est surveillée pendant votre journée déclarée, et partagée avec votre chef s’il a activé la carte.',
         },
       });
     }
-    // Reach the chef's map now rather than at the first 25 m moved.
+    // Start the watch from a known position now rather than at the first 25 m
+    // moved, and reach the chef's map at the same time.
     await pushCurrentPosition();
     return true;
   } catch { return false; }
@@ -98,8 +123,8 @@ export async function hasBackgroundLocation() {
   catch { return false; }
 }
 
-export async function stopLiveLocation() {
-  try { if (await isLiveLocationRunning()) await Location.stopLocationUpdatesAsync(LIVE_TASK); }
+export async function stopSafetyWatch() {
+  try { if (await isSafetyWatchRunning()) await Location.stopLocationUpdatesAsync(LIVE_TASK); }
   catch { /* the task may already be gone; nothing to unwind */ }
 }
 

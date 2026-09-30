@@ -1,15 +1,16 @@
 import { Link } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedInput } from '@/components/animated-input';
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { BrandName } from '@/components/brand-name';
 import { SocialSignInButtons } from '@/components/social-sign-in-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -23,6 +24,12 @@ export default function SignInScreen() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const passwordInput = useRef<TextInput>(null);
+  // The greeting sits in the upper third on a phone. On a short viewport —
+  // an iPad running this iPhone-only build, or an SE — that lift pushes the
+  // top of the form off screen, so it is dropped rather than scrolled past.
+  const { height } = useWindowDimensions();
+  const lift = height > 760 ? Spacing.six * 3 : Spacing.four;
+  const palette = useAuthPalette();
 
   async function handleSubmit() {
     Keyboard.dismiss();
@@ -36,18 +43,30 @@ export default function SignInScreen() {
   }
 
   return (
-    <DismissKeyboardView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: palette.page }]}>
       <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          style={styles.fill}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          {/* Scrollable so nothing is ever unreachable: with the keyboard up on
+              a short screen the submit button would otherwise sit under it,
+              with no way to bring it back. */}
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: lift }]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}>
         <ThemedText type="subtitle" style={styles.title}>
-          {t.signIn.title}
-          {/* The dot is the brand's, hence the accent colour. */}
-          <ThemedText type="subtitle" style={{ color: theme.accent }}>.</ThemedText>
-          <ThemedText type="subtitle"> !</ThemedText>
+          {t.signIn.titleBefore}
+          <BrandName />
+          {t.signIn.titleAfter}
         </ThemedText>
 
-        <ThemedView style={styles.form}>
+        <ThemedView style={[styles.form, { backgroundColor: palette.page }]}>
           <AnimatedInput
             label={t.signIn.identifierPlaceholder}
+            surface={palette.field}
+            labelColor={palette.fieldText}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="next"
@@ -65,6 +84,8 @@ export default function SignInScreen() {
           <AnimatedInput
             ref={passwordInput}
             label={t.signIn.passwordPlaceholder}
+            surface={palette.field}
+            labelColor={palette.fieldText}
             password
             returnKeyType="done"
             submitBehavior="blurAndSubmit"
@@ -100,7 +121,7 @@ export default function SignInScreen() {
             </ThemedText>
           </Pressable>
 
-          <SocialSignInButtons />
+          <SocialSignInButtons surface={palette.social} />
 
           {/* The question stays in body colour so only the action reads as tappable. */}
           <Link href="/register" style={styles.link}>
@@ -108,8 +129,10 @@ export default function SignInScreen() {
             <ThemedText type="linkPrimary">{t.signIn.registerAction}</ThemedText>
           </Link>
         </ThemedView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
-    </DismissKeyboardView>
+    </ThemedView>
   );
 }
 
@@ -121,15 +144,23 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    // Centred, then lifted: the welcome sits in the upper third rather than
-    // level with the fields, which reads as a greeting instead of a label.
-    justifyContent: 'center',
-    paddingBottom: Spacing.six * 3,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     width: '100%',
+  },
+  fill: {
+    flex: 1,
+  },
+  content: {
+    // Centred, then lifted: the welcome sits in the upper third rather than
+    // level with the fields, which reads as a greeting instead of a label.
+    // flexGrow rather than flex so the content can outgrow the screen and
+    // scroll instead of being clipped.
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.four,
+    gap: Spacing.four,
   },
   title: {
     textAlign: 'left',

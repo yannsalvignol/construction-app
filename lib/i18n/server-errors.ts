@@ -81,6 +81,8 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'Choose a task from the catalogue': 'Choisissez une tâche dans le catalogue.',
   'Enter a valid quantity': 'Saisissez une quantité valide.',
   'Enter a whole number of units': 'Saisissez un nombre entier d’unités.',
+  'Request timed out':
+    'Le serveur ne répond pas. Vérifiez votre connexion, puis réessayez.',
 };
 
 const FRENCH_SERVER_PATTERNS: [RegExp, (match: RegExpMatchArray) => string][] = [

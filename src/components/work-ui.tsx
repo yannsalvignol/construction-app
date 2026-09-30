@@ -1,8 +1,10 @@
 import React from 'react';
+import { BrandSpinner } from '@/components/brand-spinner';
 import { Host, Picker } from '@expo/ui';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from './themed-text';
+import { cardShadow } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/hooks/use-i18n';
 import { workCopy } from '@/lib/work-copy';
@@ -28,16 +30,41 @@ export function WorkPage({ title, subtitle, titleAccessory, children }: {
     </ScrollView>
   </SafeAreaView>;
 }
+/**
+ * The employee's cards read like the chef's: a white surface lifted by a
+ * shadow rather than outlined, and no purple fill. `accent` marks a card as
+ * the one that matters right now with a thin accent edge, which is enough
+ * without repainting the whole thing.
+ */
 export function Card({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
   const theme = useTheme();
-  return <View style={[styles.card, { backgroundColor: accent ? theme.accentSoft : theme.backgroundElement, borderColor: accent ? theme.accent : theme.backgroundSelected }]}>{children}</View>;
+  return (
+    <View
+      style={[
+        styles.card,
+        cardShadow(theme.isDark),
+        {
+          backgroundColor: theme.backgroundElement,
+          borderColor: accent ? theme.accent : 'transparent',
+        },
+      ]}>
+      {children}
+    </View>
+  );
 }
 export function Action({ label, onPress, disabled, busy, secondary = false }: { label: string; onPress: () => void; disabled?: boolean; busy?: boolean; secondary?: boolean }) {
   const theme = useTheme();
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
-    style={({ pressed }) => [styles.action, { backgroundColor: secondary ? theme.accentSoft : theme.accent, opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1 }]}>
-    {busy && <ActivityIndicator color={secondary ? theme.accentText : theme.buttonText} />}
-    <ThemedText type="smallBold" style={{ color: secondary ? theme.accentText : theme.buttonText, textAlign: 'center', flexShrink: 1 }}>{label}</ThemedText>
+    // Secondary is an outlined oval, as on the chef's screens, rather than a
+    // second purple surface competing with the real action.
+    style={({ pressed }) => [styles.action, {
+      backgroundColor: secondary ? 'transparent' : theme.accent,
+      borderWidth: secondary ? 1 : 0,
+      borderColor: theme.text,
+      opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,
+    }]}>
+    {busy && <BrandSpinner color={secondary ? theme.accentText : theme.buttonText} />}
+    <ThemedText type="smallBold" style={{ color: secondary ? theme.text : theme.buttonText, textAlign: 'center', flexShrink: 1 }}>{label}</ThemedText>
   </Pressable>;
 }
 export function Field(props: TextInputProps) {
@@ -64,8 +91,12 @@ export function Select({ label, value, options, onChange }: { label: string; val
       <WorkPage title={label}>
         <Action secondary label={copy.close} onPress={() => setOpen(false)} />
         {options.map(option => <Pressable key={option.value} accessibilityRole="radio" accessibilityState={{ checked: option.value === value }} onPress={() => { onChange(option.value); setOpen(false); }}
-          style={[styles.field, { backgroundColor: option.value === value ? theme.accentSoft : theme.backgroundElement, borderColor: theme.backgroundSelected }]}>
-          <ThemedText style={{ color: option.value === value ? theme.accentText : theme.text }}>{option.label}</ThemedText>
+          style={[styles.field, styles.option, {
+            backgroundColor: theme.backgroundElement,
+            borderColor: option.value === value ? theme.text : theme.backgroundSelected,
+          }]}>
+          <ThemedText style={{ flex: 1 }}>{option.label}</ThemedText>
+          {option.value === value && <ThemedText type="smallBold">✓</ThemedText>}
         </Pressable>)}
       </WorkPage>
     </Modal>
@@ -102,9 +133,10 @@ export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, 
 const styles = StyleSheet.create({
   page: { padding: 20, paddingBottom: 100, gap: 20, width: '100%', maxWidth: 800, alignSelf: 'center' },
   heading: { fontSize: 30, lineHeight: 38, fontWeight: '700', letterSpacing: -0.8 },
-  card: { borderRadius: 24, borderWidth: 1, padding: 22, gap: 16 },
-  action: { minHeight: 50, borderRadius: 16, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
+  card: { borderRadius: 20, borderWidth: 1, padding: 22, gap: 16 },
+  action: { minHeight: 52, borderRadius: 999, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
   field: { borderWidth: 1, borderRadius: 14, padding: 14, minHeight: 50, fontSize: 16 },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 });
 /** For screens that need their own scroll view but the same page metrics as WorkPage. */
 export const pageStyles = { page: styles.page, heading: styles.heading };

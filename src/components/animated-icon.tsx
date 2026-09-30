@@ -1,16 +1,32 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
+/** Long enough for the animation, short enough not to be felt as a hang. */
+const FAILSAFE_MS = 2_500;
 
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);
+
+  // The overlay covers the whole app, so it must come down even if the
+  // animation callback below never runs — an interrupted or dropped entering
+  // animation would otherwise leave a full-screen view swallowing every tap,
+  // which is indistinguishable from a frozen app.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Also hide the native splash: dropping the overlay while that is still
+      // up would swap one frozen-looking screen for another.
+      SplashScreen.hideAsync().catch(() => {});
+      setVisible(false);
+    }, FAILSAFE_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (!visible) return null;
 
@@ -37,6 +53,7 @@ export function AnimatedSplashOverlay() {
 
   return animate ? (
     <Animated.View
+      pointerEvents="none"
       entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
         'worklet';
         if (finished) {
@@ -48,6 +65,7 @@ export function AnimatedSplashOverlay() {
     </Animated.View>
   ) : (
     <View
+      pointerEvents="none"
       onLayout={() => {
         SplashScreen.hideAsync().finally(() => {
           setAnimate(true);

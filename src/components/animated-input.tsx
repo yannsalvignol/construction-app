@@ -32,6 +32,9 @@ export function AnimatedInput({
   icon,
   value,
   password = false,
+  height = 56,
+  surface,
+  labelColor,
   style,
   onFocus,
   onBlur,
@@ -41,6 +44,14 @@ export function AnimatedInput({
   label: string;
   /** Optional leading icon; omitted where the label alone is enough. */
   icon?: React.ComponentProps<typeof Ionicons>['name'];
+  /** Taller where the field is the only thing on the screen. */
+  height?: number;
+  /** Overrides the field's fill where a screen sets its own palette. */
+  surface?: string;
+  /** Overrides the resting label and placeholder colour, to go with
+   * `surface`. The value itself always stays the theme's text colour: what
+   * someone has typed has to be the most readable thing in the field. */
+  labelColor?: string;
   value: string;
   password?: boolean;
   ref?: React.Ref<TextInput>;
@@ -67,7 +78,7 @@ export function AnimatedInput({
   }));
 
   const labelTextStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(active.value, [0, 1], [theme.textPlaceholder, theme.accentText]),
+    color: interpolateColor(active.value, [0, 1], [labelColor ?? theme.textPlaceholder, theme.accentText]),
   }));
 
   // Filled field, like the other inputs; the ring only appears on focus.
@@ -76,7 +87,7 @@ export function AnimatedInput({
   }));
 
   return (
-    <Animated.View style={[styles.box, { backgroundColor: theme.backgroundInput }, boxStyle]}>
+    <Animated.View style={[styles.box, { height, backgroundColor: surface ?? theme.backgroundInput }, boxStyle]}>
       {icon && <Ionicons name={icon} size={20} color={focused ? theme.accentText : theme.textPlaceholder} />}
 
       <View style={styles.field}>
@@ -119,7 +130,6 @@ export function AnimatedInput({
 
 const styles = StyleSheet.create({
   box: {
-    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,

@@ -7,6 +7,8 @@ import { PresenceNotice } from '@/components/presence-notice';
 import { LiveNotice } from '@/components/live-notice';
 import { EmployeeLiveMap } from '@/components/employee-live-map';
 import { DeclaredTasks } from '@/components/declared-tasks';
+import { PresenceHistory } from '@/components/screens/presence-history';
+import { SafetyCard } from '@/components/safety-card';
 import { ZoneTime } from '@/components/zone-time';
 import { DayHistory, PastDayView, formatDay, useDayHistory } from '@/components/day-history';
 import { useAuth } from '@/hooks/use-auth';
@@ -22,7 +24,7 @@ export default function EmployeeHomeScreen() {
   const { profile } = useAuth();
   const { locale } = useI18n();
   const copy = workCopy(locale);
-  const { data, loading, error, refresh, now, consented, liveConsented } = useWorkspace();
+  const { data, loading, error, refresh, now, consented, liveConsented, watchEnabled } = useWorkspace();
   const [site, setSite] = useState('');
   const [duration, setDuration] = useState('8');
   const [busy, setBusy] = useState(false);
@@ -82,6 +84,14 @@ export default function EmployeeHomeScreen() {
     {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
     {profile && !profile.is_active ? <Card><ThemedText>{copy.inactive}</ThemedText></Card> : data && <>
       {(!consented || showNotice) && <PresenceNotice accepted={consented} busy={busy} onAccept={() => { void act(() => consent(true)); }} onWithdraw={() => { void act(() => consent(false)); }} />}
+      {/* Protection du travailleur isolé. High on the screen on purpose: the
+          worker reaching for it may be hurt, and it must not be below a fold. */}
+      {consented && profile && <SafetyCard
+        dayOpen={!!active}
+        employeeId={profile.id}
+        watchOn={watchEnabled}
+        asked={!!data.lone_worker_asked}
+        onChanged={() => { void refresh(); }} />}
       {consented && !active && <Card>
         {data.sites.length ? <>
           <Select label={copy.chooseSite} value={site} options={data.sites.map(s => ({ value: s.id, label: s.name }))} onChange={setSite} />
@@ -147,6 +157,9 @@ export default function EmployeeHomeScreen() {
         }} />
         {confirmFinish && <Action secondary label={copy.cancel} onPress={() => setConfirmFinish(false)} />}
       </>}
+      {/* The proofs already given, under the day they belong to: a tab of its
+          own pushed the employee's six tabs into iOS's "More" list. */}
+      {consented && <PresenceHistory />}
       {consented && <Action secondary label={showNotice ? copy.close : copy.info} onPress={() => setShowNotice(!showNotice)} />}
     </>}
     </>}

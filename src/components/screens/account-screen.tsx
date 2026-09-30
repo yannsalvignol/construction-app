@@ -4,22 +4,26 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { AnimatedInput } from '@/components/animated-input';
+import { BrandSpinner } from '@/components/brand-spinner';
+import { PhoneInput } from '@/components/phone-input';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
 
-export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
+export function AccountScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const palette = useAuthPalette();
   const router = useRouter();
   const { t, locale } = useI18n();
   const { profile, refreshProfile } = useAuth();
@@ -146,30 +150,46 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
   if (!profile) return null;
 
   return (
-    <DismissKeyboardView style={styles.container}>
-      <SafeAreaView
-        style={styles.safeArea}
-        edges={topInset ? undefined : ['left', 'right']}>
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, !topInset && { paddingBottom: Spacing.six + insets.bottom }]}
-          keyboardShouldPersistTaps="handled">
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.six + insets.bottom }]}
+          keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
           <View style={styles.toolbar}>
+            {/* The chef's screens have no header of their own here, so the way
+                back lives on this row alongside the gear. */}
+            <View style={styles.toolbarLeft}>
+              {/* Pushed over the tabs for a chef, a tab of its own for an
+                  employee: the chevron belongs only to the pushed one. */}
+              {router.canGoBack() && (
+                <Pressable
+                  onPress={() => router.back()}
+                  hitSlop={8}
+                  accessibilityLabel={t.common.back}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <Ionicons name="chevron-back" size={28} color={theme.text} />
+                </Pressable>
+              )}
+              <ThemedText type="subtitle" style={styles.toolbarTitle}>{t.account.editProfile}</ThemedText>
+            </View>
+
             <Pressable
               onPress={() => router.push('/settings')}
               hitSlop={8}
               accessibilityLabel={t.settings.title}
-              style={({ pressed }) => [
-                styles.settingsButton,
-                { borderColor: theme.backgroundSelected },
-                pressed && styles.pressed,
-              ]}>
-              <Ionicons name="settings-outline" size={30} color={theme.text} />
-              <ThemedText type="smallBold">{t.settings.title}</ThemedText>
+              style={({ pressed }) => pressed && styles.pressed}>
+              <Ionicons name="settings-outline" size={28} color={theme.text} />
             </Pressable>
           </View>
 
           <ThemedView style={[styles.header, styles.transparent]}>
-            <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
+            <Pressable
+              onPress={handlePickPhoto}
+              disabled={uploadingPhoto}
+              accessibilityRole="button"
+              accessibilityLabel={uploadingPhoto ? t.account.uploadingPhoto : t.account.changePhoto}
+              style={({ pressed }) => pressed && styles.pressed}>
               {profile.avatar_url ? (
                 <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
               ) : (
@@ -177,28 +197,26 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                   style={[
                     styles.avatar,
                     styles.avatarPlaceholder,
-                    { borderWidth: 1, borderColor: theme.backgroundSelected },
+                    { backgroundColor: palette.avatar, borderColor: theme.backgroundSelected },
                   ]}>
                   <Ionicons name="person" size={32} color={theme.textSecondary} />
                 </ThemedView>
               )}
+
+              {/* On the picture rather than under it: the badge says what the
+                  tap does without a line of text to read. */}
+              <View style={styles.editBadge}>
+                {uploadingPhoto ? (
+                  <BrandSpinner size={22} color={theme.text} />
+                ) : (
+                  <Ionicons name="create" size={30} color={theme.text} />
+                )}
+              </View>
             </Pressable>
 
             <ThemedText type="subtitle" style={styles.centerText}>
               {profile.first_name} {profile.last_name}
             </ThemedText>
-            <ThemedView
-              style={[styles.roleBadge, { borderWidth: 1, borderColor: theme.backgroundSelected }]}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {t.account.role[profile.role]}
-              </ThemedText>
-            </ThemedView>
-
-            <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
-              <ThemedText type="linkPrimary">
-                {uploadingPhoto ? t.account.uploadingPhoto : t.account.changePhoto}
-              </ThemedText>
-            </Pressable>
 
             {photoError && (
               <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
@@ -209,10 +227,10 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
 
           <ThemedView style={[styles.section, styles.transparent]}>
             <ThemedText type="smallBold">{t.account.profile.title}</ThemedText>
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
-              placeholder={t.account.profile.firstNamePlaceholder}
-              placeholderTextColor={theme.textSecondary}
+            <AnimatedInput
+              surface={palette.field}
+              labelColor={palette.fieldText}
+              label={t.account.profile.firstNamePlaceholder}
               returnKeyType="next"
               value={firstName}
               onChangeText={(value) => {
@@ -220,10 +238,10 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                 setInfoSaved(false);
               }}
             />
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
-              placeholder={t.account.profile.lastNamePlaceholder}
-              placeholderTextColor={theme.textSecondary}
+            <AnimatedInput
+              surface={palette.field}
+              labelColor={palette.fieldText}
+              label={t.account.profile.lastNamePlaceholder}
               returnKeyType="next"
               value={lastName}
               onChangeText={(value) => {
@@ -231,13 +249,10 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
                 setInfoSaved(false);
               }}
             />
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
-              placeholder={t.account.profile.phonePlaceholder}
-              placeholderTextColor={theme.textSecondary}
-              keyboardType="phone-pad"
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
+            <PhoneInput
+              surface={palette.field}
+              labelColor={palette.fieldText}
+              label={t.account.profile.phonePlaceholder}
               value={phone ?? ''}
               onChangeText={(value) => {
                 setPhone(value);
@@ -246,13 +261,10 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
             />
 
             {profile.role === 'chef' && (
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected },
-                ]}
-                placeholder={t.account.profile.companyNamePlaceholder}
-                placeholderTextColor={theme.textSecondary}
+              <AnimatedInput
+                surface={palette.field}
+                labelColor={palette.fieldText}
+                label={t.account.profile.companyNamePlaceholder}
                 returnKeyType="done"
                 onSubmitEditing={() => Keyboard.dismiss()}
                 value={companyName}
@@ -287,7 +299,7 @@ export function AccountScreen({ topInset = true }: { topInset?: boolean }) {
           </ThemedView>
         </ScrollView>
       </SafeAreaView>
-    </DismissKeyboardView>
+    </ThemedView>
   );
 }
 
@@ -313,16 +325,18 @@ const styles = StyleSheet.create({
   },
   toolbar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  settingsButton: {
+  toolbarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    borderWidth: 1,
-    borderRadius: Spacing.four,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
+  },
+  // Same size as the Réglages heading, so the two screens read as siblings.
+  toolbarTitle: {
+    fontSize: 24,
+    lineHeight: 32,
   },
   header: {
     alignItems: 'center',
@@ -337,20 +351,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  roleBadge: {
-    borderRadius: Spacing.four,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.half,
+  editBadge: {
+    position: 'absolute',
+    // Positive insets: the glyph sits on the picture rather than beside it.
+    right: 2,
+    bottom: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   section: {
     gap: Spacing.three,
-  },
-  input: {
-    borderRadius: Spacing.two,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
   },
   button: {
     borderRadius: Spacing.two,

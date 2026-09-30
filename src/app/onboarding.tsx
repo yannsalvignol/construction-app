@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { IntendedRole, useAuth, usernameFromAuthEmail } from '@/hooks/use-auth';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -19,8 +21,13 @@ const inputStyle = (theme: ReturnType<typeof useTheme>) => [
 
 function ChefOnboarding() {
   const theme = useTheme();
+  const palette = useAuthPalette();
   const { t } = useI18n();
-  const { completeChefOnboarding, signOut } = useAuth();
+  const { session, completeChefOnboarding, signOut } = useAuth();
+  // Apple's Hide My Email hands us a relay address, which can never be matched
+  // to the real one: someone who already has a CASPROD account and signs in
+  // this way lands here, about to create a second company without meaning to.
+  const hiddenEmail = session?.user.email?.endsWith('@privaterelay.appleid.com') ?? false;
 
   const [companyName, setCompanyName] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -50,32 +57,49 @@ function ChefOnboarding() {
         <LevelMark />
       </ThemedView>
 
+      {hiddenEmail && (
+        <ThemedView style={[styles.notice, { borderColor: theme.warning }]}>
+          <Ionicons name="alert-circle-outline" size={20} color={theme.warning} />
+          <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+            {t.onboarding.chef.hiddenEmail}
+          </ThemedText>
+        </ThemedView>
+      )}
+
       <ThemedText type="subtitle" style={styles.chefTitle}>
         {t.onboarding.chef.title}
         {/* The dot is the brand's, as on the sign-in and sign-up headings. */}
         <ThemedText type="subtitle" style={{ color: theme.accent }}>.</ThemedText>
       </ThemedText>
 
-      <ThemedView style={styles.form}>
+      <ThemedView style={[styles.form, { backgroundColor: palette.page }]}>
         <AnimatedInput
+          surface={palette.field}
+          labelColor={palette.fieldText}
           label={t.onboarding.chef.companyNamePlaceholder}
           returnKeyType="next"
           value={companyName}
           onChangeText={setCompanyName}
         />
         <AnimatedInput
+          surface={palette.field}
+          labelColor={palette.fieldText}
           label={t.onboarding.chef.firstNamePlaceholder}
           returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
         />
         <AnimatedInput
+          surface={palette.field}
+          labelColor={palette.fieldText}
           label={t.onboarding.chef.lastNamePlaceholder}
           returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
         />
         <AnimatedInput
+          surface={palette.field}
+          labelColor={palette.fieldText}
           label={t.onboarding.chef.phonePlaceholder}
           keyboardType="phone-pad"
           returnKeyType="done"
@@ -125,6 +149,7 @@ function EmployeeOnboarding({
   joinCode: string | null;
 }) {
   const theme = useTheme();
+  const palette = useAuthPalette();
   const { t } = useI18n();
   const { joinCompanyAsEmployee, signOut } = useAuth();
 
@@ -161,32 +186,32 @@ function EmployeeOnboarding({
         {t.onboarding.employee.subtitle}
       </ThemedText>
 
-      <ThemedView style={styles.form}>
+      <ThemedView style={[styles.form, { backgroundColor: palette.page }]}>
         {!joinCode && (
           <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
             {t.onboarding.employee.missingCodeError}
           </ThemedText>
         )}
         <TextInput
-          style={inputStyle(theme)}
+          style={[inputStyle(theme), { backgroundColor: palette.field }]}
           placeholder={t.onboarding.employee.firstNamePlaceholder}
-          placeholderTextColor={theme.textPlaceholder}
+          placeholderTextColor={palette.fieldText}
           returnKeyType="next"
           value={firstName}
           onChangeText={setFirstName}
         />
         <TextInput
-          style={inputStyle(theme)}
+          style={[inputStyle(theme), { backgroundColor: palette.field }]}
           placeholder={t.onboarding.employee.lastNamePlaceholder}
-          placeholderTextColor={theme.textPlaceholder}
+          placeholderTextColor={palette.fieldText}
           returnKeyType="next"
           value={lastName}
           onChangeText={setLastName}
         />
         <TextInput
-          style={inputStyle(theme)}
+          style={[inputStyle(theme), { backgroundColor: palette.field }]}
           placeholder={t.onboarding.employee.phonePlaceholder}
-          placeholderTextColor={theme.textPlaceholder}
+          placeholderTextColor={palette.fieldText}
           keyboardType="phone-pad"
           returnKeyType="done"
           onSubmitEditing={() => Keyboard.dismiss()}
@@ -239,11 +264,12 @@ function EmployeeOnboarding({
  */
 export default function OnboardingScreen() {
   const { session } = useAuth();
+  const palette = useAuthPalette();
   const intendedRole = (session?.user.user_metadata?.intended_role as IntendedRole) ?? 'chef';
   const joinCode = (session?.user.user_metadata?.join_code as string | undefined) ?? null;
 
   return (
-    <DismissKeyboardView style={styles.container}>
+    <DismissKeyboardView style={[styles.container, { backgroundColor: palette.page }]}>
       <SafeAreaView style={styles.safeArea}>
         {intendedRole === 'employee' ? (
           <EmployeeOnboarding username={usernameFromAuthEmail(session?.user.email)} joinCode={joinCode} />
@@ -346,6 +372,15 @@ const styles = StyleSheet.create({
   },
   chefTitle: {
     textAlign: 'left',
+  },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    padding: Spacing.three,
+    backgroundColor: 'transparent',
   },
   subtitle: {
     textAlign: 'center',

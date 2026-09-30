@@ -12,10 +12,10 @@ export type LivePosition = {
 // Background location needs a native task runner, so the web build never shares.
 // A chef can still read the team's positions from a browser.
 export async function pushCurrentPosition() { return false; }
-export async function isLiveLocationRunning() { return false; }
-export async function startLiveLocation() { return false; }
+export async function isSafetyWatchRunning() { return false; }
+export async function startSafetyWatch() { return false; }
 export async function hasBackgroundLocation() { return false; }
-export async function stopLiveLocation() { /* nothing runs on web */ }
+export async function stopSafetyWatch() { /* nothing runs on web */ }
 
 export async function fetchLiveTeam(): Promise<LivePosition[]> {
   const { data, error } = await supabase.rpc('live_team');

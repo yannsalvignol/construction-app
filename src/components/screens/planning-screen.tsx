@@ -1,21 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { AppModal, ModalButton } from '@/components/app-modal';
 import { ThemedText } from '@/components/themed-text';
 import { Card, WorkPage } from '@/components/work-ui';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
-import { supabase } from '@/lib/supabase';
+import { useCached } from '@/hooks/use-cached';
+import { loadPlanning, planningKey } from '@/lib/tab-data';
 
-type Shift = {
-  id: string; employee_id: string; work_date: string; start_time: string; end_time: string; note: string | null;
-  sites: { name: string; address: string | null } | null;
-  profiles: { first_name: string; last_name: string } | null;
-};
 type Scope = 'me' | 'team';
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -37,23 +33,22 @@ export function PlanningScreen() {
   const [week, setWeek] = useState(() => mondayOf(new Date()));
   const [selected, setSelected] = useState(() => iso(new Date()));
   const [scope, setScope] = useState<Scope>('me');
-  const [shifts, setShifts] = useState<Shift[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(week, i)), [week]);
   const today = iso(new Date());
 
-  const refresh = useCallback(async () => {
-    if (!profile) return;
-    const { data, error: failure } = await supabase.from('planned_shifts')
-      .select('id, employee_id, work_date, start_time, end_time, note, sites(name, address), profiles!planned_shifts_employee_id_fkey(first_name, last_name)')
-      .eq('company_id', profile.company_id).gte('work_date', days[0]).lte('work_date', days[6])
-      .order('work_date').order('start_time');
-    if (failure) { setError(t.planning.failed); return; }
-    setShifts((data ?? []) as unknown as Shift[]);
-    setError(null);
-  }, [profile, days, t]);
-  useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
+  // Cached per week: stepping back to a week already seen redraws it at once,
+  // and the home screen warms the current one before this tab is opened.
+  const companyId = profile?.company_id ?? '';
+  const loader = useCallback(
+    () => loadPlanning(companyId, days[0], days[6]),
+    [companyId, days]
+  );
+  const cached = useCached(planningKey(companyId, days[0]), loader);
+  const shifts = cached.data ?? [];
+  const error = cached.error ? t.planning.failed : null;
+
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const dayShifts = shifts.filter((s) => s.work_date === selected && (!isChef || scope === 'team' || s.employee_id === profile?.id));
   const weekHours = shifts.filter((s) => s.employee_id === profile?.id).reduce((n, s) => {
@@ -63,7 +58,19 @@ export function PlanningScreen() {
   const dayLabel = (d: string) => { const x = parse(d); return `${t.schedule.weekdaysFull[(x.getDay() + 6) % 7]} ${x.getDate()} ${t.schedule.months[x.getMonth()]}`; };
 
   return (
-    <WorkPage title={t.schedule.title} subtitle={isChef ? t.planning.chefHint : t.planning.employeeHint}>
+    <WorkPage
+      title={t.schedule.title}
+      // Where the plannings come from is read once and never again, so it sits
+      // behind the ⓘ rather than above every week of the year.
+      titleAccessory={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t.schedule.title}
+          hitSlop={10}
+          onPress={() => setInfoOpen(true)}>
+          <Ionicons name="information-circle-outline" size={22} color={theme.textSecondary} />
+        </Pressable>
+      }>
       <View style={styles.weekNav}>
         <Pressable hitSlop={8} onPress={() => { setWeek(addDays(week, -7)); setSelected(addDays(week, -7)); }}><Ionicons name="chevron-back" size={20} color={theme.textSecondary} /></Pressable>
         <ThemedText type="smallBold">{t.planning.weekOf(dayLabel(days[0]))}</ThemedText>
@@ -116,6 +123,17 @@ export function PlanningScreen() {
           {s.note && <ThemedText type="small">{s.note}</ThemedText>}
         </Card>
       ))}
+
+      <AppModal
+        visible={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        title={t.schedule.title}
+        icon="calendar-outline"
+        actions={<ModalButton label={t.common.done} onPress={() => setInfoOpen(false)} />}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {isChef ? t.planning.chefHint : t.planning.employeeHint}
+        </ThemedText>
+      </AppModal>
     </WorkPage>
   );
 }

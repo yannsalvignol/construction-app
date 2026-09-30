@@ -72,6 +72,10 @@ type AuthContextValue = {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  /** True when the signed-in user's profile could not be read (timeout or
+   * error). The app has nothing to route on, so it offers a retry rather than
+   * rendering an empty screen. */
+  profileStalled: boolean;
   signIn: (identifier: string, password: string) => Promise<{ error: string | null }>;
   /** Emails a 6-digit code to a chef's address. Nothing is created yet: the
    * account only exists once completeSignUp() accepts the code, so a failed
@@ -88,12 +92,21 @@ type AuthContextValue = {
   cancelSignUp: () => void;
   /** Emails a code confirming a password change from inside the app. */
   startPasswordChange: () => Promise<{ error: string | null }>;
+  /** Checks the code without spending it, so the app can ask for the new
+   * password only once the code is known to be right. */
+  verifyPasswordChangeCode: (code: string) => Promise<{ error: string | null }>;
   /** Checks the code and sets the new password. */
   completePasswordChange: (code: string, password: string) => Promise<{ error: string | null }>;
-  /** Emails a recovery link. Only chefs have a real address — an employee's
-   * username maps to a synthetic @employee.local one that receives nothing,
-   * so the caller refuses those before asking. */
-  sendPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  /** Emails a code to reset a forgotten password. Only chefs have a real
+   * address — an employee's username maps to a synthetic @employee.local one
+   * that receives nothing, so the caller refuses those before asking. The
+   * answer is the same whether or not the address has an account. */
+  startPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  /** Checks the code without spending it, so the app can ask for the new
+   * password only once the code is known to be right. */
+  verifyPasswordResetCode: (email: string, code: string) => Promise<{ error: string | null }>;
+  /** Checks the code, sets the new password and signs in with it. */
+  completePasswordReset: (email: string, code: string, password: string) => Promise<{ error: string | null }>;
   /** Google OAuth through the system browser. Works in Expo Go (no native
    * module). A new Google user lands in chef onboarding since intended_role
    * can't travel through OAuth and onboarding.tsx defaults to chef. Returns a
@@ -131,6 +144,22 @@ type AuthContextValue = {
   }) => Promise<{ error: string | null }>;
 };
 
+/** How long the profile read may take before the app stops waiting on it. */
+const PROFILE_TIMEOUT_MS = 12_000;
+/** Same idea for the sign-in call itself. */
+const SIGN_IN_TIMEOUT_MS = 20_000;
+
+/** Rejects if the promise has not settled in time, so a caller can fail. */
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    Promise.resolve(promise).then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); }
+    );
+  });
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -140,19 +169,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingSignUp, setPendingSignUp] = useState<{ email: string; password: string } | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
+  /** The profile could not be read — the app shows a retry instead of routing. */
+  const [profileStalled, setProfileStalled] = useState(false);
 
   const profileRequest = useRef(0);
   const currentUser = useRef<string | null>(null);
   const fetchProfile = useCallback(async (userId: string) => {
     const request = ++profileRequest.current;
+    // Without this the app can sit on a blank loading state indefinitely: the
+    // navigator has nothing to show between "signed in" and "profile known",
+    // and a request that never settles is exactly what a bad network gives.
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), PROFILE_TIMEOUT_MS);
+    setProfileStalled(false);
     try {
       const { data, error } = await supabase.from('profiles')
         .select('id, company_id, first_name, last_name, role, phone, avatar_url, is_active')
-        .eq('id', userId).maybeSingle();
+        .eq('id', userId).abortSignal(abort.signal).maybeSingle();
       if (request !== profileRequest.current || currentUser.current !== userId) return;
-      if (error) console.error('[auth] profile lookup failed', error.message);
+      if (error) {
+        console.error('[auth] profile lookup failed', error.message);
+        // Nothing to route on: say so rather than rendering a dead screen.
+        setProfileStalled(true);
+        return;
+      }
       setProfile(data);
+    } catch (e) {
+      if (request !== profileRequest.current || currentUser.current !== userId) return;
+      console.error('[auth] profile lookup threw', e);
+      setProfileStalled(true);
     } finally {
+      clearTimeout(timer);
       if (request === profileRequest.current) setProfileLoading(false);
     }
   }, []);
@@ -219,6 +266,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       profile,
       loading: sessionLoading || profileLoading,
+      profileStalled,
       signIn: async (identifier, rawPassword) => {
         const email = toAuthEmail(identifier);
         const password = rawPassword.trim();
@@ -235,7 +283,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           passwordLength: password.length,
         });
 
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        // GoTrue has no timeout of its own: on a network that accepts the
+        // connection and then stalls, the button would spin for ever.
+        const { data, error } = await withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          SIGN_IN_TIMEOUT_MS
+        ).catch(() => ({ data: null, error: { message: 'Request timed out', status: 0, code: 'timeout' } as const }));
 
         if (error) {
           console.error('[auth] signIn failed', {
@@ -311,23 +364,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const message = await resolveFunctionError('start-password-change', error);
         return { error: message ? translateServerError(message, locale) : t.verifyEmail.sendFailed };
       },
-      completePasswordChange: async (code, password) => {
+      verifyPasswordChangeCode: async (code) => {
         const { error } = await supabase.functions.invoke('complete-password-change', {
           method: 'POST',
-          body: { code, password },
+          body: { code },
         });
         if (!error) return { error: null };
         const message = await resolveFunctionError('complete-password-change', error);
         return { error: message ? translateServerError(message, locale) : t.verifyEmail.wrongCode };
       },
-      sendPasswordReset: async (email) => {
-        // The link comes back through the OAuth callback path, which exchanges
-        // the code for a session; the account screen is where the new password
-        // is set.
-        const redirectTo = Linking.createURL(OAUTH_CALLBACK_PATH);
-        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
-        if (error) console.error('[auth] sendPasswordReset failed', { email, error });
-        return { error: error ? translateServerError(error.message, locale) : null };
+      completePasswordChange: async (code, password) => {
+        const email = session?.user.email;
+        const { error } = await supabase.functions.invoke('complete-password-change', {
+          method: 'POST',
+          body: { code, password },
+        });
+        if (error) {
+          const message = await resolveFunctionError('complete-password-change', error);
+          return { error: message ? translateServerError(message, locale) : t.verifyEmail.wrongCode };
+        }
+
+        // Changing a password revokes the account's refresh tokens, so the
+        // session the app is holding is already dead: without signing in again
+        // the next refresh fails and the navigator drops back to sign-in.
+        if (email) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) console.error('[auth] completePasswordChange: could not renew the session', signInError);
+        }
+        return { error: null };
+      },
+      startPasswordReset: async (email) => {
+        const { error } = await supabase.functions.invoke('start-password-reset', {
+          method: 'POST',
+          body: { email: email.trim().toLowerCase(), locale },
+        });
+        if (!error) return { error: null };
+        const message = await resolveFunctionError('start-password-reset', error);
+        return { error: message ? translateServerError(message, locale) : t.verifyEmail.sendFailed };
+      },
+      verifyPasswordResetCode: async (email, code) => {
+        const { error } = await supabase.functions.invoke('complete-password-reset', {
+          method: 'POST',
+          body: { email: email.trim().toLowerCase(), code },
+        });
+        if (!error) return { error: null };
+        const message = await resolveFunctionError('complete-password-reset', error);
+        return { error: message ? translateServerError(message, locale) : t.verifyEmail.wrongCode };
+      },
+      completePasswordReset: async (email, code, password) => {
+        const address = email.trim().toLowerCase();
+        const { error } = await supabase.functions.invoke('complete-password-reset', {
+          method: 'POST',
+          body: { email: address, code, password },
+        });
+        if (error) {
+          const message = await resolveFunctionError('complete-password-reset', error);
+          return { error: message ? translateServerError(message, locale) : t.verifyEmail.wrongCode };
+        }
+
+        // Signing in here is what turns a reset into being back in the app,
+        // rather than landing on the sign-in screen to type it all again.
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: address, password });
+        if (signInError) {
+          console.error('[auth] completePasswordReset: sign-in after reset failed', signInError);
+          return { error: translateServerError(signInError.message, locale) };
+        }
+        return { error: null };
       },
       signInWithGoogle: async () => {
         const redirectTo = Linking.createURL(OAUTH_CALLBACK_PATH);
@@ -483,7 +585,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: null };
       },
     }),
-    [session, profile, pendingSignUp, sessionLoading, profileLoading, fetchProfile, locale, t]
+    [session, profile, pendingSignUp, sessionLoading, profileLoading, profileStalled, fetchProfile, locale, t]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,3 +1,4 @@
+import { QuoteTasks } from '@/components/quote-tasks';
 import { TaskForm } from '@/components/task-form';
 import { Action, Feedback, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -14,6 +15,12 @@ export default function TasksScreen() {
     {loading && <ThemedText>{copy.loading}</ThemedText>}
     <Feedback message={error} />
     {error && <Action label={copy.retry} onPress={() => { void refresh(); }} />}
-    {data && (active ? <TaskForm data={data} onSaved={refresh} /> : <ThemedText themeColor="textSecondary">{copy.startForTasks}</ThemedText>)}
+    {data && (active ? <>
+      {/* The chantier's devis first: it is the work that was actually sold,
+          in the words the chef quoted. The catalogue below stays for anything
+          the devis does not cover. */}
+      {data.day && <QuoteTasks dayId={data.day.id} onSaved={refresh} />}
+      <TaskForm data={data} onSaved={refresh} />
+    </> : <ThemedText themeColor="textSecondary">{copy.startForTasks}</ThemedText>)}
   </WorkPage>;
 }

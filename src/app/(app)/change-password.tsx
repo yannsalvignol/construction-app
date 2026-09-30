@@ -1,17 +1,19 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandSpinner } from '@/components/brand-spinner';
 import { AnimatedInput } from '@/components/animated-input';
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { OtpInput } from '@/components/otp-input';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -25,20 +27,27 @@ const RESEND_COOLDOWN_S = 45;
  */
 export default function ChangePasswordScreen() {
   const theme = useTheme();
+  const palette = useAuthPalette();
   const router = useRouter();
   const { t } = useI18n();
-  const { session, startPasswordChange, completePasswordChange } = useAuth();
-  const email = session?.user.email ?? '';
+  const { session, startPasswordChange, verifyPasswordChangeCode, completePasswordChange } = useAuth();
+  const accountEmail = session?.user.email ?? '';
 
+  const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [sending, setSending] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Three screens in one route, as on the forgotten-password flow: the address
+  // is confirmed, then the code is checked, and only then is the new password
+  // asked for, so a wrong one is caught while it is still the only thing on
+  // screen.
+  const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_S);
-  const requested = useRef(false);
+  const [cooldown, setCooldown] = useState(0);
 
   const send = useCallback(async () => {
     setError(null);
@@ -46,15 +55,24 @@ export default function ChangePasswordScreen() {
     const { error } = await startPasswordChange();
     setSending(false);
     setCooldown(RESEND_COOLDOWN_S);
-    if (error) setError(error);
+    if (error) {
+      setError(error);
+      return false;
+    }
+    return true;
   }, [startPasswordChange]);
 
-  // One code on arrival. The ref survives the double mount React does in dev.
-  useEffect(() => {
-    if (requested.current) return;
-    requested.current = true;
-    void send();
-  }, [send]);
+  async function handleEmail() {
+    Keyboard.dismiss();
+    if (sending) return;
+    // The code goes to the address on the account whatever is typed here, so a
+    // mismatch is refused rather than silently ignored.
+    if (email.trim().toLowerCase() !== accountEmail.toLowerCase()) {
+      setError(t.account.security.emailMismatch);
+      return;
+    }
+    if (await send()) setStep('code');
+  }
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -62,9 +80,23 @@ export default function ChangePasswordScreen() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
+  async function handleCode(value: string) {
+    if (checking) return;
+    setChecking(true);
+    setError(null);
+    const { error } = await verifyPasswordChangeCode(value);
+    setChecking(false);
+    if (error) {
+      setError(error);
+      setCode('');
+      return;
+    }
+    setStep('password');
+  }
+
   const longEnough = password.length >= 6;
   const matching = password.length > 0 && password === confirm;
-  const canSubmit = code.length === 6 && longEnough && matching && !saving;
+  const canSubmit = step === 'password' && longEnough && matching && !saving;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -84,45 +116,100 @@ export default function ChangePasswordScreen() {
   }
 
   return (
-    <DismissKeyboardView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: palette.page }]}>
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-        <View style={styles.topBar}>
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={8}
-            accessibilityLabel={t.common.back}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-            <Ionicons name="chevron-back" size={26} color={theme.text} />
-          </Pressable>
-          <ThemedText type="subtitle" style={styles.topTitle} numberOfLines={1}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
+          <ThemedText type="subtitle" style={styles.title}>
             {t.account.security.changePassword}
+            <ThemedText type="subtitle" style={{ color: theme.accent }}>.</ThemedText>
           </ThemedText>
-          <View style={styles.iconButton} />
-        </View>
 
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {done ? (
             <Animated.View entering={FadeInDown.duration(200)} style={styles.doneBlock}>
               <Ionicons name="checkmark-circle-outline" size={44} color={theme.success} />
               <ThemedText type="smallBold" style={{ color: theme.success }}>
                 {t.account.security.updated}
               </ThemedText>
-              <Pressable onPress={() => router.back()} style={({ pressed }) => pressed && styles.pressed}>
+              <Pressable
+                onPress={() => (router.canGoBack() ? router.back() : router.replace('/settings'))}
+                style={({ pressed }) => pressed && styles.pressed}>
                 <ThemedText type="linkPrimary">{t.common.done}</ThemedText>
               </Pressable>
             </Animated.View>
           ) : (
             <>
               <ThemedText type="small" themeColor="textSecondary">
-                {t.account.security.codeSentTo(email)}
+                {step === 'email'
+                  ? t.account.security.confirmEmail
+                  : step === 'code'
+                    ? t.account.security.codeSentTo(accountEmail)
+                    : t.forgotPassword.chooseNew}
               </ThemedText>
 
-              <OtpInput value={code} onChange={(next) => { setCode(next); setError(null); }} disabled={saving} />
+              {step === 'email' && (
+                <>
+                  <AnimatedInput
+                    surface={palette.field}
+                    labelColor={palette.fieldText}
+                    label={t.forgotPassword.emailPlaceholder}
+                    height={64}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                    returnKeyType="send"
+                    onSubmitEditing={handleEmail}
+                    value={email}
+                    onChangeText={(value) => { setEmail(value); setError(null); }}
+                  />
 
-              <View style={styles.resendRow}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.button,
+                      { backgroundColor: theme.accent, opacity: pressed || sending || !email.trim() ? 0.7 : 1 },
+                    ]}
+                    disabled={sending || !email.trim()}
+                    onPress={handleEmail}>
+                    <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
+                      {sending ? t.forgotPassword.submitting : t.forgotPassword.submit}
+                    </ThemedText>
+                  </Pressable>
+                </>
+              )}
+
+              {step === 'code' && (
+                <>
+                  <OtpInput
+                    surface={palette.field}
+                    value={code}
+                    onChange={(next) => { setCode(next); setError(null); }}
+                    onComplete={handleCode}
+                    disabled={checking}
+                  />
+
+                  {checking && (
+                    <View style={styles.status}>
+                      <BrandSpinner color={theme.accentText} />
+                      <ThemedText type="small" themeColor="textSecondary">{t.verifyEmail.checking}</ThemedText>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {error && !checking && (
+                <Animated.View entering={FadeInDown.duration(160)} style={styles.status}>
+                  <Ionicons name="alert-circle-outline" size={18} color={theme.danger} />
+                  <ThemedText type="small" style={{ color: theme.danger }}>{error}</ThemedText>
+                </Animated.View>
+              )}
+
+              {step === 'code' && <View style={styles.resendRow}>
                 {sending ? (
                   <View style={styles.status}>
-                    <ActivityIndicator color={theme.accentText} />
+                    <BrandSpinner color={theme.accentText} />
                     <ThemedText type="small" themeColor="textSecondary">{t.account.security.sending}</ThemedText>
                   </View>
                 ) : (
@@ -136,9 +223,12 @@ export default function ChangePasswordScreen() {
                     </ThemedText>
                   </Pressable>
                 )}
-              </View>
+              </View>}
 
+              {step === 'password' && <>
               <AnimatedInput
+                surface={palette.field}
+                labelColor={palette.fieldText}
                 label={t.account.security.newPasswordPlaceholder}
                 password
                 autoComplete="off"
@@ -149,6 +239,8 @@ export default function ChangePasswordScreen() {
                 onChangeText={(value) => { setPassword(value); setError(null); }}
               />
               <AnimatedInput
+                surface={palette.field}
+                labelColor={palette.fieldText}
                 label={t.account.security.confirmPasswordPlaceholder}
                 password
                 autoComplete="off"
@@ -160,18 +252,13 @@ export default function ChangePasswordScreen() {
                 onChangeText={(value) => { setConfirm(value); setError(null); }}
               />
 
-              <RuleChecklist
-                rules={[
-                  { label: t.account.security.passwordTooShort, met: longEnough },
-                  { label: t.account.security.passwordsMatch, met: matching },
-                ]}
-              />
-
-              {error && (
-                <Animated.View entering={FadeInDown.duration(160)} style={styles.status}>
-                  <Ionicons name="alert-circle-outline" size={18} color={theme.danger} />
-                  <ThemedText type="small" style={{ color: theme.danger }}>{error}</ThemedText>
-                </Animated.View>
+              {password.length > 0 && (
+                <RuleChecklist
+                  rules={[
+                    { label: t.account.security.passwordTooShort, met: longEnough },
+                    { label: t.account.security.passwordsMatch, met: matching },
+                  ]}
+                />
               )}
 
               <Pressable
@@ -185,11 +272,17 @@ export default function ChangePasswordScreen() {
                   {saving ? t.account.security.updating : t.account.security.update}
                 </ThemedText>
               </Pressable>
+              </>}
             </>
           )}
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/settings'))}
+            style={({ pressed }) => pressed && styles.pressed}>
+            <ThemedText type="linkPrimary" style={styles.centerText}>{t.common.back}</ThemedText>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
-    </DismissKeyboardView>
+    </ThemedView>
   );
 }
 
@@ -205,26 +298,18 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+  title: {
+    textAlign: 'left',
+    paddingBottom: Spacing.one,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topTitle: {
-    flex: 1,
+  centerText: {
     textAlign: 'center',
   },
   content: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    paddingBottom: Spacing.six,
+    paddingBottom: Spacing.six * 3,
     gap: Spacing.three,
   },
   resendRow: {

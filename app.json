@@ -22,9 +22,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
@@ -48,7 +48,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow access to your photos to set a profile picture.",
+          "photosPermission": "CASPROD accède à vos photos uniquement pour définir la photo de votre profil.",
           "cameraPermission": "CASPROD utilise la caméra uniquement pour la photo de votre vérification de présence.",
           "microphonePermission": false
         }
@@ -57,10 +57,12 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "CASPROD relève votre position une seule fois lorsque vous validez une vérification de présence.",
-          "locationAlwaysAndWhenInUsePermission": "Si votre chef active le partage en direct, CASPROD transmet votre position pendant vos journées de travail déclarées, jusqu'à ce que vous terminiez la journée.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
-          "isAndroidForegroundServiceEnabled": true
+          "isAndroidForegroundServiceEnabled": true,
+          "motionUsagePermission": "CASPROD n'utilise pas les données de mouvement. Cette autorisation est demandée par le composant de localisation utilisé pour relever votre position pendant vos journées de travail déclarées.",
+          "locationAlwaysAndWhenInUsePermission": "CASPROD surveille votre position pendant vos journées déclarées pour la protection du travailleur isolé : si votre téléphone cesse de bouger et que vous ne répondez pas, une alerte part vers votre chef avec votre position. Si votre chef a activé la carte, votre position lui est aussi transmise pendant ces mêmes journées.",
+          "locationAlwaysPermission": "CASPROD surveille votre position pendant vos journées déclarées pour la protection du travailleur isolé : si votre téléphone cesse de bouger et que vous ne répondez pas, une alerte part vers votre chef avec votre position. Si votre chef a activé la carte, votre position lui est aussi transmise pendant ces mêmes journées."
         }
       ],
       "expo-notifications"

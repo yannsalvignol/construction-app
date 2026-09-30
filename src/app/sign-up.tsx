@@ -1,21 +1,27 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Keyboard, Pressable, StyleSheet } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedInput } from '@/components/animated-input';
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
+import { BrandName } from '@/components/brand-name';
 import { RuleChecklist } from '@/components/rule-checklist';
 import { SocialSignInButtons } from '@/components/social-sign-in-buttons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function SignUpScreen() {
   const theme = useTheme();
+  const palette = useAuthPalette();
+  // Same as the sign-in screen: the lift is dropped on a short viewport, where
+  // it would push the heading and the first field off the top.
+  const { height } = useWindowDimensions();
+  const lift = height > 760 ? Spacing.six * 3 : Spacing.four;
   const { t } = useI18n();
   const { startSignUp } = useAuth();
 
@@ -37,16 +43,26 @@ export default function SignUpScreen() {
   }
 
   return (
-    <DismissKeyboardView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: palette.page }]}>
       <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          style={styles.fill}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: lift }]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}>
         <ThemedText type="subtitle" style={styles.title}>
-          {t.signUp.title}
-          {/* The dot is the brand's, as on the sign-in heading. */}
-          <ThemedText type="subtitle" style={{ color: theme.accent }}>.</ThemedText>
+          {t.signUp.titleBefore}
+          <BrandName />
+          {t.signUp.titleAfter}
         </ThemedText>
 
-        <ThemedView style={styles.form}>
+        <ThemedView style={[styles.form, { backgroundColor: palette.page }]}>
           <AnimatedInput
+            surface={palette.field}
+            labelColor={palette.fieldText}
             label={t.signUp.emailPlaceholder}
             autoCapitalize="none"
             autoCorrect={false}
@@ -60,6 +76,8 @@ export default function SignUpScreen() {
           />
 
           <AnimatedInput
+            surface={palette.field}
+            labelColor={palette.fieldText}
             label={t.signUp.passwordPlaceholder}
             password
             autoComplete="off"
@@ -71,7 +89,11 @@ export default function SignUpScreen() {
             onChangeText={setPassword}
           />
 
-          <RuleChecklist rules={[{ label: t.signUp.rulePassword, met: password.length >= 6 }]} />
+          {/* Only once there is something to judge: an empty field has no rule
+              to have broken yet. */}
+          {password.length > 0 && (
+            <RuleChecklist rules={[{ label: t.signUp.rulePassword, met: password.length >= 6 }]} />
+          )}
 
           {error && (
             <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
@@ -91,14 +113,19 @@ export default function SignUpScreen() {
             </ThemedText>
           </Pressable>
 
-          <SocialSignInButtons />
+          <SocialSignInButtons surface={palette.social} />
 
           <Link href="/sign-in" style={styles.link}>
-            <ThemedText type="linkPrimary">{t.signUp.signInLink}</ThemedText>
+            <ThemedText type="small">
+              {t.signUp.signInPrompt}
+              <ThemedText type="linkPrimary">{t.signUp.signInLink}</ThemedText>
+            </ThemedText>
           </Link>
         </ThemedView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
-    </DismissKeyboardView>
+    </ThemedView>
   );
 }
 
@@ -110,15 +137,22 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    // Same as the sign-in screen: centred, then lifted, so the heading sits in
-    // the upper third rather than level with the fields.
-    justifyContent: 'center',
-    paddingBottom: Spacing.six * 3,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     width: '100%',
+  },
+  fill: {
+    flex: 1,
+  },
+  content: {
+    // Same as the sign-in screen: centred, then lifted, so the heading sits in
+    // the upper third rather than level with the fields. flexGrow rather than
+    // flex, so content taller than the screen scrolls instead of clipping.
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.four,
+    gap: Spacing.four,
   },
   title: {
     textAlign: 'left',

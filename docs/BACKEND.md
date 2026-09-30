@@ -63,6 +63,27 @@ Les valeurs exactes (région, clé) viennent du tableau de bord Resend ; ne pas 
 
 Le serveur réserve les demandes échues avec un verrou et un délai de reprise de cinq minutes. Les notifications ne contiennent que l’identifiant de la demande et un texte générique. Leur durée de vie ne dépasse pas la fenêtre de réponse restante. Les lots sont limités à 100 messages. Les tickets Expo sont conservés puis leurs reçus vérifiés après 15 minutes ; les tokens invalides sont retirés et les erreurs permettent une reprise tant que la demande reste ouverte. Une acceptation par Expo n’est pas une preuve de livraison à l’appareil. L’exécution du nettoyage est indépendante du service push.
 
+## Protection du travailleur isolé
+
+La même invocation minutée porte la surveillance du travailleur isolé, dans une
+voie distincte. Le téléphone ne décide plus rien : il signale sa position quand
+il bouge (`safety_heartbeat`), et c’est le serveur qui tient l’échéance. Le
+silence est le signal — un téléphone posé à côté d’un homme inconscient
+n’exécute aucun code, et iOS ne réveille l’application que sur un déplacement,
+jamais sur une durée.
+
+Deux étapes, jamais fusionnées. `claim_lone_worker_questions` marque comme
+questionnés ceux qui n’ont plus bougé depuis `lone_worker_still_for()` et
+renvoie les jetons push disponibles ; l’envoi est au mieux, et un salarié dont
+le téléphone refuse les notifications est questionné à l’écran et alerté sur la
+même horloge. `raise_due_lone_worker_alerts` est du SQL pur : rien entre le
+silence d’un salarié et l’alerte de son chef ne dépend d’un service push en
+état de marche. Les chefs sont prévenus une seule fois par alerte.
+
+La surveillance appartient au salarié : `set_lone_worker_watch` n’est appelable
+que par lui, aucune RPC chef n’écrit cette colonne, et un chef ne lit pas la
+table `lone_worker_watches` — seulement l’alerte, si elle est levée.
+
 ## Mise en service, après choix explicite de l’environnement
 
 1. Confirmer la base cible et les migrations appliquées avec `supabase migration list`. Déployer les nouvelles migrations avec `supabase db push`, d’abord dans un environnement de test.

@@ -4,12 +4,18 @@ import { createPresenceHandler } from '../supabase/functions/presence-dispatch/h
 
 const now = Date.parse('2026-09-07T10:00:00Z');
 const job = { request_id: 'request-a', token: 'ExpoPushToken[test]', locale: 'fr', expires_at: new Date(now + 300_000).toISOString() };
-function fixture({ jobs = [], receipts = [], expired = [], storageError = null, fetchImpl } = {}) {
+function fixture({ jobs = [], receipts = [], expired = [], storageError = null, fetchImpl,
+  questions = [], alerts = [], raised = 0 } = {}) {
   const calls = [];
   const db = {
     rpc: async (name, args) => {
       calls.push({ name, args });
-      const data = { claim_presence_notifications: jobs, claim_presence_receipts: receipts, expired_presence_photos: expired, redact_expired_presence_evidence: 1 }[name] ?? null;
+      const data = {
+        claim_presence_notifications: jobs, claim_presence_receipts: receipts,
+        expired_presence_photos: expired, redact_expired_presence_evidence: 1,
+        claim_lone_worker_questions: questions, raise_due_lone_worker_alerts: raised,
+        claim_safety_alert_notifications: alerts,
+      }[name] ?? null;
       return { data, error: null };
     },
     storage: { from: bucket => ({ remove: async paths => { calls.push({ name: 'remove', bucket, paths }); return { data: null, error: storageError }; } }) },
@@ -77,4 +83,47 @@ test('expired jobs are skipped and batches never exceed 100 notifications', asyn
   } });
   assert.equal((await handler(request())).status, 200);
   assert.deepEqual(sizes, [100, 100, 1]);
+});
+
+test('the lone-worker sweep asks by push but raises in the database', async () => {
+  // The question can fail to send; the alert must not depend on it having sent.
+  const { calls, handler } = fixture({
+    questions: [{ work_day_id: 'day-a', token: 'ExpoPushToken[worker]', locale: 'fr' }],
+    raised: 1,
+    alerts: [{ alert_id: 'alert-a', token: 'ExpoPushToken[chef]', locale: 'fr', employee_name: 'Worker A', kind: 'no_movement' }],
+    fetchImpl: async (url, init) => {
+      const body = JSON.parse(init.body);
+      return new Response(JSON.stringify({ data: body.map(() => ({ status: 'ok', id: 'ticket-' + url.length })) }), { status: 200 });
+    },
+  });
+  const response = await handler(request());
+  assert.equal(response.status, 200);
+  const report = await response.json();
+  assert.deepEqual(report.safety, { asked: 1, raised: 1, alerted: 1 });
+  const names = calls.map(c => c.name);
+  // Raising happens after the question goes out, and the chef is told once.
+  assert.ok(names.indexOf('claim_lone_worker_questions') < names.indexOf('raise_due_lone_worker_alerts'));
+  assert.deepEqual(calls.find(c => c.name === 'finish_safety_alert_notification').args, { alert: 'alert-a' });
+});
+
+test('a chef device that Expo rejects is forgotten, and the alert stays unnotified', async () => {
+  const { calls, handler } = fixture({
+    alerts: [{ alert_id: 'alert-a', token: 'ExpoPushToken[dead]', locale: 'fr', employee_name: 'Worker A', kind: 'sos' }],
+    fetchImpl: async () => new Response(JSON.stringify({ data: [{ status: 'error', details: { error: 'DeviceNotRegistered' } }] }), { status: 200 }),
+  });
+  await handler(request());
+  assert.deepEqual(calls.find(c => c.name === 'finish_safety_alert_notification').args,
+    { alert: 'alert-a', dead_token: 'ExpoPushToken[dead]' });
+});
+
+test('an Expo outage still lets the database raise alerts', async () => {
+  const { calls, handler } = fixture({
+    questions: [{ work_day_id: 'day-a', token: 'ExpoPushToken[worker]', locale: 'fr' }],
+    fetchImpl: async () => new Response('down', { status: 503 }),
+  });
+  const response = await handler(request());
+  // The safety lane reports failure, but the sweep that matters is not reached
+  // through Expo at all — and the other lanes are unaffected.
+  assert.equal(response.status, 503);
+  assert.equal(calls.some(c => c.name === 'claim_lone_worker_questions'), true);
 });

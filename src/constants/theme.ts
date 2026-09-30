@@ -10,7 +10,7 @@ import { Platform } from 'react-native';
 export const Colors = {
   light: {
     text: '#241B35',
-    background: '#F8F6FC',
+    background: '#DCDEDF',
     backgroundElement: '#FFFFFF',
     /** Text fields: a shade under the page, so a form reads as recessed. */
     backgroundInput: '#F3F0FA',
@@ -76,6 +76,22 @@ export const Fonts = Platform.select({
     mono: 'var(--font-mono)',
   },
 });
+
+/**
+ * Soft lift for cards, so an edge reads as an edge without a border. Kept in
+ * one place: a page where each card invents its own shadow looks accidental.
+ * Barely-there in light mode; on a dark page a shadow has little to darken, so
+ * the dark variant leans on a wider, deeper blur instead of a stronger colour.
+ */
+export function cardShadow(isDark: boolean) {
+  return {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: isDark ? 8 : 6 },
+    shadowOpacity: isDark ? 0.4 : 0.07,
+    shadowRadius: isDark ? 18 : 14,
+    elevation: 3,
+  };
+}
 
 export const Spacing = {
   half: 2,

@@ -1,13 +1,20 @@
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useCallback, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, Switch, TextInput } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandSpinner } from '@/components/brand-spinner';
+import { AnimatedInput } from '@/components/animated-input';
+import { AppModal, ModalButton } from '@/components/app-modal';
+import { PhoneInput } from '@/components/phone-input';
 import { ThemedText } from '@/components/themed-text';
-import { DismissKeyboardView } from '@/components/dismiss-keyboard-view';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { cardShadow, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { resolveFunctionError } from '@/lib/edge-function-error';
@@ -28,6 +35,7 @@ type EmployeeDetail = {
   notifications_enabled: boolean;
   is_active: boolean;
   location_mode: 'checkpoint' | 'live';
+  avatar_url: string | null;
 };
 
 type ToggleKey =
@@ -48,7 +56,9 @@ function toggles(t: Translations): { key: ToggleKey; label: string; description:
 export default function EmployeeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const theme = useTheme();
+  const palette = useAuthPalette();
   const { t, locale } = useI18n();
 
   const [employee, setEmployee] = useState<EmployeeDetail | null>(null);
@@ -73,7 +83,7 @@ export default function EmployeeDetailScreen() {
     const { data } = await supabase
       .from('profiles')
       .select(
-        'id, first_name, last_name, phone, username, employee_password, equipment_photo_required, clock_in_photo_required, notifications_enabled, is_active, location_mode'
+        'id, first_name, last_name, phone, username, employee_password, equipment_photo_required, clock_in_photo_required, notifications_enabled, is_active, location_mode, avatar_url'
       )
       .eq('id', id)
       .single();
@@ -173,31 +183,89 @@ export default function EmployeeDetailScreen() {
   if (loading || !employee) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea} />
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={[styles.safeArea, styles.loading]} edges={['left', 'right']}>
+          <BrandSpinner color={theme.accentText} />
+        </SafeAreaView>
       </ThemedView>
     );
   }
 
-  return (
-    <DismissKeyboardView style={styles.container}>
-      <Stack.Screen options={{ title: `${employee.first_name} ${employee.last_name}` }} />
-      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.two + insets.bottom }]} keyboardShouldPersistTaps="handled">
-          <ThemedView style={[styles.credentialsCard, styles.transparent]}>
-            <ThemedText type="smallBold">{t.employeeDetail.credentials.title}</ThemedText>
+  const fullName = `${employee.first_name} ${employee.last_name}`.trim();
 
-            <ThemedView style={[styles.credentialRow, styles.transparent]}>
+  return (
+    <ThemedView style={[styles.container, { backgroundColor: palette.page }]}>
+      {/* The screen draws its own back row, like the profile and chantier
+          screens; the stack header would be a second, different-looking one. */}
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.five + insets.bottom }]}
+          keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
+          <View style={styles.toolbar}>
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/employees'))}
+              hitSlop={8}
+              accessibilityLabel={t.common.back}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <Ionicons name="chevron-back" size={28} color={theme.text} />
+            </Pressable>
+            <ThemedText type="subtitle" style={styles.toolbarTitle} numberOfLines={1}>{fullName}</ThemedText>
+          </View>
+
+          <View style={styles.identity}>
+            {employee.avatar_url ? (
+              <Image source={{ uri: employee.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarEmpty, { backgroundColor: palette.avatar }]}>
+                <Ionicons name="person" size={34} color={theme.textSecondary} />
+              </View>
+            )}
+            <View style={styles.identityText}>
+              <ThemedText style={styles.identityName}>{fullName}</ThemedText>
+              <View style={styles.identityStatus}>
+                <View
+                  style={[
+                    styles.dot,
+                    { backgroundColor: employee.is_active ? theme.success : theme.textPlaceholder },
+                  ]}
+                />
+                <ThemedText type="small" themeColor="textSecondary">
+                  {employee.is_active ? t.employeeDetail.toggles.isActive.label : t.employees.remove.action}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {/* Straight through to what this person has actually been doing. */}
+          <Card>
+            <Row
+              icon="time-outline"
+              label={t.employeeActivity.title}
+              onPress={() => router.push(`/employee/${employee.id}`)}
+            />
+          </Card>
+
+          <SectionTitle>{t.employeeDetail.credentials.title}</SectionTitle>
+          <Card>
+            <View style={styles.credentialRow}>
               <ThemedText type="small" themeColor="textSecondary">
                 {t.employeeDetail.credentials.username}
               </ThemedText>
-              <ThemedText type="code">{employee.username}</ThemedText>
-            </ThemedView>
+              <View style={styles.credentialValue}>
+                <ThemedText type="code">{employee.username}</ThemedText>
+                <CopyButton value={employee.username} />
+              </View>
+            </View>
 
-            <ThemedView style={[styles.credentialRow, styles.transparent]}>
+            <Divider />
+
+            <View style={styles.credentialRow}>
               <ThemedText type="small" themeColor="textSecondary">
                 {t.employeeDetail.credentials.password}
               </ThemedText>
-              <ThemedView style={[styles.passwordValue, styles.transparent]}>
+              <View style={styles.credentialValue}>
                 <ThemedText type="code">
                   {showPassword ? (employee.employee_password ?? '—') : '••••••••'}
                 </ThemedText>
@@ -208,25 +276,28 @@ export default function EmployeeDetailScreen() {
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={18}
-                    tintColor={theme.textSecondary}
+                    color={theme.textSecondary}
                   />
                 </Pressable>
-              </ThemedView>
-            </ThemedView>
+                <CopyButton value={employee.employee_password} />
+              </View>
+            </View>
+          </Card>
 
-            {passwordError && (
-              <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
-                {passwordError}
-              </ThemedText>
-            )}
+          {passwordError && (
+            <ThemedText type="small" style={{ color: theme.danger }}>{passwordError}</ThemedText>
+          )}
 
+          <View style={styles.buttonRow}>
             <Pressable
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                { opacity: pressed || resettingPassword ? 0.7 : 1 },
-              ]}
+              accessibilityRole="button"
               disabled={resettingPassword}
-              onPress={handleRegeneratePassword}>
+              onPress={handleRegeneratePassword}
+              style={({ pressed }) => [
+                styles.pill,
+                { borderColor: theme.text },
+                (pressed || resettingPassword) && styles.pressed,
+              ]}>
               <ThemedText type="smallBold">
                 {resettingPassword
                   ? t.employeeDetail.credentials.regenerating
@@ -235,128 +306,188 @@ export default function EmployeeDetailScreen() {
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.secondaryButton, { opacity: pressed ? 0.7 : 1 }]}
-              onPress={() => setShowSendPreview(true)}>
+              accessibilityRole="button"
+              onPress={() => setShowSendPreview(true)}
+              style={({ pressed }) => [styles.pill, { borderColor: theme.text }, pressed && styles.pressed]}>
               <ThemedText type="smallBold">{t.employeeDetail.credentials.sendToPhone}</ThemedText>
             </Pressable>
+          </View>
 
-            {showSendPreview && (
-              <ThemedView style={[styles.sendPreview, styles.transparent]}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t.employeeDetail.credentials.sendPreview(
-                    employee.phone ?? t.employeeDetail.credentials.defaultPhone,
-                    employee.username,
-                    employee.employee_password
-                  )}
-                </ThemedText>
-              </ThemedView>
-            )}
-          </ThemedView>
+          <SectionTitle>{t.employeeDetail.form.title}</SectionTitle>
+          <AnimatedInput
+            surface={palette.field}
+            labelColor={palette.fieldText}
+            label={t.employeeDetail.form.firstNamePlaceholder}
+            returnKeyType="next"
+            value={firstName}
+            onChangeText={(value) => { setFirstName(value); setInfoSaved(false); }}
+          />
+          <AnimatedInput
+            surface={palette.field}
+            labelColor={palette.fieldText}
+            label={t.employeeDetail.form.lastNamePlaceholder}
+            returnKeyType="next"
+            value={lastName}
+            onChangeText={(value) => { setLastName(value); setInfoSaved(false); }}
+          />
+          <PhoneInput
+            surface={palette.field}
+            labelColor={palette.fieldText}
+            label={t.employeeDetail.form.phonePlaceholder}
+            value={phone}
+            onChangeText={(value) => { setPhone(value); setInfoSaved(false); }}
+          />
 
-          <ThemedView style={[styles.section, styles.transparent]}>
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
-              placeholder={t.employeeDetail.form.firstNamePlaceholder}
-              placeholderTextColor={theme.textSecondary}
-              returnKeyType="next"
-              value={firstName}
-              onChangeText={(value) => {
-                setFirstName(value);
-                setInfoSaved(false);
-              }}
-            />
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
-              placeholder={t.employeeDetail.form.lastNamePlaceholder}
-              placeholderTextColor={theme.textSecondary}
-              returnKeyType="next"
-              value={lastName}
-              onChangeText={(value) => {
-                setLastName(value);
-                setInfoSaved(false);
-              }}
-            />
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: 'transparent', borderColor: theme.backgroundSelected }]}
-              placeholder={t.employeeDetail.form.phonePlaceholder}
-              placeholderTextColor={theme.textSecondary}
-              keyboardType="phone-pad"
-              returnKeyType="done"
-              onSubmitEditing={() => Keyboard.dismiss()}
-              value={phone}
-              onChangeText={(value) => {
-                setPhone(value);
-                setInfoSaved(false);
-              }}
-            />
+          {infoError && <ThemedText type="small" style={{ color: theme.danger }}>{infoError}</ThemedText>}
 
-            {infoError && (
-              <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
-                {infoError}
-              </ThemedText>
-            )}
+          <Pressable
+            accessibilityRole="button"
+            disabled={savingInfo}
+            onPress={handleSaveInfo}
+            style={({ pressed }) => [
+              styles.primary,
+              { backgroundColor: theme.accent, opacity: pressed || savingInfo ? 0.7 : 1 },
+            ]}>
+            <ThemedText style={{ color: theme.buttonText }}>
+              {savingInfo
+                ? t.employeeDetail.form.saving
+                : infoSaved
+                  ? t.employeeDetail.form.saved
+                  : t.employeeDetail.form.save}
+            </ThemedText>
+          </Pressable>
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                { backgroundColor: theme.accent, opacity: pressed || savingInfo ? 0.7 : 1 },
-              ]}
-              disabled={savingInfo}
-              onPress={handleSaveInfo}>
-              <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
-                {savingInfo
-                  ? t.employeeDetail.form.saving
-                  : infoSaved
-                    ? t.employeeDetail.form.saved
-                    : t.employeeDetail.form.save}
-              </ThemedText>
-            </Pressable>
-          </ThemedView>
-
-          <ThemedView style={[styles.togglesCard, styles.transparent]}>
-            <ThemedText type="smallBold">{t.employeeDetail.settings}</ThemedText>
-
-            {toggleError && (
-              <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
-                {toggleError}
-              </ThemedText>
-            )}
-
-            {toggles(t).map((toggle) => (
-              <ThemedView key={toggle.key} style={[styles.toggleRow, styles.transparent]}>
-                <ThemedView style={[styles.toggleText, styles.transparent]}>
-                  <ThemedText type="smallBold">{toggle.label}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {toggle.description}
-                  </ThemedText>
-                </ThemedView>
-                <Switch
-                  value={employee[toggle.key]}
-                  onValueChange={(value) => handleToggle(toggle.key, value)}
-                  trackColor={{ false: theme.backgroundElement, true: theme.accent }}
-                  ios_backgroundColor={theme.backgroundElement}
-                />
-              </ThemedView>
+          <SectionTitle>{t.employeeDetail.settings}</SectionTitle>
+          {toggleError && <ThemedText type="small" style={{ color: theme.danger }}>{toggleError}</ThemedText>}
+          <Card>
+            {toggles(t).map((toggle, index) => (
+              <View key={toggle.key}>
+                {index > 0 && <Divider />}
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleText}>
+                    <ThemedText type="smallBold">{toggle.label}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">{toggle.description}</ThemedText>
+                  </View>
+                  <Switch
+                    value={employee[toggle.key]}
+                    onValueChange={(value) => handleToggle(toggle.key, value)}
+                    trackColor={{ false: theme.backgroundSelected, true: theme.accent }}
+                    ios_backgroundColor={theme.backgroundSelected}
+                  />
+                </View>
+              </View>
             ))}
 
-            <ThemedView style={[styles.toggleRow, styles.transparent]}>
-              <ThemedView style={[styles.toggleText, styles.transparent]}>
+            <Divider />
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleText}>
                 <ThemedText type="smallBold">{t.employeeDetail.toggles.liveLocation.label}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   {t.employeeDetail.toggles.liveLocation.description}
                 </ThemedText>
-              </ThemedView>
+              </View>
               <Switch
                 value={employee.location_mode === 'live'}
                 onValueChange={handleLiveLocation}
-                trackColor={{ false: theme.backgroundElement, true: theme.accent }}
-                ios_backgroundColor={theme.backgroundElement}
+                trackColor={{ false: theme.backgroundSelected, true: theme.accent }}
+                ios_backgroundColor={theme.backgroundSelected}
               />
-            </ThemedView>
-          </ThemedView>
+            </View>
+          </Card>
         </ScrollView>
       </SafeAreaView>
-    </DismissKeyboardView>
+
+      <AppModal
+        visible={showSendPreview}
+        onClose={() => setShowSendPreview(false)}
+        title={t.employeeDetail.credentials.sendToPhone}
+        icon="chatbubble-ellipses-outline"
+        actions={<ModalButton label={t.common.done} onPress={() => setShowSendPreview(false)} />}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {t.employeeDetail.credentials.sendPreview(
+            employee.phone ?? t.employeeDetail.credentials.defaultPhone,
+            employee.username,
+            employee.employee_password
+          )}
+        </ThemedText>
+      </AppModal>
+    </ThemedView>
+  );
+}
+
+/** A grouped card, as used on the dashboard and in the settings screen. */
+function Card({ children }: { children: React.ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.card, cardShadow(theme.isDark), { backgroundColor: theme.backgroundElement }]}>
+      {children}
+    </View>
+  );
+}
+
+function Divider() {
+  const theme = useTheme();
+  return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.backgroundSelected }} />;
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <ThemedText type="smallBold" style={styles.sectionTitle}>{children}</ThemedText>;
+}
+
+/** One tappable line inside a Card. */
+function Row({ icon, label, onPress }: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+      <Ionicons name={icon} size={20} color={theme.accentText} />
+      <ThemedText style={{ flex: 1 }}>{label}</ThemedText>
+      <Ionicons name="chevron-forward" size={16} color={theme.textPlaceholder} />
+    </Pressable>
+  );
+}
+
+/**
+ * Copies one credential to the clipboard. A chef reads these out to somebody
+ * standing in front of them or pastes them into a message; retyping a
+ * generated password from a screen is where the mistakes happen.
+ */
+function CopyButton({ value }: { value: string | null }) {
+  const theme = useTheme();
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  if (!value) return null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={copied ? t.employeeDetail.credentials.copied : t.employeeDetail.credentials.copy}
+      hitSlop={8}
+      onPress={() => {
+        void Clipboard.setStringAsync(value);
+        if (Platform.OS !== 'web') void Haptics.selectionAsync().catch(() => {});
+        setCopied(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setCopied(false), 1500);
+      }}
+      style={({ pressed }) => pressed && styles.pressed}>
+      <Ionicons
+        name={copied ? 'checkmark' : 'copy-outline'}
+        size={18}
+        color={copied ? theme.success : theme.textSecondary}
+      />
+    </Pressable>
   );
 }
 
@@ -367,79 +498,111 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  scrollContent: {
-    padding: Spacing.four,
-    gap: Spacing.four,
-  },
-  centerText: {
-    textAlign: 'center',
-  },
-  section: {
-    gap: Spacing.three,
-  },
-  input: {
-    borderRadius: Spacing.two,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-  },
-  button: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.three,
+  loading: {
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  error: {
-    
-    textAlign: 'center',
+  scrollContent: {
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    gap: Spacing.three,
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    width: '100%',
   },
-  togglesCard: {
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  toolbarTitle: {
+    flex: 1,
+  },
+  identity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  avatarEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  identityText: {
+    flex: 1,
     gap: Spacing.one,
   },
-  credentialsCard: {
+  identityName: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  identityStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  sectionTitle: {
+    marginTop: Spacing.two,
+  },
+  card: {
+    borderRadius: Spacing.three + Spacing.one,
+    paddingHorizontal: Spacing.three,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.three,
+    paddingVertical: Spacing.three,
   },
   credentialRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: Spacing.two,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128,128,128,0.3)',
+    gap: Spacing.three,
+    paddingVertical: Spacing.three,
   },
-  passwordValue: {
+  credentialValue: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
-  pressed: {
-    opacity: 0.6,
-  },
-  secondaryButton: {
-    borderRadius: Spacing.two,
-    paddingVertical: Spacing.two,
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(128,128,128,0.4)',
-  },
-  sendPreview: {
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(128,128,128,0.4)',
-  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.two,
     gap: Spacing.three,
+    paddingVertical: Spacing.three,
   },
   toggleText: {
     flex: 1,
-    gap: Spacing.half,
+    gap: 2,
   },
-  transparent: {
-    backgroundColor: 'transparent',
+  buttonRow: {
+    gap: Spacing.two,
+  },
+  pill: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  primary: {
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
+  pressed: {
+    opacity: 0.6,
   },
 });

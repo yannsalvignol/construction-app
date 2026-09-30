@@ -19,6 +19,10 @@ export type Workspace = {
   consent: { notice_version: string; revoked_at: string | null } | null;
   location_mode: 'checkpoint' | 'live';
   live_consent: { notice_version: string; revoked_at: string | null } | null;
+  /** Protection du travailleur isolé: his own choice, and whether the server is
+   *  currently waiting for him to say he is alright. */
+  lone_worker_watch: boolean;
+  lone_worker_asked: boolean;
   sites: Site[]; requests: PresenceRequest[]; checks: CheckIn[]; declarations: Declaration[];
   categories: { code: string; label_fr: string; label_en: string }[]; codes: TaskCode[];
 };

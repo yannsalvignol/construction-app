@@ -161,6 +161,14 @@ verify_jwt = false
 [functions.complete-signup]
 verify_jwt = false
 
+# Resetting a forgotten password happens before signing in, so these two cannot
+# require a session either. The code is what authorises the change.
+[functions.start-password-reset]
+verify_jwt = false
+
+[functions.complete-password-reset]
+verify_jwt = false
+
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used

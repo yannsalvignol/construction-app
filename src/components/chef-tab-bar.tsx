@@ -15,7 +15,10 @@ type ChefTabButtonProps = TabTriggerSlotProps & {
 
 export function ChefTabButton({ children, isFocused, icon, ...props }: ChefTabButtonProps) {
   const theme = useTheme();
-  const color = isFocused ? theme.accentText : theme.textSecondary;
+  // The selected tab is the raised one: it takes the element colour (white in
+  // light mode) against a row that is otherwise the page's own background, so
+  // the row reads as part of the page rather than a band of colour across it.
+  const color = isFocused ? theme.text : theme.textSecondary;
 
   return (
     <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
@@ -23,12 +26,14 @@ export function ChefTabButton({ children, isFocused, icon, ...props }: ChefTabBu
         style={[
           styles.pill,
           {
-            backgroundColor: isFocused ? theme.accentSoft : theme.backgroundElement,
-            borderColor: isFocused ? theme.accent : theme.backgroundSelected,
+            backgroundColor: isFocused ? theme.backgroundElement : theme.background,
+            // Only the unselected pills are outlined: the selected one is told
+            // apart by its filled surface, so an outline there would fight it.
+            borderColor: isFocused ? 'transparent' : theme.text,
           },
         ]}>
         <Ionicons name={icon} size={16} color={color} />
-        <ThemedText type="small" themeColor={isFocused ? 'accentText' : 'textSecondary'}>
+        <ThemedText type="small" style={{ color }}>
           {children}
         </ThemedText>
       </ThemedView>
@@ -39,7 +44,7 @@ export function ChefTabButton({ children, isFocused, icon, ...props }: ChefTabBu
 // Row vertical padding (x2) + pill vertical padding (x2) + pill content line height.
 export const CHEF_TAB_BAR_HEIGHT = Spacing.two * 4 + 20;
 
-export function ChefTabList({ style, hidden, ...props }: TabListProps & { hidden?: boolean }) {
+export function ChefTabList({ style, ...props }: TabListProps) {
   const theme = useTheme();
 
   return (
@@ -47,8 +52,7 @@ export function ChefTabList({ style, hidden, ...props }: TabListProps & { hidden
       {...props}
       horizontal
       showsHorizontalScrollIndicator={false}
-      pointerEvents={hidden ? 'none' : 'auto'}
-      style={[styles.bar, { backgroundColor: theme.background }, hidden && styles.hidden]}
+      style={[styles.bar, { backgroundColor: theme.background }]}
       contentContainerStyle={[style, styles.container]}
     />
   );
@@ -81,8 +85,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
-  },
-  hidden: {
-    opacity: 0,
   },
 });
