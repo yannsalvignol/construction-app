@@ -338,6 +338,8 @@ const en = {
     sitesMonth: 'Sites',
     location: 'Last position',
     lastSeen: (ago: string) => `Seen ${ago} ago`,
+    empty: 'No work day declared in the last 30 days.',
+    failed: 'This activity could not be loaded.',
     history: 'Activity history',
     today: 'Today',
     yesterday: 'Yesterday',
@@ -413,7 +415,6 @@ const en = {
     noQuote: 'No quote imported. Tap to add one.',
     addSite: 'Add a site',
     empty: 'No active site yet.',
-    placeholder: 'Sample data: real progress will come from the imported quotes.',
   },
 
   safety: {

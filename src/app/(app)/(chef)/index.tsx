@@ -234,8 +234,9 @@ export default function ChefHomeScreen() {
               progressViewOffset={headerHeight}
             />
           }>
-          {/* What this board means, and that its figures are placeholder, live
-              behind the ⓘ on the summary card rather than above it. */}
+          {/* What this board means lives behind the ⓘ on the summary card
+              rather than above it. The figures are read from the quotes and the
+              declarations against them. */}
           <SafetyAlerts />
           <SiteProgressList reloadKey={reloadKey} />
         </Page>

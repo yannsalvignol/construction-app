@@ -333,6 +333,8 @@ const fr = {
     sitesMonth: 'Chantiers',
     location: 'Dernière position',
     lastSeen: (ago: string) => `Vu il y a ${ago}`,
+    empty: 'Aucune journée déclarée sur les 30 derniers jours.',
+    failed: 'Impossible de charger cette activité.',
     history: 'Historique d’activité',
     today: "Aujourd'hui",
     yesterday: 'Hier',
@@ -409,7 +411,6 @@ const fr = {
     noQuote: 'Aucun devis importé. Touchez pour en ajouter un.',
     addSite: 'Ajouter un chantier',
     empty: 'Aucun chantier actif pour le moment.',
-    placeholder: 'Données d’exemple : l’avancement réel viendra de l’import des devis.',
   },
 
   safety: {
