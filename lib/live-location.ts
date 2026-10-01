@@ -45,6 +45,15 @@ TaskManager.defineTask(LIVE_TASK, async ({ data, error }) => {
   const last = locations?.[locations.length - 1];
   if (!last) return;
 
+  // Nobody signed in: no worker to watch over, and no agreement to rely on.
+  // Sign-out and account deletion both stop the task directly, but the OS keeps
+  // delivering to a registered task across app restarts, so this is the backstop
+  // for the paths that miss — a session that expired, a reinstall, a crash
+  // between the sign-out and the stop. Read from storage, so being offline does
+  // not look like being signed out.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { await stopSafetyWatch(); return; }
+
   const open = await heartbeat({
     latitude: last.coords.latitude,
     longitude: last.coords.longitude,

@@ -9,6 +9,7 @@ import { resolveFunctionError } from '@/lib/edge-function-error';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
 import { unregisterPresenceNotifications } from '@/lib/presence-notifications';
+import { stopSafetyWatch } from '@/lib/live-location';
 
 const EMPLOYEE_EMAIL_DOMAIN = 'employee.local';
 
@@ -544,11 +545,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const message = await resolveFunctionError('delete-account', error);
           return { error: message ? translateServerError(message, locale) : null };
         }
+        // Background location outlives the screen that started it: it keeps
+        // running until something stops it, so a deleted account would go on
+        // reporting from the worker's pocket.
+        await stopSafetyWatch().catch(() => {});
         // The auth user is gone, so the server-side sign-out would fail.
         await supabase.auth.signOut({ scope: 'local' });
         return { error: null };
       },
       signOut: async () => {
+        // Stopped before the session goes: signing out is a statement that this
+        // phone is no longer being watched over, and the OS would otherwise keep
+        // delivering positions to a task with nobody to report them for.
+        await stopSafetyWatch().catch(() => {});
         await unregisterPresenceNotifications().catch(() => {});
         await supabase.auth.signOut();
       },
