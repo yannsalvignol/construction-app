@@ -20,6 +20,13 @@ import { enablePresenceNotifications } from '@/lib/presence-notifications';
 import { supabase } from '@/lib/supabase';
 import { formatElapsed, workCopy } from '@/lib/work-copy';
 
+/** 7.5 is read as "7 h 30"; a worker does not declare seven and a half hours. */
+function formatDuration(hours: number) {
+  const whole = Math.floor(hours);
+  const minutes = Math.round((hours - whole) * 60);
+  return minutes ? `${whole} h ${minutes}` : `${whole} h`;
+}
+
 export default function EmployeeHomeScreen() {
   const { profile } = useAuth();
   const { locale } = useI18n();
@@ -95,8 +102,16 @@ export default function EmployeeHomeScreen() {
       {consented && !active && <Card>
         {data.sites.length ? <>
           <Select label={copy.chooseSite} value={site} options={data.sites.map(s => ({ value: s.id, label: s.name }))} onChange={setSite} />
-          <NumberWheel label={copy.duration} value={Number(duration)} values={[4, 8, 10]} suffix={copy.hourUnit} onChange={n => setDuration(String(n))} />
-          <Action label={copy.start} disabled={!site} busy={busy} onPress={() => { void act(async () => {
+          <NumberWheel
+            label={copy.duration}
+            value={Number(duration)}
+            min={1}
+            max={12}
+            step={0.5}
+            decimals={1}
+            format={formatDuration}
+            onChange={n => setDuration(String(n))} />
+          <Action large label={copy.start} disabled={!site} busy={busy} onPress={() => { void act(async () => {
             setPushWarning(!await enablePresenceNotifications(locale));
             const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
             if (failure) throw failure;

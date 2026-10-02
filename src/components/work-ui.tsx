@@ -60,12 +60,16 @@ export function Card({ children, accent = false }: { children: React.ReactNode; 
     </View>
   );
 }
-export function Action({ label, onPress, disabled, busy, secondary = false }: { label: string; onPress: () => void; disabled?: boolean; busy?: boolean; secondary?: boolean }) {
+export function Action({ label, onPress, disabled, busy, secondary = false, large = false }: {
+  label: string; onPress: () => void; disabled?: boolean; busy?: boolean; secondary?: boolean;
+  /** For the one action a screen exists for, pressed with a glove on a chantier. */
+  large?: boolean;
+}) {
   const theme = useTheme();
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
     // Secondary is an outlined oval, as on the chef's screens, rather than a
     // second purple surface competing with the real action.
-    style={({ pressed }) => [styles.action, {
+    style={({ pressed }) => [styles.action, large && styles.actionLarge, {
       backgroundColor: secondary ? 'transparent' : theme.accent,
       borderWidth: secondary ? 1 : 0,
       borderColor: theme.text,
@@ -116,10 +120,12 @@ export function Select({ label, value, options, onChange }: { label: string; val
  * `appearance="wheel"` is an inline rotor on iOS and falls back to the platform
  * dropdown on Android and web.
  */
-export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, decimals = 0, suffix, onChange }: {
+export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, decimals = 0, suffix, format, onChange }: {
   label: string; value: number; values?: number[]; min?: number; max?: number; step?: number; decimals?: number;
   /** Shown on every option, so the unit is read off the wheel and not guessed. */
   suffix?: string;
+  /** For a quantity that is not read as a decimal — 7.5 hours is "7 h 30". */
+  format?: (value: number) => string;
   onChange: (value: number) => void;
 }) {
   const options = React.useMemo(() => {
@@ -132,7 +138,13 @@ export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, 
     <ThemedText type="smallBold">{label}</ThemedText>
     <Host matchContents={{ vertical: true }} style={{ width: '100%' }}>
       <Picker selectedValue={value} onValueChange={next => onChange(Number(next))} appearance="wheel">
-        {options.map(n => <Picker.Item key={n} label={suffix ? `${n.toFixed(decimals)} ${suffix}` : n.toFixed(decimals)} value={n} />)}
+        {options.map(n => (
+          <Picker.Item
+            key={n}
+            label={format ? format(n) : suffix ? `${n.toFixed(decimals)} ${suffix}` : n.toFixed(decimals)}
+            value={n}
+          />
+        ))}
       </Picker>
     </Host>
   </View>;
@@ -143,6 +155,7 @@ const styles = StyleSheet.create({
   heading: { fontSize: 30, lineHeight: 38, fontWeight: '700', letterSpacing: -0.8 },
   card: { borderRadius: 20, borderWidth: 1, padding: 22, gap: 16 },
   action: { minHeight: 52, borderRadius: 999, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
+  actionLarge: { minHeight: 68, paddingVertical: 20 },
   field: { borderWidth: 1, borderRadius: 14, padding: 14, minHeight: 50, fontSize: 16 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 });
