@@ -111,6 +111,14 @@ export default function EmployeeHomeScreen() {
             decimals={1}
             format={formatDuration}
             onChange={n => setDuration(String(n))} />
+          {/* The hour he will actually finish, which is what he is choosing
+              between. The server stamps the real end from its own clock when
+              the day starts, so this says "around" rather than promising a
+              minute it does not own. */}
+          <ThemedText type="small" themeColor="textSecondary">
+            {copy.endsAt(new Date(now + Number(duration) * 3_600_000)
+              .toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }))}
+          </ThemedText>
           <Action large label={copy.start} disabled={!site} busy={busy} onPress={() => { void act(async () => {
             setPushWarning(!await enablePresenceNotifications(locale));
             const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
