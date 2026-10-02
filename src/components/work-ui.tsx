@@ -79,6 +79,38 @@ export function Action({ label, onPress, disabled, busy, secondary = false, larg
     <ThemedText type="smallBold" style={{ color: secondary ? theme.text : theme.buttonText, textAlign: 'center', flexShrink: 1 }}>{label}</ThemedText>
   </Pressable>;
 }
+/**
+ * The two hours a declared day runs between, read off the duration wheel.
+ *
+ * Recessed inside the card rather than another raised surface: it is a readout
+ * of the control above it, not a second thing to act on. The hours carry the
+ * weight because they are what is being chosen — a worker picking between seven
+ * and seven thirty is deciding whether he finishes before or after a quarter to
+ * four, not counting hours.
+ */
+export function ShiftSpan({ startLabel, endLabel, start, end, middle }: {
+  startLabel: string; endLabel: string; start: string; end: string; middle: string;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.span, { backgroundColor: theme.backgroundInput }]}>
+      <View style={styles.spanEnd}>
+        <ThemedText type="small" themeColor="textSecondary">{startLabel}</ThemedText>
+        <ThemedText style={styles.spanTime}>{start}</ThemedText>
+      </View>
+
+      <View style={styles.spanMiddle}>
+        <ThemedText type="smallBold" themeColor="accentText">{middle}</ThemedText>
+        <View style={[styles.spanRail, { backgroundColor: theme.separator }]} />
+      </View>
+
+      <View style={[styles.spanEnd, { alignItems: 'flex-end' }]}>
+        <ThemedText type="small" themeColor="textSecondary">{endLabel}</ThemedText>
+        <ThemedText style={styles.spanTime}>{end}</ThemedText>
+      </View>
+    </View>
+  );
+}
 export function Field(props: TextInputProps) {
   const theme = useTheme();
   return <TextInput placeholderTextColor={theme.textSecondary} keyboardAppearance={theme.isDark ? 'dark' : 'light'} {...props}
@@ -156,6 +188,12 @@ const styles = StyleSheet.create({
   card: { borderRadius: 20, borderWidth: 1, padding: 22, gap: 16 },
   action: { minHeight: 52, borderRadius: 999, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
   actionLarge: { minHeight: 68, paddingVertical: 20 },
+  span: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16 },
+  spanEnd: { gap: 2 },
+  spanTime: { fontSize: 26, lineHeight: 30, fontWeight: '700', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+  /** Carries the eye from one hour to the other, under the duration it spans. */
+  spanMiddle: { flex: 1, alignItems: 'center', gap: 6, paddingTop: 10 },
+  spanRail: { height: 1, alignSelf: 'stretch' },
   field: { borderWidth: 1, borderRadius: 14, padding: 14, minHeight: 50, fontSize: 16 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 });
