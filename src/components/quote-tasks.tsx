@@ -32,6 +32,12 @@ type Step = {
   done_by_name: string | null;
 };
 
+/** What the devis still expects on this line, or null when it quoted no figure. */
+function remaining(line: Line) {
+  if (line.quoted == null) return null;
+  return Math.max(0, Number(line.quoted) - Number(line.declared_total));
+}
+
 type Line = {
   line_id: string;
   lot: string | null;
@@ -85,6 +91,36 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
     setStepBusy(null);
     if (failure) { setError(failure.message); }
     await load();
+  }
+
+  /**
+   * Ticking a line off means its quoted quantity is reached, not that some
+   * figure was typed — which is what a worker means when he says a line is
+   * done. Unticking takes back today's declaration; an earlier day's is not
+   * his to undo from here.
+   */
+  async function toggleLine(line: Line) {
+    if (busy) return;
+    const left = remaining(line);
+    // A line the devis quoted no figure for has nothing to reach; its steps are
+    // the only thing to tick.
+    if (left === null) return;
+    const before = Number(line.declared_total) - Number(line.declared_today);
+    const amount = left > 0 ? Number((Number(line.quoted) - before).toFixed(2)) : 0;
+    setBusy(true);
+    setError(null);
+    // Optimistic, like the steps: a tick that waits on a chantier's signal
+    // feels broken.
+    setLines((current) => current?.map((row) => row.line_id === line.line_id
+      ? { ...row, declared_today: amount, declared_total: before + amount }
+      : row) ?? current);
+    const { error: failure } = await supabase.rpc('declare_quote_line', {
+      day_id: dayId, line_id: line.line_id, amount,
+    });
+    setBusy(false);
+    if (failure) setError(failure.message);
+    await load();
+    await onSaved();
   }
 
   async function declare(line: Line) {
