@@ -121,15 +121,28 @@ export function Feedback({ message, success = false }: { message?: string | null
   if (!message) return null;
   return <ThemedText accessibilityRole="alert" style={{ color: success ? theme.success : theme.danger }}>{message}</ThemedText>;
 }
-export function Select({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
+export function Select({ label, value, options, missing = false, onChange }: {
+  label: string; value: string; options: { value: string; label: string }[];
+  /** Marked when an action was refused for want of this answer, not on sight:
+   *  a field is not wrong until somebody has tried to go on without it. */
+  missing?: boolean;
+  onChange: (value: string) => void;
+}) {
   const theme = useTheme();
   const { locale } = useI18n();
   const copy = workCopy(locale);
   const [open, setOpen] = React.useState(false);
   return <View style={{ gap: 8 }}>
-    <ThemedText type="smallBold">{label}</ThemedText>
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setOpen(true)} style={[styles.field, { borderColor: theme.backgroundSelected, backgroundColor: theme.backgroundElement }]}>
-      <ThemedText>{options.find(o => o.value === value)?.label ?? label} ▾</ThemedText>
+    <ThemedText type="smallBold" themeColor={missing ? 'warning' : undefined}>{label}</ThemedText>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setOpen(true)}
+      style={[styles.field, {
+        borderColor: missing ? theme.warning : theme.backgroundSelected,
+        borderWidth: missing ? 2 : 1,
+        backgroundColor: theme.backgroundElement,
+      }]}>
+      <ThemedText themeColor={missing ? 'warning' : undefined}>
+        {options.find(o => o.value === value)?.label ?? label} ▾
+      </ThemedText>
     </Pressable>
     <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
       <WorkPage title={label}>

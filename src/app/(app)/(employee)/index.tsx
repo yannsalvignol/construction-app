@@ -38,6 +38,9 @@ export default function EmployeeHomeScreen() {
   const { data, loading, error, refresh, now, consented, liveConsented, watchEnabled } = useWorkspace();
   const [site, setSite] = useState('');
   const [duration, setDuration] = useState('8');
+  // Set only when he has actually tried to start without choosing a chantier.
+  // A field marked red before anybody has done anything wrong is nagging.
+  const [missingSite, setMissingSite] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pushWarning, setPushWarning] = useState(false);
@@ -105,7 +108,12 @@ export default function EmployeeHomeScreen() {
         onChanged={() => { void refresh(); }} />}
       {consented && !active && <Card>
         {data.sites.length ? <>
-          <Select label={copy.chooseSite} value={site} options={data.sites.map(s => ({ value: s.id, label: s.name }))} onChange={setSite} />
+          <Select
+            label={copy.chooseSite}
+            value={site}
+            missing={missingSite}
+            options={data.sites.map(s => ({ value: s.id, label: s.name }))}
+            onChange={value => { setSite(value); setMissingSite(false); }} />
           <NumberWheel
             label={copy.duration}
             value={Number(duration)}
@@ -125,11 +133,21 @@ export default function EmployeeHomeScreen() {
             start={clock(now, locale)}
             end={clock(now + Number(duration) * 3_600_000, locale)}
             middle={formatDuration(Number(duration))} />
-          <Action large label={copy.start} disabled={!site} busy={busy} onPress={() => { void act(async () => {
-            setPushWarning(!await enablePresenceNotifications(locale));
-            const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
-            if (failure) throw failure;
-          }); }} />
+          {/* Pressable even with no chantier chosen: a button that does nothing
+              when pressed cannot say why, and "nothing happened" is the worst
+              answer a screen can give. It points at what is missing instead. */}
+          <Action large label={copy.start} busy={busy} onPress={() => {
+            if (!site) {
+              setMissingSite(true);
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              return;
+            }
+            void act(async () => {
+              setPushWarning(!await enablePresenceNotifications(locale));
+              const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
+              if (failure) throw failure;
+            });
+          }} />
         </> : <ThemedText>{copy.noSites}</ThemedText>}
       </Card>}
       {showNotice && liveConsented && data.location_mode === 'live' && <LiveNotice accepted busy={busy}
