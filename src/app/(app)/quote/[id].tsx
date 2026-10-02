@@ -48,6 +48,7 @@ type Quote = {
   total_ht: number | null;
   currency: string;
   parse_error: string | null;
+  parse_warning: string | null;
   site_id: string;
 };
 
@@ -89,7 +90,7 @@ export default function QuoteReviewScreen() {
     const [{ data: q }, { data: rows }, { data: catalogue }, { data: schedule }] = await Promise.all([
       supabase
         .from('site_quotes')
-        .select('id, company_id, file_name, status, total_ht, currency, parse_error, site_id')
+        .select('id, company_id, file_name, status, total_ht, currency, parse_error, parse_warning, site_id')
         .eq('id', id)
         .maybeSingle(),
       supabase
@@ -271,6 +272,15 @@ export default function QuoteReviewScreen() {
         {(quote.status === 'parsed' || quote.status === 'validated') && (
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <ThemedText type="small" themeColor="textSecondary">{t.quoteReview.subtitle}</ThemedText>
+
+            {/* The devis parsed, but a page returned fewer lines than it
+                counted. Named here so the chef knows which page to check
+                rather than noticing a missing line on site. */}
+            {!!quote.parse_warning && (
+              <ThemedText type="small" style={{ color: theme.warning }}>
+                {quote.parse_warning}
+              </ThemedText>
+            )}
 
             {/* The devis states its own total; ours is the sum of what was
                 read. When they disagree, something was missed. */}

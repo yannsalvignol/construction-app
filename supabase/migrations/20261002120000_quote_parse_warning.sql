@@ -1,0 +1,12 @@
+-- A devis can parse successfully and still be short of lines.
+--
+-- Omission is a known failure of structured extraction: the line is printed on
+-- the page and simply absent from the answer, with nothing in the response to
+-- say so. Models also under-generate against an asked-for length rather than
+-- refusing it, so "list every line" is not a guarantee of every line.
+--
+-- So each page is asked how many lines it carries, separately from the lines
+-- themselves, and a page whose answer is short is read again. What survives
+-- that is recorded here: the devis is still usable, and the chef is told which
+-- page to check rather than left to notice a missing line on site.
+alter table public.site_quotes add column if not exists parse_warning text;

@@ -38,6 +38,11 @@ const UNITS = ['m', 'm2', 'm3', 'unit', 'kg'] as const;
 const SCHEMA = {
   type: 'object',
   properties: {
+    printed_line_count: {
+      type: 'integer',
+      description:
+        "Combien de lignes imprimées cette page porte au total (travail, en-têtes de lot, remises), comptées sur le document avant d'être restituées. Compte, ne déduis pas de ta propre réponse.",
+    },
     total_ht: {
       type: ['number', 'null'],
       description: 'Total HT as printed on the devis, or null if absent.',
@@ -116,7 +121,7 @@ const SCHEMA = {
       },
     },
   },
-  required: ['total_ht', 'currency', 'milestones', 'lines'],
+  required: ['printed_line_count', 'total_ht', 'currency', 'milestones', 'lines'],
   additionalProperties: false,
 };
 
@@ -440,6 +445,8 @@ async function parse(
     }
 
     type Parsed = {
+      /** What the page says it carries, which is not the same as what it returned. */
+      printed_line_count?: number;
       total_ht: number | null;
       currency: string;
       milestones?: Record<string, unknown>[];
@@ -475,6 +482,9 @@ async function parse(
       READ_CONCURRENCY
     );
 
+    // Pages whose answer came back short of their own count, read again below.
+    const short: { batch: typeof batches[number]; got: number; printed: number }[] = [];
+
     // Merged in page order, in code. A model asked to merge would have to
     // re-emit every line to do it, which is the ceiling we just escaped, and
     // would be able to drop or reword lines on the way through.
@@ -491,7 +501,16 @@ async function parse(
       if (!body) throw new Error('The model returned no content');
       const part = JSON.parse(body) as Parsed;
 
+      const got = (part.lines ?? []).length;
       parsed.lines.push(...(part.lines ?? []));
+      // Omission is a known failure of structured extraction: a line is printed
+      // and simply absent from the answer, with nothing in the response to say
+      // so. Models also under-generate against an asked-for length rather than
+      // refusing it. So the page is asked to count its lines separately, and a
+      // page that returned fewer than it counted is read again.
+      if (typeof part.printed_line_count === 'number' && got < part.printed_line_count) {
+        short.push({ batch, got, printed: part.printed_line_count });
+      }
       // The grand total is printed at the end, so a later page wins; a page of
       // sub-totals earlier in the devis must not overwrite it.
       if (typeof part.total_ht === 'number') parsed.total_ht = part.total_ht;
@@ -499,6 +518,63 @@ async function parse(
       // Payment conditions are printed once. Keep the last page that states any
       // rather than concatenating the same schedule repeated per page.
       if (part.milestones?.length) parsed.milestones = part.milestones;
+    }
+
+    // Second pass over the short pages: the same page, told what already came
+    // back, asked only for what it left out. Appending rather than replacing,
+    // because the first answer's lines were not wrong — they were incomplete.
+    const warnings: string[] = [];
+    if (short.length) {
+      const recovered = await pooled(
+        short.map(({ batch, got, printed }) => async () => {
+          const already = parsed.lines
+            .map((line) => String(line.label ?? ''))
+            .filter(Boolean);
+          const response = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            max_tokens: 16000,
+            temperature: 0,
+            response_format: {
+              type: 'json_schema',
+              json_schema: { name: 'devis', strict: true, schema: SCHEMA },
+            },
+            messages: [
+              { role: 'system', content: SYSTEM },
+              {
+                role: 'user',
+                content: [
+                  ...batch.parts,
+                  {
+                    type: 'text',
+                    text:
+                      `Tu as compté ${printed} lignes sur cette page et tu n'en as rendu que ${got}. ` +
+                      `Voici les libellés déjà relevés sur l'ensemble du devis :\n${already.join('\n')}\n\n` +
+                      `Rends UNIQUEMENT les lignes de cette page qui manquent dans cette liste, dans l'ordre du document. ` +
+                      `Si rien ne manque, rends une liste vide.`,
+                  },
+                ] as never,
+              },
+            ],
+          });
+          return { batch, got, printed, response };
+        }),
+        READ_CONCURRENCY
+      );
+
+      for (const { batch, got, printed, response } of recovered) {
+        inputTokens += response.usage?.prompt_tokens ?? 0;
+        outputTokens += response.usage?.completion_tokens ?? 0;
+        const body = response.choices[0]?.message?.content;
+        const extra = body && response.choices[0]?.finish_reason !== 'length'
+          ? ((JSON.parse(body) as Parsed).lines ?? [])
+          : [];
+        // Appended at the end rather than spliced into position: the order
+        // within a page is lost, which is a smaller loss than a missing line.
+        parsed.lines.push(...extra);
+        if (got + extra.length < printed) {
+          warnings.push(`${batch.label}: ${got + extra.length} ligne(s) relevée(s) sur ${printed} comptée(s)`);
+        }
+      }
     }
 
     // A page that starts in the middle of a LOT cannot see its title, and was
@@ -660,6 +736,9 @@ async function parse(
         total_ht: parsed.total_ht,
         currency: parsed.currency || 'MAD',
         parse_error: null,
+        parse_warning: warnings.length
+          ? `Des lignes peuvent manquer. Vérifiez : ${warnings.join(' ; ')}.`
+          : null,
         input_tokens: inputTokens || null,
         output_tokens: outputTokens || null,
         parse_model: model,
