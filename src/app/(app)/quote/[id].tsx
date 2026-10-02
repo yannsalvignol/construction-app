@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useDeferredValue, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -83,11 +83,6 @@ export default function QuoteReviewScreen() {
   // A hundred lines is a lot of scrolling in card form; the compact view is
   // for reading the devis against the paper, the cards for correcting it.
   const [dense, setDense] = useState(false);
-  // The toggle answers on the frame it was pressed; redrawing three hundred rows
-  // is the slow part and does not have to happen in the same one. React keeps
-  // the old list on screen until the new one is ready, which is the lag gone
-  // rather than the lag hidden.
-  const denseList = useDeferredValue(dense);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -342,41 +337,52 @@ export default function QuoteReviewScreen() {
               </View>
             )}
 
-            {/* In list view the rows butt against one another so each hairline
+            {/* Both views are built once, when the devis opens, and the switch
+                only changes which is on screen. Rebuilding three hundred rows
+                on every press is what made it lag, and no amount of deferring
+                makes that work cheap — not doing it does. The cost moves to
+                the opening, where there is already a spinner.
+
+                In list view the rows butt against one another so each hairline
                 reads as the line between two rows; the page's eight-point gap
                 would leave it floating under one of them. Cards keep the gap,
                 which is what makes them read as separate objects. */}
-            <View style={denseList ? styles.denseList : styles.cardList}>
-            {lines.map((line) =>
-              line.kind === 'work' ? (
-                <SwipeToDelete
-                  key={line.id}
-                  label={t.quoteReview.deleteLine}
-                  radius={Spacing.three}
-                  onDelete={() => { void removeLine(line); }}>
-                  <LineRow
-                    line={line}
-                    currency={quote.currency}
-                    dense={denseList}
-                    onPickCode={() => setPicking(line)}
-                    onQuantity={(value) => { void setQuantity(line, value); }}
-                    onLabel={(value) => { void setLabel(line, value); }}
-                  />
-                </SwipeToDelete>
-              ) : (
-                <LineRow
-                  key={line.id}
-                  line={line}
-                  currency={quote.currency}
-                  dense={denseList}
-                  onPickCode={() => setPicking(line)}
-                  onQuantity={(value) => { void setQuantity(line, value); }}
-                  onLabel={(value) => { void setLabel(line, value); }}
-                />
-              )
-            )}
-
-            </View>
+            {([false, true] as const).map((asList) => (
+              <View
+                key={String(asList)}
+                // display:none, not unmounting: the hidden tree keeps its place
+                // and its state, and costs nothing to lay out.
+                style={[asList ? styles.denseList : styles.cardList, dense !== asList && styles.hidden]}>
+                {lines.map((line) =>
+                  line.kind === 'work' ? (
+                    <SwipeToDelete
+                      key={line.id}
+                      label={t.quoteReview.deleteLine}
+                      radius={Spacing.three}
+                      onDelete={() => { void removeLine(line); }}>
+                      <LineRow
+                        line={line}
+                        currency={quote.currency}
+                        dense={asList}
+                        onPickCode={() => setPicking(line)}
+                        onQuantity={(value) => { void setQuantity(line, value); }}
+                        onLabel={(value) => { void setLabel(line, value); }}
+                      />
+                    </SwipeToDelete>
+                  ) : (
+                    <LineRow
+                      key={line.id}
+                      line={line}
+                      currency={quote.currency}
+                      dense={asList}
+                      onPickCode={() => setPicking(line)}
+                      onQuantity={(value) => { void setQuantity(line, value); }}
+                      onLabel={(value) => { void setLabel(line, value); }}
+                    />
+                  )
+                )}
+              </View>
+            ))}
 
             <ThemedText type="small" themeColor="textSecondary">{t.quoteReview.swipeHint}</ThemedText>
 
@@ -672,6 +678,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
   cardList: { gap: Spacing.two },
   denseList: { gap: 0 },
+  hidden: { display: 'none' },
   aside: { paddingTop: Spacing.three, paddingHorizontal: Spacing.one, gap: 2 },
   asideDense: { paddingTop: Spacing.two, paddingHorizontal: Spacing.one },
   denseRow: {
