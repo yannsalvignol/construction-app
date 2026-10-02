@@ -22,6 +22,7 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'That username is already taken': "Ce nom d'utilisateur est déjà pris.",
   'Only a chef can regenerate the join code': "Seul un chef peut régénérer le code d'invitation.",
   'Could not generate a unique join code': "Impossible de générer un code d'invitation unique.",
+  'Invalid work duration': 'Durée de journée invalide.',
   'Missing authorization header': "En-tête d'autorisation manquant.",
   'Not authenticated': 'Non authentifié.',
   'Profile not found': 'Profil introuvable.',

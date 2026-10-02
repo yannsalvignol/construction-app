@@ -3,6 +3,8 @@ import { Alert, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Action, Card, Feedback, NumberWheel, Select, ShiftSpan, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
+import { translateServerError } from '@/lib/i18n/server-errors';
+import type { Locale } from '@/lib/i18n/locale';
 import { PresenceNotice } from '@/components/presence-notice';
 import { LiveNotice } from '@/components/live-notice';
 import { EmployeeLiveMap } from '@/components/employee-live-map';
@@ -21,6 +23,16 @@ import { supabase } from '@/lib/supabase';
 import { formatElapsed, workCopy } from '@/lib/work-copy';
 
 /** The app's language, not the device's: they differ whenever Réglages says so. */
+/** The reason the server gave, in the worker's language, or a last resort. */
+function serverMessage(failure: unknown, fallback: string, locale: Locale) {
+  const raw = failure instanceof Error
+    ? failure.message
+    : typeof (failure as { message?: unknown })?.message === 'string'
+      ? (failure as { message: string }).message
+      : '';
+  return raw ? translateServerError(raw, locale) : fallback;
+}
+
 const clock = (ms: number, locale: string) =>
   new Date(ms).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
@@ -55,7 +67,10 @@ export default function EmployeeHomeScreen() {
     if (lock.current) return;
     lock.current = true; setBusy(true); setActionError(null);
     try { await operation(); await refresh(); }
-    catch (e) { setActionError(e instanceof Error ? e.message : copy.failed); }
+    // A Supabase failure is a plain object, not an Error, so testing for Error
+    // threw away every reason the server gave and showed "could not load the
+    // data" instead — for an action, where nothing was being loaded.
+    catch (e) { setActionError(serverMessage(e, copy.failed, locale)); }
     finally { lock.current = false; setBusy(false); }
   }
   async function consent(accepted: boolean) {
