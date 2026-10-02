@@ -115,17 +115,16 @@ export default function EmployeeHomeScreen() {
             decimals={1}
             format={formatDuration}
             onChange={n => setDuration(String(n))} />
-          {/* The two hours the day would run between. The server stamps the
-              real end from its own clock when the day starts, so the hint says
-              "if you start now" rather than promising a minute it does not
-              own. */}
+          {/* The two hours the day would run between, if it started now. The
+              server stamps the real end from its own clock a few seconds later,
+              so these are near rather than exact — which nobody reading a
+              planned duration takes them for. */}
           <ShiftSpan
             startLabel={copy.startsLabel}
             endLabel={copy.endsLabel}
             start={clock(now, locale)}
             end={clock(now + Number(duration) * 3_600_000, locale)}
             middle={formatDuration(Number(duration))} />
-          <ThemedText type="small" themeColor="textSecondary">{copy.endsHint}</ThemedText>
           <Action large label={copy.start} disabled={!site} busy={busy} onPress={() => { void act(async () => {
             setPushWarning(!await enablePresenceNotifications(locale));
             const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
