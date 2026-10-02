@@ -29,6 +29,8 @@ export const Colors = {
     danger: '#B82746',
     success: '#26734A',
     warning: '#8A5410',
+    /** A wash of the warning tone, for lighting a field that was left empty. */
+    warningSoft: '#FAE8D2',
     isDark: false,
   },
   dark: {
@@ -52,6 +54,8 @@ export const Colors = {
     danger: '#FF91A4',
     success: '#83D5A7',
     warning: '#F1C077',
+    /** A wash of the warning tone, for lighting a field that was left empty. */
+    warningSoft: '#4A3418',
     isDark: true,
   },
 } as const;

@@ -38,9 +38,10 @@ export default function EmployeeHomeScreen() {
   const { data, loading, error, refresh, now, consented, liveConsented, watchEnabled } = useWorkspace();
   const [site, setSite] = useState('');
   const [duration, setDuration] = useState('8');
-  // Set only when he has actually tried to start without choosing a chantier.
-  // A field marked red before anybody has done anything wrong is nagging.
-  const [missingSite, setMissingSite] = useState(false);
+  // Counts refusals rather than recording one: the field lights again on every
+  // press, where a boolean would answer the first and ignore the rest. Zero is
+  // "nobody has tried yet", and a field is not wrong until somebody has.
+  const [refusals, setRefusals] = useState(0);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pushWarning, setPushWarning] = useState(false);
@@ -111,9 +112,10 @@ export default function EmployeeHomeScreen() {
           <Select
             label={copy.chooseSite}
             value={site}
-            missing={missingSite}
+            missing={refusals > 0}
+            refusedAt={refusals}
             options={data.sites.map(s => ({ value: s.id, label: s.name }))}
-            onChange={value => { setSite(value); setMissingSite(false); }} />
+            onChange={value => { setSite(value); setRefusals(0); }} />
           <NumberWheel
             label={copy.duration}
             value={Number(duration)}
@@ -138,7 +140,7 @@ export default function EmployeeHomeScreen() {
               answer a screen can give. It points at what is missing instead. */}
           <Action large label={copy.start} busy={busy} onPress={() => {
             if (!site) {
-              setMissingSite(true);
+              setRefusals(n => n + 1);
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
               return;
             }

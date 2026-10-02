@@ -3,11 +3,16 @@ import { BrandSpinner } from '@/components/brand-spinner';
 import { Host, Picker } from '@expo/ui';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withTiming,
+} from 'react-native-reanimated';
 import { ThemedText } from './themed-text';
 import { cardShadow } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/hooks/use-i18n';
 import { workCopy } from '@/lib/work-copy';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function WorkPage({ title, subtitle, titleAccessory, topInset = false, children }: {
   title: string; subtitle?: string;
@@ -121,29 +126,50 @@ export function Feedback({ message, success = false }: { message?: string | null
   if (!message) return null;
   return <ThemedText accessibilityRole="alert" style={{ color: success ? theme.success : theme.danger }}>{message}</ThemedText>;
 }
-export function Select({ label, value, options, missing = false, onChange }: {
+export function Select({ label, value, options, missing = false, refusedAt = 0, onChange }: {
   label: string; value: string; options: { value: string; label: string }[];
   /** Marked when an action was refused for want of this answer, not on sight:
    *  a field is not wrong until somebody has tried to go on without it. */
   missing?: boolean;
+  /**
+   * Bumped on every refusal, not just the first. Pressing a button twice and
+   * seeing nothing change the second time reads as the app having stopped
+   * listening, so each press lights the field again.
+   */
+  refusedAt?: number;
   onChange: (value: string) => void;
 }) {
   const theme = useTheme();
   const { locale } = useI18n();
   const copy = workCopy(locale);
   const [open, setOpen] = React.useState(false);
+
+  const flash = useSharedValue(0);
+  React.useEffect(() => {
+    if (!refusedAt) return;
+    // Up fast so it is seen, down slowly so it is not a blink.
+    flash.value = withSequence(
+      withTiming(1, { duration: 90 }),
+      withTiming(0, { duration: 520 })
+    );
+  }, [refusedAt, flash]);
+
+  const flashStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      flash.value, [0, 1], [theme.backgroundElement, theme.warningSoft]
+    ),
+  }));
   return <View style={{ gap: 8 }}>
     <ThemedText type="smallBold" themeColor={missing ? 'warning' : undefined}>{label}</ThemedText>
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setOpen(true)}
+    <AnimatedPressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setOpen(true)}
       style={[styles.field, {
         borderColor: missing ? theme.warning : theme.backgroundSelected,
         borderWidth: missing ? 2 : 1,
-        backgroundColor: theme.backgroundElement,
-      }]}>
+      }, flashStyle]}>
       <ThemedText themeColor={missing ? 'warning' : undefined}>
         {options.find(o => o.value === value)?.label ?? label} ▾
       </ThemedText>
-    </Pressable>
+    </AnimatedPressable>
     <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
       <WorkPage title={label}>
         <Action secondary label={copy.close} onPress={() => setOpen(false)} />
