@@ -129,6 +129,13 @@ Règles:
 - Les en-têtes et pieds de page répétés (adresse, RC, ICE, pagination) ne sont pas des lignes.
 - Les conditions de paiement (acompte, à la livraison, à la fin des travaux, retenue de garantie) vont dans "milestones", jamais dans les lignes, et gardent leur formulation d'origine.`;
 
+/** Below this, a PDF's text layer is a stamp or a watermark, not a devis. */
+const MIN_TEXT_LAYER = 200;
+/** A scanned page costs a picture's worth of tokens; say no before the timeout does. */
+const MAX_SCAN_PAGES = 40;
+/** Raw bytes before base64, which adds a third again on the way out. */
+const MAX_SCAN_BYTES = 20_000_000;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -221,6 +228,7 @@ async function parse(
       : [{ file_path: quote.file_path, mime_type: quote.mime_type }];
 
     const images: { mime: string; base64: string }[] = [];
+    const scans: { filename: string; base64: string; pages: number; bytes: number }[] = [];
     let documentText = '';
 
     for (const page of pages) {
@@ -233,18 +241,46 @@ async function parse(
       if (page.mime_type === 'application/pdf') {
         const pdf = await getDocumentProxy(bytes);
         const { text } = await extractText(pdf, { mergePages: true });
-        documentText += `${(text ?? '').trim()}\n`;
+        const layer = (text ?? '').trim();
+        if (layer.length >= MIN_TEXT_LAYER) {
+          documentText += `${layer}\n`;
+        } else {
+          // A scan: pages of pictures with no text layer, which is most of what
+          // arrives by email from a client. unpdf cannot read it and rendering
+          // the pages here is not possible in this runtime, so the PDF goes to
+          // the model as a file and it reads the pages itself.
+          scans.push({
+            filename: page.file_path.split('/').pop() || 'devis.pdf',
+            base64: toBase64(bytes),
+            pages: pdf.numPages ?? 1,
+            bytes: bytes.length,
+          });
+        }
       } else {
         images.push({ mime: page.mime_type || 'image/jpeg', base64: toBase64(bytes) });
       }
     }
 
     documentText = documentText.trim();
-    // A scan has pages but no text layer. Say so plainly rather than
-    // returning an empty devis that looks like a parsing failure.
-    if (!images.length && documentText.length < 200) {
+
+    // Reading pictures of pages costs time and tokens in proportion to how many
+    // there are, so the limits are stated rather than discovered as a timeout.
+    const scanPages = scans.reduce((n, s) => n + s.pages, 0);
+    const scanBytes = scans.reduce((n, s) => n + s.bytes, 0);
+    if (scanPages > MAX_SCAN_PAGES) {
       throw new Error(
-        'Ce PDF ne contient pas de texte (document scanné). Photographiez les pages du devis à la place.'
+        `Ce devis scanné fait ${scanPages} pages ; la lecture est limitée à ${MAX_SCAN_PAGES}. Importez-le en plusieurs fois.`
+      );
+    }
+    if (scanBytes > MAX_SCAN_BYTES) {
+      throw new Error(
+        `Ce devis scanné est trop lourd (${Math.round(scanBytes / 1e6)} Mo, maximum ${Math.round(MAX_SCAN_BYTES / 1e6)} Mo).`
+      );
+    }
+    // Nothing readable at all: no text, no photographs, no scanned pages.
+    if (!images.length && !scans.length && documentText.length < MIN_TEXT_LAYER) {
+      throw new Error(
+        'Ce fichier ne contient ni texte ni page lisible. Photographiez les pages du devis à la place.'
       );
     }
 
@@ -268,10 +304,21 @@ async function parse(
           (documentText
             ? `Texte du devis:\n\n${documentText}\n\n`
             : '') +
+          (scans.length
+            ? `${scans.length} fichier(s) PDF scanné(s) suivent, soit ${scans.reduce((n, s) => n + s.pages, 0)} page(s) en images. Lis chaque page dans l'ordre et relève toutes les lignes.\n`
+            : '') +
           (images.length
             ? `${images.length} page(s) photographiée(s) du devis suivent. Lis-les dans l'ordre.`
-            : 'Extrais toutes les lignes de ce devis.'),
+            : scans.length
+              ? ''
+              : 'Extrais toutes les lignes de ce devis.'),
       },
+      // A scanned PDF goes as a file: the model rasterises the pages itself,
+      // which this runtime cannot do.
+      ...scans.map((scan) => ({
+        type: 'file' as const,
+        file: { filename: scan.filename, file_data: `data:application/pdf;base64,${scan.base64}` },
+      })),
       ...images.map((image) => ({
         type: 'image_url' as const,
         image_url: { url: `data:${image.mime};base64,${image.base64}`, detail: 'high' as const },
