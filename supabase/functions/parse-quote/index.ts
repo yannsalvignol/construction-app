@@ -4,6 +4,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 // and reading it is both cheaper and more accurate than looking at pictures
 // of the pages.
 import { extractText, getDocumentProxy } from 'npm:unpdf@0.12.1';
+// pdf-lib is pure JavaScript, so it runs here where a native PDF tool could not.
+// eslint-disable-next-line import/no-unresolved -- resolved by Deno at deploy time.
+import { PDFDocument } from 'npm:pdf-lib@1.17.1';
 
 // Reads a devis into quote_lines (docs/DEVIS_AVANCEMENT.md).
 //
@@ -135,6 +138,13 @@ const MIN_TEXT_LAYER = 200;
 const MAX_SCAN_PAGES = 40;
 /** Raw bytes before base64, which adds a third again on the way out. */
 const MAX_SCAN_BYTES = 20_000_000;
+/**
+ * Pages per request. Each line of a devis costs nine required JSON fields, and
+ * gpt-4o will not emit more than about 16k tokens however high max_tokens is
+ * set, so a long scan has to be read in instalments. Four pages of a dense
+ * devis fit with room to spare.
+ */
+const SCAN_CHUNK_PAGES = 4;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -210,6 +220,25 @@ function toBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
+/**
+ * A new PDF holding pages [first, last) of the original, base64 for the request.
+ *
+ * Copying the pages keeps their images as they are, so a slice costs the model
+ * exactly what those pages would have cost in one go — the instalments are about
+ * the size of the answer, not the size of the bill.
+ */
+async function slicePdf(raw: Uint8Array, first: number, last: number) {
+  // Scanners commonly set an owner password with no user password; the pages are
+  // readable and refusing them over that would be pedantic.
+  const source = await PDFDocument.load(raw, { ignoreEncryption: true });
+  const out = await PDFDocument.create();
+  const indices = [];
+  for (let i = first; i < last && i < source.getPageCount(); i++) indices.push(i);
+  const copied = await out.copyPages(source, indices);
+  for (const page of copied) out.addPage(page);
+  return toBase64(new Uint8Array(await out.save()));
+}
+
 async function parse(
   admin: ReturnType<typeof createClient>,
   openaiKey: string,
@@ -228,7 +257,9 @@ async function parse(
       : [{ file_path: quote.file_path, mime_type: quote.mime_type }];
 
     const images: { mime: string; base64: string }[] = [];
-    const scans: { filename: string; base64: string; pages: number; bytes: number }[] = [];
+    const scans: {
+      filename: string; raw: Uint8Array; base64: string; pages: number; bytes: number;
+    }[] = [];
     let documentText = '';
 
     for (const page of pages) {
@@ -251,6 +282,7 @@ async function parse(
           // the model as a file and it reads the pages itself.
           scans.push({
             filename: page.file_path.split('/').pop() || 'devis.pdf',
+            raw: bytes,
             base64: toBase64(bytes),
             pages: pdf.numPages ?? 1,
             bytes: bytes.length,
@@ -294,63 +326,109 @@ async function parse(
 
     const openai = new OpenAI({ apiKey: openaiKey });
 
-    // Text and photographs can arrive together: a PDF for most of the devis
-    // and a photograph of the annotated last page is a real case.
-    const userContent = [
-      {
-        type: 'text' as const,
-        text:
-          `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
-          (documentText
-            ? `Texte du devis:\n\n${documentText}\n\n`
-            : '') +
-          (scans.length
-            ? `${scans.length} fichier(s) PDF scanné(s) suivent, soit ${scans.reduce((n, s) => n + s.pages, 0)} page(s) en images. Lis chaque page dans l'ordre et relève toutes les lignes.\n`
-            : '') +
-          (images.length
-            ? `${images.length} page(s) photographiée(s) du devis suivent. Lis-les dans l'ordre.`
-            : scans.length
-              ? ''
-              : 'Extrais toutes les lignes de ce devis.'),
-      },
-      // A scanned PDF goes as a file: the model rasterises the pages itself,
-      // which this runtime cannot do.
-      ...scans.map((scan) => ({
-        type: 'file' as const,
-        file: { filename: scan.filename, file_data: `data:application/pdf;base64,${scan.base64}` },
-      })),
-      ...images.map((image) => ({
-        type: 'image_url' as const,
-        image_url: { url: `data:${image.mime};base64,${image.base64}`, detail: 'high' as const },
-      })),
-    ];
+    // A scanned devis of any length does not fit in one answer: every line
+    // carries nine required fields, and gpt-4o cannot emit more than 16k tokens
+    // whatever we ask for. So the pages are read a few at a time and the lines
+    // are stitched back together in order. A devis short enough to fit is still
+    // one request, exactly as before.
+    const batches: { label: string; parts: Record<string, unknown>[] }[] = [];
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      // The devis runs to a hundred lines; the default ceiling truncates it.
-      max_tokens: 16000,
-      temperature: 0,
-      response_format: {
-        type: 'json_schema',
-        json_schema: { name: 'devis', strict: true, schema: SCHEMA },
-      },
-      messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: userContent },
-      ],
-    });
-
-    const body = response.choices[0]?.message?.content;
-    if (response.choices[0]?.finish_reason === 'length') {
-      throw new Error('Le devis est trop long pour être lu en une fois.');
+    if (documentText || images.length) {
+      batches.push({
+        label: 'texte et photographies',
+        parts: [
+          {
+            type: 'text',
+            text:
+              `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
+              (documentText ? `Texte du devis:\n\n${documentText}\n\n` : '') +
+              (images.length
+                ? `${images.length} page(s) photographiée(s) du devis suivent. Lis-les dans l'ordre.`
+                : 'Extrais toutes les lignes de ce devis.'),
+          },
+          ...images.map((image) => ({
+            type: 'image_url',
+            image_url: { url: `data:${image.mime};base64,${image.base64}`, detail: 'high' },
+          })),
+        ],
+      });
     }
-    if (!body) throw new Error('The model returned no content');
-    const parsed = JSON.parse(body) as {
+
+    for (const scan of scans) {
+      for (let first = 0; first < scan.pages; first += SCAN_CHUNK_PAGES) {
+        const last = Math.min(first + SCAN_CHUNK_PAGES, scan.pages);
+        const slice = scan.pages <= SCAN_CHUNK_PAGES
+          ? scan.base64
+          : await slicePdf(scan.raw, first, last);
+        batches.push({
+          label: `pages ${first + 1}-${last}`,
+          parts: [
+            {
+              type: 'text',
+              text:
+                `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
+                `Extrait d'un devis scanné : pages ${first + 1} à ${last} sur ${scan.pages}. ` +
+                `Relève toutes les lignes de ces pages, dans l'ordre, et rien d'autre. ` +
+                `Ne reporte le total HT et les conditions de paiement que s'ils sont imprimés sur ces pages.`,
+            },
+            {
+              type: 'file',
+              file: { filename: scan.filename, file_data: `data:application/pdf;base64,${slice}` },
+            },
+          ],
+        });
+      }
+    }
+
+    type Parsed = {
       total_ht: number | null;
       currency: string;
       milestones?: Record<string, unknown>[];
       lines: Record<string, unknown>[];
     };
+    const parsed: Parsed = { total_ht: null, currency: '', milestones: [], lines: [] };
+    let model: string | null = null;
+    // Summed across the instalments: what the devis cost to read, not the last page.
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    for (const batch of batches) {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        // The devis runs to a hundred lines; the default ceiling truncates it.
+        max_tokens: 16000,
+        temperature: 0,
+        response_format: {
+          type: 'json_schema',
+          json_schema: { name: 'devis', strict: true, schema: SCHEMA },
+        },
+        messages: [
+          { role: 'system', content: SYSTEM },
+          { role: 'user', content: batch.parts as never },
+        ],
+      });
+      model = response.model ?? model;
+      inputTokens += response.usage?.prompt_tokens ?? 0;
+      outputTokens += response.usage?.completion_tokens ?? 0;
+      if (response.choices[0]?.finish_reason === 'length') {
+        // Naming the pages turns "too long" into something the chef can act on.
+        throw new Error(
+          `Trop de lignes à lire d'un coup (${batch.label}). Importez le devis en plusieurs fois.`
+        );
+      }
+      const body = response.choices[0]?.message?.content;
+      if (!body) throw new Error('The model returned no content');
+      const part = JSON.parse(body) as Parsed;
+
+      parsed.lines.push(...(part.lines ?? []));
+      // The grand total is printed at the end, so a later batch wins; a page of
+      // sub-totals earlier in the devis must not overwrite it.
+      if (typeof part.total_ht === 'number') parsed.total_ht = part.total_ht;
+      if (!parsed.currency && part.currency) parsed.currency = part.currency;
+      // Payment conditions are printed once. Keep the last page that states any
+      // rather than concatenating the same schedule repeated per page.
+      if (part.milestones?.length) parsed.milestones = part.milestones;
+    }
 
     // Replaces any earlier attempt rather than accumulating duplicates.
     await admin.from('quote_lines').delete().eq('quote_id', quote.id);
@@ -427,15 +505,15 @@ async function parse(
         total_ht: parsed.total_ht,
         currency: parsed.currency || 'MAD',
         parse_error: null,
-        input_tokens: response.usage?.prompt_tokens ?? null,
-        output_tokens: response.usage?.completion_tokens ?? null,
-        parse_model: response.model ?? null,
+        input_tokens: inputTokens || null,
+        output_tokens: outputTokens || null,
+        parse_model: model,
       })
       .eq('id', quote.id);
 
     console.log(
       `[parse-quote] ${quote.id}: ${rows.length} lines, ${milestones.length} milestones, total ${parsed.total_ht}` +
-        `, ${response.usage?.prompt_tokens ?? '?'} in / ${response.usage?.completion_tokens ?? '?'} out tokens` +
+        `, ${batches.length} request(s), ${inputTokens} in / ${outputTokens} out tokens` +
         (droppedCodes ? `, ${droppedCodes} unknown task codes dropped` : '')
     );
   } catch (failure) {
