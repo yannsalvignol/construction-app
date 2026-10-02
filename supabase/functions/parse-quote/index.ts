@@ -177,13 +177,21 @@ const STEPS_SCHEMA = {
 } as const;
 
 /**
- * The model that reads the pages. Configurable so a scanned devis can be tried
- * against a newer model without a deploy: reading a dense printed table is the
- * step where model choice actually shows, and the default here is years old.
+ * The model that reads the pages.
+ *
+ * The flagship tier, because this is the step where the money is: a devis read
+ * wrong is a wrong price in a contract, and the previous model returned a unit
+ * price of 58 885 that is printed on no page of the document. Roughly twice
+ * gpt-4o per devis — a few tenths of a dirham against a figure a chef plans a
+ * chantier on. Still a setting, so a cheaper tier can be measured against the
+ * same devis without a deploy.
  */
-const READ_MODEL = Deno.env.get('PARSE_QUOTE_MODEL') || 'gpt-4o';
-/** Structuring already-extracted wording is easy; it does not need the big model. */
-const STEPS_MODEL = Deno.env.get('PARSE_STEPS_MODEL') || READ_MODEL;
+const READ_MODEL = Deno.env.get('PARSE_QUOTE_MODEL') || 'gpt-5.6-sol';
+/**
+ * Turning wording that has already been read into a list of operations is the
+ * easy half, and never touches a number, so it runs on the cheap tier.
+ */
+const STEPS_MODEL = Deno.env.get('PARSE_STEPS_MODEL') || 'gpt-5.6-luna';
 
 /** Pages read at once. Wide enough to be quick, narrow enough not to trip a rate limit. */
 const READ_CONCURRENCY = 4;
@@ -475,7 +483,7 @@ async function parse(
       batches.map((batch) => async () => {
         const response = await openai.chat.completions.create({
           model: READ_MODEL,
-          max_completion_tokens: 16000,
+          max_completion_tokens: 32000,
           response_format: {
             type: 'json_schema',
             json_schema: { name: 'devis', strict: true, schema: SCHEMA },
@@ -540,7 +548,7 @@ async function parse(
             .filter(Boolean);
           const response = await openai.chat.completions.create({
             model: READ_MODEL,
-            max_completion_tokens: 16000,
+            max_completion_tokens: 32000,
             response_format: {
               type: 'json_schema',
               json_schema: { name: 'devis', strict: true, schema: SCHEMA },
