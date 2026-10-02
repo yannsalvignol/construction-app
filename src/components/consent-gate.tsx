@@ -38,9 +38,9 @@ export function ConsentGate({ children }: { children: React.ReactNode }) {
 
   // A suspended account is handled by the screens themselves, which explain it.
   if (!profile || profile.role !== 'employee' || !profile.is_active) return <>{children}</>;
-  if (loading && !data) return <WorkPage title={copy.gateTitle}><ThemedText>{copy.loading}</ThemedText></WorkPage>;
+  if (loading && !data) return <WorkPage topInset title={copy.gateTitle}><ThemedText>{copy.loading}</ThemedText></WorkPage>;
   if (!data) {
-    return <WorkPage title={copy.gateTitle}>
+    return <WorkPage topInset title={copy.gateTitle}>
       <Feedback message={error} />
       <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />
     </WorkPage>;
@@ -49,7 +49,7 @@ export function ConsentGate({ children }: { children: React.ReactNode }) {
   const liveRequired = data.location_mode === 'live';
   if (consented && (!liveRequired || liveConsented)) return <>{children}</>;
 
-  return <WorkPage title={copy.gateTitle} subtitle={copy.gateHint}>
+  return <WorkPage topInset title={copy.gateTitle} subtitle={copy.gateHint}>
     <Feedback message={actionError} />
     {!consented && <PresenceNotice accepted={false} busy={busy}
       onAccept={() => { void act(async () => {

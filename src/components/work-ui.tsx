@@ -9,16 +9,24 @@ import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/hooks/use-i18n';
 import { workCopy } from '@/lib/work-copy';
 
-export function WorkPage({ title, subtitle, titleAccessory, children }: {
+export function WorkPage({ title, subtitle, titleAccessory, topInset = false, children }: {
   title: string; subtitle?: string;
   /** Sits to the right of the heading, for a control that acts on the whole page. */
   titleAccessory?: React.ReactNode;
+  /**
+   * For a page shown outside the tabs, which has nothing above it to hold the
+   * heading clear of the status bar. Inside the tabs the native container
+   * already does, and asking for it twice would push the page down.
+   */
+  topInset?: boolean;
   children: React.ReactNode;
 }) {
   const theme = useTheme();
   // No bottom edge: the page scrolls under the home indicator; its own bottom
   // padding keeps the last item clear of it.
-  return <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: theme.background }}>
+  return <SafeAreaView
+    edges={topInset ? ['top', 'left', 'right'] : ['left', 'right']}
+    style={{ flex: 1, backgroundColor: theme.background }}>
     <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.page}>
       <View style={{ gap: 8, marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
