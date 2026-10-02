@@ -110,6 +110,29 @@ test('employee activity', async t => {
     await assert.rejects(activity(null, ids.worker), /Sign in required/);
   });
 
+  await t.test('the dashboard role reads aggregates and nothing else', async () => {
+    // Every view answers, without the role holding a single table privilege.
+    for (const view of ['companies', 'accounts', 'activity_weekly', 'presence_weekly', 'safety_weekly', 'consent']) {
+      await as(null, `select * from reporting.${view}`, [], 'reporting_ro');
+    }
+    // The application tables stay out of reach, so a mistyped panel reaches nothing.
+    for (const table of ['profiles', 'work_days', 'presence_check_ins', 'live_positions', 'safety_alerts']) {
+      await assert.rejects(
+        as(null, `select * from public.${table}`, [], 'reporting_ro'),
+        /permission denied/,
+        `public.${table} must not be readable by reporting_ro`
+      );
+    }
+    // And no view carries a column that could name or locate a person.
+    const columns = await peek(`
+      select table_name, column_name from information_schema.columns
+      where table_schema = 'reporting'`);
+    const forbidden = columns.filter((c) =>
+      /name|_id$|^id$|latitude|longitude|phone|username|email|photo|token|password/i.test(c.column_name)
+      && !/^(week|kind)$/.test(c.column_name));
+    assert.deepEqual(forbidden, [], 'reporting views must expose no identifying column');
+  });
+
   await t.test('the window is bounded however it is called', async () => {
     assert.equal((await as(ids.chef, 'select public.employee_activity($1, 9999) as a', [ids.worker]))[0].a.day_count, 1);
     assert.equal((await as(ids.chef, 'select public.employee_activity($1, -5) as a', [ids.worker]))[0].a.day_count, 1);
