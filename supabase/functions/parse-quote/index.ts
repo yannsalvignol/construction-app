@@ -105,13 +105,19 @@ const SCHEMA = {
           quantity: { type: ['number', 'null'] },
           unit_price: { type: ['number', 'null'] },
           amount_ht: { type: ['number', 'null'] },
+          steps: {
+            type: 'array',
+            description:
+              'Les opérations successives pour réaliser cette ligne, déclarables une par une. Tableau vide quand la ligne ne se décompose pas.',
+            items: { type: 'string' },
+          },
           task_code: {
             type: ['string', 'null'],
             description:
               'A code from the catalogue provided, when the line plainly matches one. Null when unsure — a wrong code is worse than none, because it makes a false progress figure.',
           },
         },
-        required: ['lot', 'label', 'kind', 'source_unit', 'unit', 'quantity', 'unit_price', 'amount_ht', 'task_code'],
+        required: ['lot', 'label', 'kind', 'source_unit', 'unit', 'quantity', 'unit_price', 'amount_ht', 'steps', 'task_code'],
         additionalProperties: false,
       },
     },
@@ -130,7 +136,22 @@ Règles:
 - Reporte les quantités et les prix tels quels. N'arrondis pas, ne recalcule pas, ne corrige pas une incohérence: elle appartient au document.
 - task_code: uniquement si la correspondance est évidente. Dans le doute, null.
 - Les en-têtes et pieds de page répétés (adresse, RC, ICE, pagination) ne sont pas des lignes.
-- Les conditions de paiement (acompte, à la livraison, à la fin des travaux, retenue de garantie) vont dans "milestones", jamais dans les lignes, et gardent leur formulation d'origine.`;
+- Les conditions de paiement (acompte, à la livraison, à la fin des travaux, retenue de garantie) vont dans "milestones", jamais dans les lignes, et gardent leur formulation d'origine.
+
+"steps": les opérations successives qu'un ouvrier exécute pour réaliser la ligne, et qu'il peut déclarer faites une par une.
+- Une étape est une opération, pas une mesure: pas de quantité, pas de pourcentage, pas de "50% posé".
+- Une étape doit être vérifiable sur place en regardant l'installation.
+- Formule à l'infinitif, courte, sans numérotation: "Poser les plots anti-vibrations", "Raccorder puissance, commande et terre".
+- Deux à cinq étapes quand la ligne en mérite. JAMAIS d'étapes pour:
+  - un "heading" ou un "discount";
+  - une fourniture seule, un matériel livré non posé, une location;
+  - une ligne qui est déjà une seule opération ("Pose d'un WC", "Percement de dalle");
+  - un forfait global qui couvre un lot entier sans décrire d'ouvrage;
+  - une ligne dont le libellé ne dit pas assez pour savoir ce qu'on y fait.
+- N'invente rien que le libellé n'implique pas. Dans le doute, tableau vide.
+- Exemple. "Groupe moteur + alternateur 315 kVA insonorisé, posé en toiture" →
+  ["Poser les plots anti-vibrations", "Mettre le groupe en place sur la dalle", "Raccorder puissance, commande et terre", "Essai de démarrage en charge"].
+  "Fourniture de 12 ml de gaine spirale Ø125" → [].`;
 
 /** Below this, a PDF's text layer is a stamp or a watermark, not a devis. */
 const MIN_TEXT_LAYER = 200;
@@ -145,6 +166,8 @@ const MAX_SCAN_BYTES = 20_000_000;
  * devis fit with room to spare.
  */
 const SCAN_CHUNK_PAGES = 4;
+/** More than this is a method statement, not a line of a devis. */
+const MAX_STEPS_PER_LINE = 6;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -477,6 +500,41 @@ async function parse(
       if (error) throw error;
     }
 
+    // Read back by position rather than trusting the order an insert returns:
+    // position is ours, set from the index, so this pairing cannot drift.
+    const { data: storedLines } = await admin
+      .from('quote_lines')
+      .select('id, position')
+      .eq('quote_id', quote.id);
+    const idByPosition = new Map<number, string>(
+      (storedLines ?? []).map((row: { id: string; position: number }) => [row.position, row.id])
+    );
+
+    // The operations a line breaks down into. The model is told to leave the
+    // list empty wherever a line does not decompose; this trims what still
+    // comes back wrong rather than trusting it.
+    const steps = parsed.lines.flatMap((line, index) => {
+      const lineId = idByPosition.get(index);
+      if (!lineId || line.kind !== 'work') return [];
+      const labels = (Array.isArray(line.steps) ? line.steps : [])
+        .map((label: unknown) => String(label ?? '').trim().slice(0, 200))
+        .filter((label: string) => label.length > 0)
+        .slice(0, MAX_STEPS_PER_LINE);
+      // A line broken into one operation has not been broken down.
+      if (labels.length < 2) return [];
+      return labels.map((label: string, position: number) => ({
+        quote_line_id: lineId,
+        company_id: quote.company_id,
+        position,
+        label,
+      }));
+    });
+    for (let i = 0; i < steps.length; i += 500) {
+      const { error } = await admin.from('quote_line_steps').insert(steps.slice(i, i + 500));
+      // A devis that parsed is worth keeping even if its operations did not.
+      if (error) { console.error('[parse-quote] steps', error.message); break; }
+    }
+
     await admin.from('quote_milestones').delete().eq('quote_id', quote.id);
     const milestones = (parsed.milestones ?? []).map((milestone, index) => ({
       quote_id: quote.id,
@@ -512,7 +570,7 @@ async function parse(
       .eq('id', quote.id);
 
     console.log(
-      `[parse-quote] ${quote.id}: ${rows.length} lines, ${milestones.length} milestones, total ${parsed.total_ht}` +
+      `[parse-quote] ${quote.id}: ${rows.length} lines, ${steps.length} steps, ${milestones.length} milestones, total ${parsed.total_ht}` +
         `, ${batches.length} request(s), ${inputTokens} in / ${outputTokens} out tokens` +
         (droppedCodes ? `, ${droppedCodes} unknown task codes dropped` : '')
     );

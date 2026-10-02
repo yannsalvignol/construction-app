@@ -24,6 +24,14 @@ import { unitShort, workCopy } from '@/lib/work-copy';
  * is worse than showing nothing.
  */
 
+type Step = {
+  step_id: string;
+  label: string;
+  done: boolean;
+  /** Set only when somebody else ticked it; his own tick needs no name. */
+  done_by_name: string | null;
+};
+
 type Line = {
   line_id: string;
   lot: string | null;
@@ -32,6 +40,7 @@ type Line = {
   quoted: number | null;
   declared_total: number;
   declared_today: number;
+  steps: Step[];
 };
 
 export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => Promise<void> }) {
@@ -45,6 +54,7 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [stepBusy, setStepBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data, error: failure } = await supabase.rpc('day_quote_lines', { day_id: dayId });
@@ -54,6 +64,28 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
 
   // On focus: a chef may validate the devis while the worker is in the app.
   useFocusEffect(useCallback(() => { void load(); }, [load]));
+
+  /**
+   * Ticking is optimistic: the list redraws before the server answers, because
+   * a tick that waits on a round trip on a chantier's signal feels broken. A
+   * refusal puts it back.
+   */
+  async function toggle(step: Step) {
+    if (stepBusy) return;
+    setStepBusy(step.step_id);
+    setError(null);
+    setLines((current) => current?.map((line) => ({
+      ...line,
+      steps: line.steps.map((s) => (s.step_id === step.step_id ? { ...s, done: !s.done } : s)),
+    })) ?? current);
+    const { error: failure } = await supabase.rpc('set_quote_line_step', {
+      step: step.step_id,
+      done: !step.done,
+    });
+    setStepBusy(null);
+    if (failure) { setError(failure.message); }
+    await load();
+  }
 
   async function declare(line: Line) {
     const amount = Number(typed.trim().replace(',', '.'));
@@ -113,6 +145,41 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
               {saved === line.line_id && <Ionicons name="checkmark" size={18} color={theme.success} />}
             </Pressable>
 
+            {line.steps.length > 0 && (
+              <View style={styles.steps}>
+                {line.steps.map((step) => (
+                  <Pressable
+                    key={step.step_id}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: step.done, busy: stepBusy === step.step_id }}
+                    accessibilityLabel={step.label}
+                    disabled={!!stepBusy}
+                    onPress={() => { void toggle(step); }}
+                    style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
+                    <Ionicons
+                      name={step.done ? 'checkbox' : 'square-outline'}
+                      size={20}
+                      color={step.done ? theme.success : theme.textPlaceholder}
+                    />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <ThemedText
+                        type="small"
+                        themeColor={step.done ? 'textSecondary' : 'text'}
+                        style={step.done ? styles.struck : undefined}>
+                        {step.label}
+                      </ThemedText>
+                      {/* Whose work it was, when it was not his. */}
+                      {!!step.done_by_name && (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {t.quoteTasks.doneBy(step.done_by_name)}
+                        </ThemedText>
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
             {open === line.line_id && (
               <View style={styles.form}>
                 <TextInput
@@ -166,5 +233,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Indented under the line they belong to, so they read as its parts rather
+  // than as more lines of the devis.
+  steps: { paddingLeft: Spacing.five, paddingBottom: Spacing.two, gap: Spacing.half },
+  step: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two, paddingVertical: Spacing.one },
+  struck: { textDecorationLine: 'line-through' },
   pressed: { opacity: 0.6 },
 });

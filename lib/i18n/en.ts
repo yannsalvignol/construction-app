@@ -456,6 +456,7 @@ const en = {
     remaining: (value: string) => `${value} left`,
     done: 'Done',
     todayLabel: (value: string) => `Already declared today: ${value}`,
+    doneBy: (name: string) => `Done by ${name}`,
     declare: 'Declare',
     saving: 'Saving…',
     saved: 'Saved',

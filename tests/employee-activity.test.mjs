@@ -110,6 +110,70 @@ test('employee activity', async t => {
     await assert.rejects(activity(null, ids.worker), /Sign in required/);
   });
 
+  await t.test('a devis operation is ticked by whoever did it, on his own site', async () => {
+    // A validated devis on the site the day was declared on, with one line and
+    // two operations under it.
+    const quote = (await peek(`
+      insert into public.site_quotes (company_id, site_id, file_path, file_name, mime_type, status, uploaded_by, size_bytes)
+      values ($1, $2, 'q/1.pdf', '1.pdf', 'application/pdf', 'validated', $3, 1024) returning id`,
+      [ids.company, ids.site, ids.chef]))[0].id;
+    const line = (await peek(`
+      insert into public.quote_lines (quote_id, company_id, position, label, kind, unit, quantity)
+      values ($1, $2, 0, 'Groupe 315 kVA posé en toiture', 'work', 'unit', 1) returning id`,
+      [quote, ids.company]))[0].id;
+    const steps = await peek(`
+      insert into public.quote_line_steps (quote_line_id, company_id, position, label)
+      values ($1, $2, 0, 'Poser les plots anti-vibrations'),
+             ($1, $2, 1, 'Raccorder puissance, commande et terre')
+      returning id, position`, [line, ids.company]);
+    steps.sort((a, b) => a.position - b.position);
+
+    // He ticks the first one.
+    await as(ids.worker, 'select public.set_quote_line_step($1, true)', [steps[0].id]);
+    let row = (await peek('select done_at, done_by, work_day_id from public.quote_line_steps where id = $1', [steps[0].id]))[0];
+    assert.notEqual(row.done_at, null);
+    assert.equal(row.done_by, ids.worker);
+    assert.notEqual(row.work_day_id, null, 'the day it was done on is recorded');
+
+    // Ticking again does not reassign it: the person who did the work keeps it.
+    await as(ids.mate, "select public.set_presence_consent(true, '2026-09-07')");
+    await as(ids.mate, 'select public.start_work_day($1, 8)', [ids.site]);
+    await as(ids.mate, 'select public.set_quote_line_step($1, true)', [steps[0].id]);
+    row = (await peek('select done_by from public.quote_line_steps where id = $1', [steps[0].id]))[0];
+    assert.equal(row.done_by, ids.worker, 'credit stays with whoever did it');
+
+    // Unticking clears it, which is how a mistaken tick is undone.
+    await as(ids.worker, 'select public.set_quote_line_step($1, false)', [steps[0].id]);
+    row = (await peek('select done_at, done_by from public.quote_line_steps where id = $1', [steps[0].id]))[0];
+    assert.equal(row.done_at, null);
+    assert.equal(row.done_by, null);
+
+    // The day's lines now carry their operations, newest state included.
+    await as(ids.worker, 'select public.set_quote_line_step($1, true)', [steps[1].id]);
+    const day = (await peek('select id from public.work_days where employee_id = $1', [ids.worker]))[0].id;
+    const rows = await as(ids.worker, 'select * from public.day_quote_lines($1)', [day]);
+    const mine = rows.find((r) => r.line_id === line);
+    assert.equal(mine.steps.length, 2);
+    assert.equal(mine.steps[0].done, false);
+    assert.equal(mine.steps[1].done, true);
+    assert.equal(mine.steps[1].done_by_name, null, 'his own tick is not labelled with his name');
+    // The mate sees who did it, because it was not him.
+    const mateDay = (await peek('select id from public.work_days where employee_id = $1', [ids.mate]))[0].id;
+    const theirs = (await as(ids.mate, 'select * from public.day_quote_lines($1)', [mateDay]))
+      .find((r) => r.line_id === line);
+    assert.equal(theirs.steps[1].done_by_name, 'Worker A');
+
+    // Nobody writes the table directly, and nobody touches another company's.
+    await assert.rejects(
+      as(ids.worker, 'update public.quote_line_steps set done_at = now() where id = $1', [steps[0].id]),
+      /permission denied/
+    );
+    await assert.rejects(
+      as(ids.otherChef, 'select public.set_quote_line_step($1, true)', [steps[0].id]),
+      /Start a work day|does not belong/
+    );
+  });
+
   await t.test('the dashboard role reads aggregates and nothing else', async () => {
     // Every view answers, without the role holding a single table privilege.
     for (const view of ['companies', 'accounts', 'activity_weekly', 'presence_weekly', 'safety_weekly', 'consent']) {

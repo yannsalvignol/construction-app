@@ -452,6 +452,7 @@ const fr = {
     remaining: (value: string) => `Reste ${value}`,
     done: 'Terminé',
     todayLabel: (value: string) => `Déjà déclaré aujourd’hui : ${value}`,
+    doneBy: (name: string) => `Fait par ${name}`,
     declare: 'Déclarer',
     saving: 'Enregistrement…',
     saved: 'Enregistré',
