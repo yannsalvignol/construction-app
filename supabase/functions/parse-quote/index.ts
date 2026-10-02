@@ -193,8 +193,16 @@ const READ_MODEL = Deno.env.get('PARSE_QUOTE_MODEL') || 'gpt-5.6-sol';
  */
 const STEPS_MODEL = Deno.env.get('PARSE_STEPS_MODEL') || 'gpt-5.6-luna';
 
-/** Pages read at once. Wide enough to be quick, narrow enough not to trip a rate limit. */
-const READ_CONCURRENCY = 4;
+/**
+ * Pages read at once.
+ *
+ * All of them, in practice. The pages are independent, and the flagship model
+ * takes minutes over a dense scanned page: in waves of four, a ten-page devis
+ * spent three wall-clock multiples of that and outlived the function before
+ * writing a single line. Ten concurrent requests is modest against a rate limit
+ * and turns the reading into one wait rather than three.
+ */
+const READ_CONCURRENCY = 12;
 
 /** Lines per steps request. Text only, so this is about the answer's size. */
 const STEPS_BATCH = 30;
