@@ -170,16 +170,19 @@ const STEPS_SCHEMA = {
 } as const;
 
 /**
- * The model that reads the pages.
+ * The model that reads the devis.
  *
- * The flagship tier, because this is the step where the money is: a devis read
- * wrong is a wrong price in a contract, and the previous model returned a unit
- * price of 58 885 that is printed on no page of the document. Roughly twice
- * gpt-4o per devis — a few tenths of a dirham against a figure a chef plans a
- * chantier on. Still a setting, so a cheaper tier can be measured against the
- * same devis without a deploy.
+ * The cheap tier, on evidence rather than on principle. The flagship was the
+ * safe assumption — a devis read wrong is a wrong price in a contract — but
+ * measured against a ten-page scan whose page 1 was transcribed by hand, both
+ * tiers returned all twenty-four printed unit prices and neither invented one.
+ * Same answer, a fifth of the price: 1.3 dirhams a devis against 4.5.
+ *
+ * Measure again before trusting this on a document unlike that one. The reading
+ * is where the money is, and the only reason to be on the cheap tier is that it
+ * was shown to read as well, not that it is cheap.
  */
-const READ_MODEL = Deno.env.get('PARSE_QUOTE_MODEL') || 'gpt-5.6-sol';
+const READ_MODEL = Deno.env.get('PARSE_QUOTE_MODEL') || 'gpt-5.6-luna';
 /**
  * Turning wording that has already been read into a list of operations is the
  * easy half, and never touches a number, so it runs on the cheap tier.
