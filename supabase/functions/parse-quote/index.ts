@@ -198,6 +198,13 @@ const READ_CONCURRENCY = 4;
 
 /** Lines per steps request. Text only, so this is about the answer's size. */
 const STEPS_BATCH = 30;
+/** Steps batches at once. Text-only and on the cheap tier, so wider than the pages. */
+const STEPS_CONCURRENCY = 6;
+/**
+ * After this, a parse still marked running is taken to be dead. Longer than any
+ * honest read of a long scan, short enough that a chef is not stuck for an hour.
+ */
+const STALE_PARSE_MS = 15 * 60_000;
 
 /** Below this, a PDF's text layer is a stamp or a watermark, not a devis. */
 const MIN_TEXT_LAYER = 200;
@@ -240,13 +247,20 @@ Deno.serve(async (req) => {
 
   const { data: quote } = await admin
     .from('site_quotes')
-    .select('id, company_id, file_path, mime_type, status')
+    .select('id, company_id, file_path, mime_type, status, parsing_started_at')
     .eq('id', quoteId)
     .maybeSingle();
   if (!quote || quote.company_id !== profile.company_id) return json({ error: 'Quote not found' }, 404);
-  if (quote.status === 'parsing') return json({ ok: true, status: 'parsing' }, 200);
+  // A parse still plausibly running is protected; one older than this function
+  // can live is abandoned, and refusing to restart it would strand the devis.
+  if (quote.status === 'parsing') {
+    const since = quote.parsing_started_at ? Date.now() - Date.parse(quote.parsing_started_at) : Infinity;
+    if (since < STALE_PARSE_MS) return json({ ok: true, status: 'parsing' }, 200);
+  }
 
-  await admin.from('site_quotes').update({ status: 'parsing', parse_error: null }).eq('id', quote.id);
+  await admin.from('site_quotes')
+    .update({ status: 'parsing', parse_error: null, parse_warning: null, parsing_started_at: new Date().toISOString() })
+    .eq('id', quote.id);
 
   // Answer now; the parse continues on its own. The client watches the status.
   const work = parse(admin, openaiKey, quote);
@@ -257,7 +271,7 @@ Deno.serve(async (req) => {
   return json({ ok: true, status: 'parsing' }, 202);
 });
 
-type Quote = { id: string; company_id: string; file_path: string; mime_type: string };
+type Quote = { id: string; company_id: string; file_path: string; mime_type: string; parsing_started_at?: string | null };
 
 /** Supabase and OpenAI both reject with plain objects, which String() turns
  *  into "[object Object]" — the reason has to be dug out deliberately. */
@@ -675,70 +689,6 @@ async function parse(
       (storedLines ?? []).map((row: { id: string; position: number }) => [row.position, row.id])
     );
 
-    // The operations each line breaks down into, asked for separately.
-    //
-    // Not part of the extraction: a line already costs nine required fields,
-    // and adding two to five operations to each was enough to overflow the
-    // answer on four scanned pages. This pass sees only the wording that came
-    // out — no pages, no images — so it is cheap, its answer is small, and it
-    // can be rerun on a devis that was imported before operations existed.
-    const steps: { quote_line_id: string; company_id: string; position: number; label: string }[] = [];
-    const workLines = parsed.lines
-      .map((line, index) => ({ line, index }))
-      .filter(({ line, index }) => line.kind === 'work' && idByPosition.has(index));
-
-    for (let from = 0; from < workLines.length; from += STEPS_BATCH) {
-      const batch = workLines.slice(from, from + STEPS_BATCH);
-      try {
-        const response = await openai.chat.completions.create({
-          model: STEPS_MODEL,
-          max_completion_tokens: 8000,
-          response_format: {
-            type: 'json_schema',
-            json_schema: { name: 'etapes', strict: true, schema: STEPS_SCHEMA },
-          },
-          messages: [
-            { role: 'system', content: STEPS_SYSTEM },
-            {
-              role: 'user',
-              content: batch
-                .map(({ line, index }) => `${index}. ${String(line.label ?? '').slice(0, 300)}`)
-                .join('\n'),
-            },
-          ],
-        });
-        inputTokens += response.usage?.prompt_tokens ?? 0;
-        outputTokens += response.usage?.completion_tokens ?? 0;
-        const body = response.choices[0]?.message?.content;
-        if (response.choices[0]?.finish_reason === 'length' || !body) continue;
-        const proposed = (JSON.parse(body) as {
-          lines: { index: number; steps: string[] }[];
-        }).lines ?? [];
-
-        for (const entry of proposed) {
-          const lineId = idByPosition.get(entry.index);
-          if (!lineId) continue;
-          const labels = (Array.isArray(entry.steps) ? entry.steps : [])
-            .map((label) => String(label ?? '').trim().slice(0, 200))
-            .filter((label) => label.length > 0)
-            .slice(0, MAX_STEPS_PER_LINE);
-          // A line broken into one operation has not been broken down.
-          if (labels.length < 2) continue;
-          labels.forEach((label, position) => {
-            steps.push({ quote_line_id: lineId, company_id: quote.company_id, position, label });
-          });
-        }
-      } catch (failure) {
-        // A devis that parsed is worth keeping even if its operations did not.
-        console.error('[parse-quote] steps batch', describe(failure));
-      }
-    }
-    for (let i = 0; i < steps.length; i += 500) {
-      const { error } = await admin.from('quote_line_steps').insert(steps.slice(i, i + 500));
-      // A devis that parsed is worth keeping even if its operations did not.
-      if (error) { console.error('[parse-quote] steps', error.message); break; }
-    }
-
     // The devis states its own total; ours is the sum of what was read. A gap is
     // not proof of an error — a devis has sub-totals, options and lines that are
     // headings — but a large one means the reading is not to be trusted, and the
@@ -775,6 +725,8 @@ async function parse(
     const { error: candidateError } = await admin.rpc('record_quote_candidates', { quote: quote.id });
     if (candidateError) console.error('[parse-quote] candidates', candidateError.message);
 
+    const steps: { quote_line_id: string; company_id: string; position: number; label: string }[] = [];
+
     await admin
       .from('site_quotes')
       .update({
@@ -791,6 +743,90 @@ async function parse(
         parse_model: model,
       })
       .eq('id', quote.id);
+
+    // Everything above is what makes the devis usable, and it is now saved. The
+    // operations are a bonus on top: they take longer than the reading on a
+    // three-hundred-line devis, and if this function is killed working on them
+    // the chef still has his devis instead of a spinner and a lost quarter of an
+    // hour. generate-steps picks up where this leaves off.
+    // The operations each line breaks down into, asked for separately.
+    //
+    // Not part of the extraction: a line already costs nine required fields,
+    // and adding two to five operations to each was enough to overflow the
+    // answer on four scanned pages. This pass sees only the wording that came
+    // out — no pages, no images — so it is cheap, its answer is small, and it
+    // can be rerun on a devis that was imported before operations existed.
+    const workLines = parsed.lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line, index }) => line.kind === 'work' && idByPosition.has(index));
+
+    // Run the batches together. They do not depend on one another, and a devis
+    // of three hundred lines is a dozen of them: sequentially that was eleven
+    // minutes of a chef watching a spinner, almost all of it waiting.
+    const stepBatches = [];
+    for (let from = 0; from < workLines.length; from += STEPS_BATCH) {
+      stepBatches.push(workLines.slice(from, from + STEPS_BATCH));
+    }
+    const proposals = await pooled(
+      stepBatches.map((batch) => async () => {
+        try {
+          const response = await openai.chat.completions.create({
+            model: STEPS_MODEL,
+            max_completion_tokens: 8000,
+            response_format: {
+              type: 'json_schema',
+              json_schema: { name: 'etapes', strict: true, schema: STEPS_SCHEMA },
+            },
+            messages: [
+              { role: 'system', content: STEPS_SYSTEM },
+              {
+                role: 'user',
+                content: batch
+                  .map(({ line, index }) => `${index}. ${String(line.label ?? '').slice(0, 300)}`)
+                  .join('\n'),
+              },
+            ],
+          });
+          return { response, failed: false as const };
+        } catch (failure) {
+          // A devis that parsed is worth keeping even if its operations did not.
+          console.error('[parse-quote] steps batch', describe(failure));
+          return { response: null, failed: true as const };
+        }
+      }),
+      STEPS_CONCURRENCY
+    );
+
+    for (const { response } of proposals) {
+      if (!response) continue;
+      inputTokens += response.usage?.prompt_tokens ?? 0;
+      outputTokens += response.usage?.completion_tokens ?? 0;
+      const body = response.choices[0]?.message?.content;
+      if (response.choices[0]?.finish_reason === 'length' || !body) continue;
+      let proposed: { index: number; steps: string[] }[] = [];
+      try {
+        proposed = (JSON.parse(body) as { lines: { index: number; steps: string[] }[] }).lines ?? [];
+      } catch { continue; }
+
+      for (const entry of proposed) {
+        const lineId = idByPosition.get(entry.index);
+        if (!lineId) continue;
+        const labels = (Array.isArray(entry.steps) ? entry.steps : [])
+          .map((label) => String(label ?? '').trim().slice(0, 200))
+          .filter((label) => label.length > 0)
+          .slice(0, MAX_STEPS_PER_LINE);
+        // A line broken into one operation has not been broken down.
+        if (labels.length < 2) continue;
+        labels.forEach((label, position) => {
+          steps.push({ quote_line_id: lineId, company_id: quote.company_id, position, label });
+        });
+      }
+    }
+
+    for (let i = 0; i < steps.length; i += 500) {
+      const { error } = await admin.from('quote_line_steps').insert(steps.slice(i, i + 500));
+      if (error) { console.error('[parse-quote] steps', error.message); break; }
+    }
 
     console.log(
       `[parse-quote] ${quote.id}: ${rows.length} lines, ${steps.length} steps, ${milestones.length} milestones, total ${parsed.total_ht}` +
