@@ -105,19 +105,13 @@ const SCHEMA = {
           quantity: { type: ['number', 'null'] },
           unit_price: { type: ['number', 'null'] },
           amount_ht: { type: ['number', 'null'] },
-          steps: {
-            type: 'array',
-            description:
-              'Les opérations successives pour réaliser cette ligne, déclarables une par une. Tableau vide quand la ligne ne se décompose pas.',
-            items: { type: 'string' },
-          },
           task_code: {
             type: ['string', 'null'],
             description:
               'A code from the catalogue provided, when the line plainly matches one. Null when unsure — a wrong code is worse than none, because it makes a false progress figure.',
           },
         },
-        required: ['lot', 'label', 'kind', 'source_unit', 'unit', 'quantity', 'unit_price', 'amount_ht', 'steps', 'task_code'],
+        required: ['lot', 'label', 'kind', 'source_unit', 'unit', 'quantity', 'unit_price', 'amount_ht', 'task_code'],
         additionalProperties: false,
       },
     },
@@ -136,22 +130,49 @@ Règles:
 - Reporte les quantités et les prix tels quels. N'arrondis pas, ne recalcule pas, ne corrige pas une incohérence: elle appartient au document.
 - task_code: uniquement si la correspondance est évidente. Dans le doute, null.
 - Les en-têtes et pieds de page répétés (adresse, RC, ICE, pagination) ne sont pas des lignes.
-- Les conditions de paiement (acompte, à la livraison, à la fin des travaux, retenue de garantie) vont dans "milestones", jamais dans les lignes, et gardent leur formulation d'origine.
+- Les conditions de paiement (acompte, à la livraison, à la fin des travaux, retenue de garantie) vont dans "milestones", jamais dans les lignes, et gardent leur formulation d'origine.`;
 
-"steps": les opérations successives qu'un ouvrier exécute pour réaliser la ligne, et qu'il peut déclarer faites une par une.
+const STEPS_SYSTEM = `Tu prépares le travail sur chantier (plomberie, CVC, électricité) à partir des lignes d'un devis déjà lu.
+
+Pour chaque ligne qu'on te donne, liste les opérations successives qu'un ouvrier exécute pour la réaliser, et qu'il peut déclarer faites une par une.
+
 - Une étape est une opération, pas une mesure: pas de quantité, pas de pourcentage, pas de "50% posé".
 - Une étape doit être vérifiable sur place en regardant l'installation.
 - Formule à l'infinitif, courte, sans numérotation: "Poser les plots anti-vibrations", "Raccorder puissance, commande et terre".
-- Deux à cinq étapes quand la ligne en mérite. JAMAIS d'étapes pour:
-  - un "heading" ou un "discount";
+- Deux à cinq étapes quand la ligne en mérite. Tableau VIDE pour:
   - une fourniture seule, un matériel livré non posé, une location;
   - une ligne qui est déjà une seule opération ("Pose d'un WC", "Percement de dalle");
   - un forfait global qui couvre un lot entier sans décrire d'ouvrage;
   - une ligne dont le libellé ne dit pas assez pour savoir ce qu'on y fait.
 - N'invente rien que le libellé n'implique pas. Dans le doute, tableau vide.
-- Exemple. "Groupe moteur + alternateur 315 kVA insonorisé, posé en toiture" →
-  ["Poser les plots anti-vibrations", "Mettre le groupe en place sur la dalle", "Raccorder puissance, commande et terre", "Essai de démarrage en charge"].
-  "Fourniture de 12 ml de gaine spirale Ø125" → [].`;
+- Rends une entrée par ligne reçue, avec son index, et rien d'autre.
+
+Exemples.
+"Groupe moteur + alternateur 315 kVA insonorisé, posé en toiture" → ["Poser les plots anti-vibrations", "Mettre le groupe en place sur la dalle", "Raccorder puissance, commande et terre", "Essai de démarrage en charge"]
+"Fourniture de 12 ml de gaine spirale Ø125" → []`;
+
+const STEPS_SCHEMA = {
+  type: 'object',
+  properties: {
+    lines: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          index: { type: 'integer', description: "L'index de la ligne, tel qu'il a été donné." },
+          steps: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['index', 'steps'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['lines'],
+  additionalProperties: false,
+} as const;
+
+/** Lines per steps request. Text only, so this is about the answer's size. */
+const STEPS_BATCH = 30;
 
 /** Below this, a PDF's text layer is a stamp or a watermark, not a devis. */
 const MIN_TEXT_LAYER = 200;
@@ -163,9 +184,9 @@ const MAX_SCAN_BYTES = 20_000_000;
  * Pages per request. Each line of a devis costs nine required JSON fields, and
  * gpt-4o will not emit more than about 16k tokens however high max_tokens is
  * set, so a long scan has to be read in instalments. Four pages of a dense
- * devis fit with room to spare.
+ * devis turned out to overflow in practice, so this is three.
  */
-const SCAN_CHUNK_PAGES = 4;
+const SCAN_CHUNK_PAGES = 3;
 /** More than this is a method statement, not a line of a devis. */
 const MAX_STEPS_PER_LINE = 6;
 
@@ -510,25 +531,65 @@ async function parse(
       (storedLines ?? []).map((row: { id: string; position: number }) => [row.position, row.id])
     );
 
-    // The operations a line breaks down into. The model is told to leave the
-    // list empty wherever a line does not decompose; this trims what still
-    // comes back wrong rather than trusting it.
-    const steps = parsed.lines.flatMap((line, index) => {
-      const lineId = idByPosition.get(index);
-      if (!lineId || line.kind !== 'work') return [];
-      const labels = (Array.isArray(line.steps) ? line.steps : [])
-        .map((label: unknown) => String(label ?? '').trim().slice(0, 200))
-        .filter((label: string) => label.length > 0)
-        .slice(0, MAX_STEPS_PER_LINE);
-      // A line broken into one operation has not been broken down.
-      if (labels.length < 2) return [];
-      return labels.map((label: string, position: number) => ({
-        quote_line_id: lineId,
-        company_id: quote.company_id,
-        position,
-        label,
-      }));
-    });
+    // The operations each line breaks down into, asked for separately.
+    //
+    // Not part of the extraction: a line already costs nine required fields,
+    // and adding two to five operations to each was enough to overflow the
+    // answer on four scanned pages. This pass sees only the wording that came
+    // out — no pages, no images — so it is cheap, its answer is small, and it
+    // can be rerun on a devis that was imported before operations existed.
+    const steps: { quote_line_id: string; company_id: string; position: number; label: string }[] = [];
+    const workLines = parsed.lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line, index }) => line.kind === 'work' && idByPosition.has(index));
+
+    for (let from = 0; from < workLines.length; from += STEPS_BATCH) {
+      const batch = workLines.slice(from, from + STEPS_BATCH);
+      try {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          max_tokens: 8000,
+          temperature: 0,
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: 'etapes', strict: true, schema: STEPS_SCHEMA },
+          },
+          messages: [
+            { role: 'system', content: STEPS_SYSTEM },
+            {
+              role: 'user',
+              content: batch
+                .map(({ line, index }) => `${index}. ${String(line.label ?? '').slice(0, 300)}`)
+                .join('\n'),
+            },
+          ],
+        });
+        inputTokens += response.usage?.prompt_tokens ?? 0;
+        outputTokens += response.usage?.completion_tokens ?? 0;
+        const body = response.choices[0]?.message?.content;
+        if (response.choices[0]?.finish_reason === 'length' || !body) continue;
+        const proposed = (JSON.parse(body) as {
+          lines: { index: number; steps: string[] }[];
+        }).lines ?? [];
+
+        for (const entry of proposed) {
+          const lineId = idByPosition.get(entry.index);
+          if (!lineId) continue;
+          const labels = (Array.isArray(entry.steps) ? entry.steps : [])
+            .map((label) => String(label ?? '').trim().slice(0, 200))
+            .filter((label) => label.length > 0)
+            .slice(0, MAX_STEPS_PER_LINE);
+          // A line broken into one operation has not been broken down.
+          if (labels.length < 2) continue;
+          labels.forEach((label, position) => {
+            steps.push({ quote_line_id: lineId, company_id: quote.company_id, position, label });
+          });
+        }
+      } catch (failure) {
+        // A devis that parsed is worth keeping even if its operations did not.
+        console.error('[parse-quote] steps batch', describe(failure));
+      }
+    }
     for (let i = 0; i < steps.length; i += 500) {
       const { error } = await admin.from('quote_line_steps').insert(steps.slice(i, i + 500));
       // A devis that parsed is worth keeping even if its operations did not.
