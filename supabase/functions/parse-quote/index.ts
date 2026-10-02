@@ -176,6 +176,15 @@ const STEPS_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+/**
+ * The model that reads the pages. Configurable so a scanned devis can be tried
+ * against a newer model without a deploy: reading a dense printed table is the
+ * step where model choice actually shows, and the default here is years old.
+ */
+const READ_MODEL = Deno.env.get('PARSE_QUOTE_MODEL') || 'gpt-4o';
+/** Structuring already-extracted wording is easy; it does not need the big model. */
+const STEPS_MODEL = Deno.env.get('PARSE_STEPS_MODEL') || READ_MODEL;
+
 /** Pages read at once. Wide enough to be quick, narrow enough not to trip a rate limit. */
 const READ_CONCURRENCY = 4;
 
@@ -465,9 +474,8 @@ async function parse(
     const answers = await pooled(
       batches.map((batch) => async () => {
         const response = await openai.chat.completions.create({
-          model: 'gpt-4o',
-          max_tokens: 16000,
-          temperature: 0,
+          model: READ_MODEL,
+          max_completion_tokens: 16000,
           response_format: {
             type: 'json_schema',
             json_schema: { name: 'devis', strict: true, schema: SCHEMA },
@@ -531,9 +539,8 @@ async function parse(
             .map((line) => String(line.label ?? ''))
             .filter(Boolean);
           const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
-            max_tokens: 16000,
-            temperature: 0,
+            model: READ_MODEL,
+            max_completion_tokens: 16000,
             response_format: {
               type: 'json_schema',
               json_schema: { name: 'devis', strict: true, schema: SCHEMA },
@@ -581,9 +588,26 @@ async function parse(
     // told to say so rather than guess. The lot carries over here, which is
     // the one thing reading page by page genuinely loses.
     let currentLot: string | null = null;
+    // Each page writes the lot title in its own hand — "LOT N° 10 : COURANT
+    // FORT", "Lot N° 10 : Courant Fort" — and four spellings of one lot is four
+    // lots on the chef's screen. The first spelling seen wins, matched on the
+    // letters alone.
+    const lotSpellings = new Map<string, string>();
+    const fold = (value: string) =>
+      value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '');
     for (const line of parsed.lines) {
-      if (typeof line.lot === 'string' && line.lot.trim()) currentLot = line.lot.trim();
-      else if (currentLot) line.lot = currentLot;
+      if (typeof line.lot === 'string' && line.lot.trim()) {
+        const printed = line.lot.trim();
+        const key = fold(printed);
+        if (key) {
+          if (!lotSpellings.has(key)) lotSpellings.set(key, printed);
+          currentLot = lotSpellings.get(key)!;
+        }
+        line.lot = currentLot;
+      } else if (currentLot) {
+        line.lot = currentLot;
+      }
     }
 
     // Replaces any earlier attempt rather than accumulating duplicates.
@@ -659,9 +683,8 @@ async function parse(
       const batch = workLines.slice(from, from + STEPS_BATCH);
       try {
         const response = await openai.chat.completions.create({
-          model: 'gpt-4o',
-          max_tokens: 8000,
-          temperature: 0,
+          model: STEPS_MODEL,
+          max_completion_tokens: 8000,
           response_format: {
             type: 'json_schema',
             json_schema: { name: 'etapes', strict: true, schema: STEPS_SCHEMA },
@@ -706,6 +729,22 @@ async function parse(
       const { error } = await admin.from('quote_line_steps').insert(steps.slice(i, i + 500));
       // A devis that parsed is worth keeping even if its operations did not.
       if (error) { console.error('[parse-quote] steps', error.message); break; }
+    }
+
+    // The devis states its own total; ours is the sum of what was read. A gap is
+    // not proof of an error — a devis has sub-totals, options and lines that are
+    // headings — but a large one means the reading is not to be trusted, and the
+    // chef should be told before he plans a chantier on it.
+    const readTotal = rows
+      .filter((row) => row.kind === 'work')
+      .reduce((sum, row) => sum + (Number(row.amount_ht) || 0), 0);
+    if (parsed.total_ht && readTotal > 0) {
+      const ratio = readTotal / parsed.total_ht;
+      if (ratio > 1.15 || ratio < 0.85) {
+        warnings.push(
+          `somme des lignes ${Math.round(readTotal).toLocaleString('fr-FR')} contre un total imprimé de ${Math.round(parsed.total_ht).toLocaleString('fr-FR')}`
+        );
+      }
     }
 
     await admin.from('quote_milestones').delete().eq('quote_id', quote.id);
