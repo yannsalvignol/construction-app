@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -270,153 +270,156 @@ export default function QuoteReviewScreen() {
         )}
 
         {(quote.status === 'parsed' || quote.status === 'validated') && (
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <ThemedText type="small" themeColor="textSecondary">{t.quoteReview.subtitle}</ThemedText>
-
-            {/* The devis parsed, but a page returned fewer lines than it
-                counted. Named here so the chef knows which page to check
-                rather than noticing a missing line on site. */}
-            {!!quote.parse_warning && (
-              <ThemedText type="small" style={{ color: theme.warning }}>
-                {quote.parse_warning}
-              </ThemedText>
-            )}
-
-            {/* The devis states its own total; ours is the sum of what was
-                read. When they disagree, something was missed. */}
-            <View style={[styles.card, cardShadow(theme.isDark), { backgroundColor: theme.backgroundElement }]}>
-              <View style={styles.row}>
-                <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-                  {t.quoteReview.totalRead}
-                </ThemedText>
-                <ThemedText type="smallBold">{money(readTotal, quote.currency)}</ThemedText>
-              </View>
-              {quote.total_ht != null && (
-                <View style={styles.row}>
-                  <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-                    {t.quoteReview.totalQuoted}
-                  </ThemedText>
-                  <ThemedText type="smallBold">{money(Number(quote.total_ht), quote.currency)}</ThemedText>
-                </View>
-              )}
-              <ThemedText type="small" style={{ color: totalsAgree ? theme.success : theme.warning }}>
-                {totalsAgree ? t.quoteReview.totalsMatch : t.quoteReview.totalsDiffer}
-              </ThemedText>
-            </View>
-
-            {milestones.length > 0 && (
-              <View style={[styles.card, cardShadow(theme.isDark), { backgroundColor: theme.backgroundElement }]}>
-                <ThemedText type="smallBold">{t.quoteReview.milestones}</ThemedText>
-                {milestones.map((milestone) => (
-                  <Pressable
-                    key={milestone.id}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: !!milestone.validated_at }}
-                    onPress={() => { void toggleMilestone(milestone); }}
-                    style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                    <Ionicons
-                      name={milestone.validated_at ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={20}
-                      color={milestone.validated_at ? theme.success : theme.textPlaceholder}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <ThemedText type="small">{milestone.label}</ThemedText>
-                      {milestone.is_retention && (
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {t.quoteReview.milestoneRetention}
-                        </ThemedText>
-                      )}
-                    </View>
-                    {quote.total_ht != null && milestone.percent != null && (
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {money((Number(quote.total_ht) * Number(milestone.percent)) / 100, quote.currency)}
-                      </ThemedText>
-                    )}
-                  </Pressable>
-                ))}
-              </View>
-            )}
-
-            {/* Both views are built once, when the devis opens, and the switch
-                only changes which is on screen. Rebuilding three hundred rows
-                on every press is what made it lag, and no amount of deferring
-                makes that work cheap — not doing it does. The cost moves to
-                the opening, where there is already a spinner.
-
-                In list view the rows butt against one another so each hairline
-                reads as the line between two rows; the page's eight-point gap
-                would leave it floating under one of them. Cards keep the gap,
-                which is what makes them read as separate objects. */}
-            {([false, true] as const).map((asList) => (
-              <View
-                key={String(asList)}
-                // display:none, not unmounting: the hidden tree keeps its place
-                // and its state, and costs nothing to lay out.
-                style={[asList ? styles.denseList : styles.cardList, dense !== asList && styles.hidden]}>
-                {lines.map((line) =>
-                  line.kind === 'work' ? (
-                    <SwipeToDelete
-                      key={line.id}
-                      label={t.quoteReview.deleteLine}
-                      radius={Spacing.three}
-                      onDelete={() => { void removeLine(line); }}>
-                      <LineRow
-                        line={line}
-                        currency={quote.currency}
-                        dense={asList}
-                        onPickCode={() => setPicking(line)}
-                        onQuantity={(value) => { void setQuantity(line, value); }}
-                        onLabel={(value) => { void setLabel(line, value); }}
-                      />
-                    </SwipeToDelete>
-                  ) : (
+          <FlatList
+            data={lines}
+            keyExtractor={(line) => line.id}
+            // Only the rows on screen are mounted, so three hundred lines cost
+            // what a dozen cost. Both the opening and the view switch were slow
+            // for the same reason — every row was real — and no amount of
+            // caching or deferring fixes work that should not happen.
+            extraData={dense}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            removeClippedSubviews
+            initialNumToRender={12}
+            maxToRenderPerBatch={12}
+            windowSize={7}
+            renderItem={({ item: line }) => (
+              <View style={dense ? undefined : styles.cardSpacing}>
+                {line.kind === 'work' ? (
+                  <SwipeToDelete
+                    label={t.quoteReview.deleteLine}
+                    radius={Spacing.three}
+                    onDelete={() => { void removeLine(line); }}>
                     <LineRow
-                      key={line.id}
                       line={line}
                       currency={quote.currency}
-                      dense={asList}
+                      dense={dense}
                       onPickCode={() => setPicking(line)}
                       onQuantity={(value) => { void setQuantity(line, value); }}
                       onLabel={(value) => { void setLabel(line, value); }}
                     />
-                  )
+                  </SwipeToDelete>
+                ) : (
+                  <LineRow
+                    line={line}
+                    currency={quote.currency}
+                    dense={dense}
+                    onPickCode={() => setPicking(line)}
+                    onQuantity={(value) => { void setQuantity(line, value); }}
+                    onLabel={(value) => { void setLabel(line, value); }}
+                  />
                 )}
               </View>
-            ))}
+            )}
+            ListHeaderComponent={
+              <View style={styles.band}>
+              <ThemedText type="small" themeColor="textSecondary">{t.quoteReview.subtitle}</ThemedText>
 
-            <ThemedText type="small" themeColor="textSecondary">{t.quoteReview.swipeHint}</ThemedText>
+              {/* The devis parsed, but a page returned fewer lines than it
+                  counted. Named here so the chef knows which page to check
+                  rather than noticing a missing line on site. */}
+              {!!quote.parse_warning && (
+                <ThemedText type="small" style={{ color: theme.warning }}>
+                  {quote.parse_warning}
+                </ThemedText>
+              )}
 
-            {/* A devis the parser read short is the case this screen exists
-                for; adding the missing line has to be possible here. */}
-            <Pressable
-              onPress={() => { void addLine(); }}
-              style={({ pressed }) => [
-                styles.addLine,
-                { borderColor: theme.accent },
-                pressed && styles.pressed,
-              ]}>
-              <Ionicons name="add" size={18} color={theme.accentText} />
-              <ThemedText type="smallBold" themeColor="accentText">{t.quoteReview.addLine}</ThemedText>
-            </Pressable>
+              {/* The devis states its own total; ours is the sum of what was
+                  read. When they disagree, something was missed. */}
+              <View style={[styles.card, cardShadow(theme.isDark), { backgroundColor: theme.backgroundElement }]}>
+                <View style={styles.row}>
+                  <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+                    {t.quoteReview.totalRead}
+                  </ThemedText>
+                  <ThemedText type="smallBold">{money(readTotal, quote.currency)}</ThemedText>
+                </View>
+                {quote.total_ht != null && (
+                  <View style={styles.row}>
+                    <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+                      {t.quoteReview.totalQuoted}
+                    </ThemedText>
+                    <ThemedText type="smallBold">{money(Number(quote.total_ht), quote.currency)}</ThemedText>
+                  </View>
+                )}
+                <ThemedText type="small" style={{ color: totalsAgree ? theme.success : theme.warning }}>
+                  {totalsAgree ? t.quoteReview.totalsMatch : t.quoteReview.totalsDiffer}
+                </ThemedText>
+              </View>
 
-            {!!error && <ThemedText type="small" style={{ color: theme.danger }}>{error}</ThemedText>}
+              {milestones.length > 0 && (
+                <View style={[styles.card, cardShadow(theme.isDark), { backgroundColor: theme.backgroundElement }]}>
+                  <ThemedText type="smallBold">{t.quoteReview.milestones}</ThemedText>
+                  {milestones.map((milestone) => (
+                    <Pressable
+                      key={milestone.id}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: !!milestone.validated_at }}
+                      onPress={() => { void toggleMilestone(milestone); }}
+                      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                      <Ionicons
+                        name={milestone.validated_at ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={20}
+                        color={milestone.validated_at ? theme.success : theme.textPlaceholder}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <ThemedText type="small">{milestone.label}</ThemedText>
+                        {milestone.is_retention && (
+                          <ThemedText type="small" themeColor="textSecondary">
+                            {t.quoteReview.milestoneRetention}
+                          </ThemedText>
+                        )}
+                      </View>
+                      {quote.total_ht != null && milestone.percent != null && (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {money((Number(quote.total_ht) * Number(milestone.percent)) / 100, quote.currency)}
+                        </ThemedText>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              </View>
+            }
+            ListFooterComponent={
+              <View style={styles.band}>
 
-            <Pressable
-              disabled={saving}
-              onPress={() => { void validate(); }}
-              style={({ pressed }) => [
-                styles.primary,
-                { backgroundColor: theme.accent, opacity: pressed || saving ? 0.7 : 1 },
-              ]}>
-              <ThemedText style={{ color: theme.buttonText }}>
-                {saving
-                  ? t.quoteReview.validating
-                  : quote.status === 'validated'
-                    ? t.quoteReview.validated
-                    : t.quoteReview.validate}
-              </ThemedText>
-            </Pressable>
-          </ScrollView>
+              <ThemedText type="small" themeColor="textSecondary">{t.quoteReview.swipeHint}</ThemedText>
+
+              {/* A devis the parser read short is the case this screen exists
+                  for; adding the missing line has to be possible here. */}
+              <Pressable
+                onPress={() => { void addLine(); }}
+                style={({ pressed }) => [
+                  styles.addLine,
+                  { borderColor: theme.accent },
+                  pressed && styles.pressed,
+                ]}>
+                <Ionicons name="add" size={18} color={theme.accentText} />
+                <ThemedText type="smallBold" themeColor="accentText">{t.quoteReview.addLine}</ThemedText>
+              </Pressable>
+
+              {!!error && <ThemedText type="small" style={{ color: theme.danger }}>{error}</ThemedText>}
+
+              <Pressable
+                disabled={saving}
+                onPress={() => { void validate(); }}
+                style={({ pressed }) => [
+                  styles.primary,
+                  { backgroundColor: theme.accent, opacity: pressed || saving ? 0.7 : 1 },
+                ]}>
+                <ThemedText style={{ color: theme.buttonText }}>
+                  {saving
+                    ? t.quoteReview.validating
+                    : quote.status === 'validated'
+                      ? t.quoteReview.validated
+                      : t.quoteReview.validate}
+                </ThemedText>
+              </Pressable>
+              </View>
+            }
+          />
+
         )}
       </SafeAreaView>
 
@@ -674,11 +677,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
   },
-  content: { padding: Spacing.four, gap: Spacing.two, paddingBottom: Spacing.six },
+  content: { padding: Spacing.four, paddingBottom: Spacing.six },
+  /** Header and footer keep the page's rhythm; the rows no longer inherit it. */
+  band: { gap: Spacing.two, paddingBottom: Spacing.two },
+  cardSpacing: { marginBottom: Spacing.two },
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
-  cardList: { gap: Spacing.two },
-  denseList: { gap: 0 },
-  hidden: { display: 'none' },
   aside: { paddingTop: Spacing.three, paddingHorizontal: Spacing.one, gap: 2 },
   asideDense: { paddingTop: Spacing.two, paddingHorizontal: Spacing.one },
   denseRow: {
