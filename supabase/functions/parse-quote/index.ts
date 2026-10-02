@@ -171,6 +171,9 @@ const STEPS_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+/** Pages read at once. Wide enough to be quick, narrow enough not to trip a rate limit. */
+const READ_CONCURRENCY = 4;
+
 /** Lines per steps request. Text only, so this is about the answer's size. */
 const STEPS_BATCH = 30;
 
@@ -180,13 +183,6 @@ const MIN_TEXT_LAYER = 200;
 const MAX_SCAN_PAGES = 40;
 /** Raw bytes before base64, which adds a third again on the way out. */
 const MAX_SCAN_BYTES = 20_000_000;
-/**
- * Pages per request. Each line of a devis costs nine required JSON fields, and
- * gpt-4o will not emit more than about 16k tokens however high max_tokens is
- * set, so a long scan has to be read in instalments. Four pages of a dense
- * devis turned out to overflow in practice, so this is three.
- */
-const SCAN_CHUNK_PAGES = 3;
 /** More than this is a method statement, not a line of a devis. */
 const MAX_STEPS_PER_LINE = 6;
 
@@ -271,16 +267,35 @@ function toBase64(bytes: Uint8Array) {
  * exactly what those pages would have cost in one go — the instalments are about
  * the size of the answer, not the size of the bill.
  */
-async function slicePdf(raw: Uint8Array, first: number, last: number) {
+async function singlePages(raw: Uint8Array) {
   // Scanners commonly set an owner password with no user password; the pages are
   // readable and refusing them over that would be pedantic.
   const source = await PDFDocument.load(raw, { ignoreEncryption: true });
-  const out = await PDFDocument.create();
-  const indices = [];
-  for (let i = first; i < last && i < source.getPageCount(); i++) indices.push(i);
-  const copied = await out.copyPages(source, indices);
-  for (const page of copied) out.addPage(page);
-  return toBase64(new Uint8Array(await out.save()));
+  const out: string[] = [];
+  // Parsed once: slicing ten pages must not re-read a ten-megabyte file ten times.
+  for (let i = 0; i < source.getPageCount(); i++) {
+    const single = await PDFDocument.create();
+    const [page] = await single.copyPages(source, [i]);
+    single.addPage(page);
+    out.push(toBase64(new Uint8Array(await single.save())));
+  }
+  return out;
+}
+
+/** Runs the tasks a few at a time, keeping their results in order. */
+async function pooled<T>(tasks: (() => Promise<T>)[], width: number): Promise<T[]> {
+  const results = new Array<T>(tasks.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(width, tasks.length) }, async () => {
+      while (true) {
+        const index = next++;
+        if (index >= tasks.length) return;
+        results[index] = await tasks[index]();
+      }
+    })
+  );
+  return results;
 }
 
 async function parse(
@@ -399,29 +414,29 @@ async function parse(
     }
 
     for (const scan of scans) {
-      for (let first = 0; first < scan.pages; first += SCAN_CHUNK_PAGES) {
-        const last = Math.min(first + SCAN_CHUNK_PAGES, scan.pages);
-        const slice = scan.pages <= SCAN_CHUNK_PAGES
-          ? scan.base64
-          : await slicePdf(scan.raw, first, last);
+      // One page per request. A single page's answer cannot outgrow the
+      // ceiling, so length stops being a failure mode however long the devis.
+      const pages = scan.pages === 1 ? [scan.base64] : await singlePages(scan.raw);
+      pages.forEach((page, index) => {
         batches.push({
-          label: `pages ${first + 1}-${last}`,
+          label: `page ${index + 1}`,
           parts: [
             {
               type: 'text',
               text:
                 `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
-                `Extrait d'un devis scanné : pages ${first + 1} à ${last} sur ${scan.pages}. ` +
-                `Relève toutes les lignes de ces pages, dans l'ordre, et rien d'autre. ` +
-                `Ne reporte le total HT et les conditions de paiement que s'ils sont imprimés sur ces pages.`,
+                `Page ${index + 1} sur ${pages.length} d'un devis scanné. ` +
+                `Relève toutes les lignes de CETTE page, dans l'ordre, et rien d'autre. ` +
+                `Si une ligne appartient à un LOT dont le titre n'est pas imprimé sur cette page, laisse "lot" à null. ` +
+                `Ne reporte le total HT et les conditions de paiement que s'ils sont imprimés sur cette page.`,
             },
             {
               type: 'file',
-              file: { filename: scan.filename, file_data: `data:application/pdf;base64,${slice}` },
+              file: { filename: scan.filename, file_data: `data:application/pdf;base64,${page}` },
             },
           ],
         });
-      }
+      });
     }
 
     type Parsed = {
@@ -436,26 +451,38 @@ async function parse(
     let inputTokens = 0;
     let outputTokens = 0;
 
-    for (const batch of batches) {
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        // The devis runs to a hundred lines; the default ceiling truncates it.
-        max_tokens: 16000,
-        temperature: 0,
-        response_format: {
-          type: 'json_schema',
-          json_schema: { name: 'devis', strict: true, schema: SCHEMA },
-        },
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content: batch.parts as never },
-        ],
-      });
+    // Run a few at a time: the pages do not depend on one another, and ten
+    // sequential requests would make a ten-page devis take ten times as long.
+    // Capped rather than unbounded, because a wide fan-out of vision requests
+    // is what trips a rate limit.
+    const answers = await pooled(
+      batches.map((batch) => async () => {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          max_tokens: 16000,
+          temperature: 0,
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: 'devis', strict: true, schema: SCHEMA },
+          },
+          messages: [
+            { role: 'system', content: SYSTEM },
+            { role: 'user', content: batch.parts as never },
+          ],
+        });
+        return { batch, response };
+      }),
+      READ_CONCURRENCY
+    );
+
+    // Merged in page order, in code. A model asked to merge would have to
+    // re-emit every line to do it, which is the ceiling we just escaped, and
+    // would be able to drop or reword lines on the way through.
+    for (const { batch, response } of answers) {
       model = response.model ?? model;
       inputTokens += response.usage?.prompt_tokens ?? 0;
       outputTokens += response.usage?.completion_tokens ?? 0;
       if (response.choices[0]?.finish_reason === 'length') {
-        // Naming the pages turns "too long" into something the chef can act on.
         throw new Error(
           `Trop de lignes à lire d'un coup (${batch.label}). Importez le devis en plusieurs fois.`
         );
@@ -465,13 +492,22 @@ async function parse(
       const part = JSON.parse(body) as Parsed;
 
       parsed.lines.push(...(part.lines ?? []));
-      // The grand total is printed at the end, so a later batch wins; a page of
+      // The grand total is printed at the end, so a later page wins; a page of
       // sub-totals earlier in the devis must not overwrite it.
       if (typeof part.total_ht === 'number') parsed.total_ht = part.total_ht;
       if (!parsed.currency && part.currency) parsed.currency = part.currency;
       // Payment conditions are printed once. Keep the last page that states any
       // rather than concatenating the same schedule repeated per page.
       if (part.milestones?.length) parsed.milestones = part.milestones;
+    }
+
+    // A page that starts in the middle of a LOT cannot see its title, and was
+    // told to say so rather than guess. The lot carries over here, which is
+    // the one thing reading page by page genuinely loses.
+    let currentLot: string | null = null;
+    for (const line of parsed.lines) {
+      if (typeof line.lot === 'string' && line.lot.trim()) currentLot = line.lot.trim();
+      else if (currentLot) line.lot = currentLot;
     }
 
     // Replaces any earlier attempt rather than accumulating duplicates.
