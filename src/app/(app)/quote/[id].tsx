@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -83,6 +83,11 @@ export default function QuoteReviewScreen() {
   // A hundred lines is a lot of scrolling in card form; the compact view is
   // for reading the devis against the paper, the cards for correcting it.
   const [dense, setDense] = useState(false);
+  // The toggle answers on the frame it was pressed; redrawing three hundred rows
+  // is the slow part and does not have to happen in the same one. React keeps
+  // the old list on screen until the new one is ready, which is the lag gone
+  // rather than the lag hidden.
+  const denseList = useDeferredValue(dense);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -337,6 +342,11 @@ export default function QuoteReviewScreen() {
               </View>
             )}
 
+            {/* In list view the rows butt against one another so each hairline
+                reads as the line between two rows; the page's eight-point gap
+                would leave it floating under one of them. Cards keep the gap,
+                which is what makes them read as separate objects. */}
+            <View style={denseList ? styles.denseList : styles.cardList}>
             {lines.map((line) =>
               line.kind === 'work' ? (
                 <SwipeToDelete
@@ -347,7 +357,7 @@ export default function QuoteReviewScreen() {
                   <LineRow
                     line={line}
                     currency={quote.currency}
-                    dense={dense}
+                    dense={denseList}
                     onPickCode={() => setPicking(line)}
                     onQuantity={(value) => { void setQuantity(line, value); }}
                     onLabel={(value) => { void setLabel(line, value); }}
@@ -358,13 +368,15 @@ export default function QuoteReviewScreen() {
                   key={line.id}
                   line={line}
                   currency={quote.currency}
-                  dense={dense}
+                  dense={denseList}
                   onPickCode={() => setPicking(line)}
                   onQuantity={(value) => { void setQuantity(line, value); }}
                   onLabel={(value) => { void setLabel(line, value); }}
                 />
               )
             )}
+
+            </View>
 
             <ThemedText type="small" themeColor="textSecondary">{t.quoteReview.swipeHint}</ThemedText>
 
@@ -558,7 +570,7 @@ function LineRow({
         onPress={() => setEditing(true)}
         style={({ pressed }) => [
           styles.denseRow,
-          { borderBottomColor: theme.backgroundSelected },
+          { borderBottomColor: theme.separator },
           pressed && styles.pressed,
         ]}>
         <ThemedText type="small" numberOfLines={1} style={{ flex: 1 }}>{line.label}</ThemedText>
@@ -658,6 +670,8 @@ const styles = StyleSheet.create({
   },
   content: { padding: Spacing.four, gap: Spacing.two, paddingBottom: Spacing.six },
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  cardList: { gap: Spacing.two },
+  denseList: { gap: 0 },
   aside: { paddingTop: Spacing.three, paddingHorizontal: Spacing.one, gap: 2 },
   asideDense: { paddingTop: Spacing.two, paddingHorizontal: Spacing.one },
   denseRow: {

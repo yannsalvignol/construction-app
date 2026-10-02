@@ -15,6 +15,9 @@ export const Colors = {
     /** Text fields: a shade under the page, so a form reads as recessed. */
     backgroundInput: '#F3F0FA',
     backgroundSelected: '#E3DDED',
+    /** Hairlines between rows. Darker than the page, where backgroundSelected
+     * is lighter than it and therefore invisible on anything but a card. */
+    separator: '#B9B2C6',
     textSecondary: '#655A75',
     /** Placeholders only: a step past textSecondary, since the field's own
      * tone already separates it from the page. */
@@ -35,6 +38,9 @@ export const Colors = {
     /** Text fields: a shade under the page, so a form reads as recessed. */
     backgroundInput: '#1B1626',
     backgroundSelected: '#44364F',
+    /** Hairlines between rows. Darker than the page, where backgroundSelected
+     * is lighter than it and therefore invisible on anything but a card. */
+    separator: '#4A3F58',
     textSecondary: '#C0B3CE',
     /** Placeholders only: a step past textSecondary, since the field's own
      * tone already separates it from the page. */
