@@ -191,7 +191,26 @@ const PLANNING_ROWS = [
 // ---------------------------------------------------------------------------
 const ascii = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 const PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+/**
+ * One password for the whole demo company, when asked for.
+ *
+ * Generated passwords are right for a demo you drive yourself, and wrong for
+ * one somebody else is told to log into: an App Store reviewer typing a
+ * machine-generated string is a reviewer who may mistype it and conclude the
+ * app is broken. Pass --password=... (or DEMO_PASSWORD) to set a single
+ * password for the chef and every worker; without it, each account keeps its
+ * own generated one.
+ */
+const FIXED_PASSWORD = (() => {
+  const flag = process.argv.find((a) => a.startsWith('--password='));
+  const value = flag ? flag.slice('--password='.length) : process.env.DEMO_PASSWORD;
+  if (!value) return null;
+  // Thrown rather than passed to fail(), which is not defined this early.
+  if (value.length < 8) throw new Error('--password must be at least 8 characters');
+  return value;
+})();
 function password(length = 8) {
+  if (FIXED_PASSWORD) return FIXED_PASSWORD;
   const bytes = randomBytes(length);
   return Array.from(bytes, (b) => PASSWORD_ALPHABET[b % PASSWORD_ALPHABET.length]).join('');
 }
@@ -330,5 +349,6 @@ console.log(`✔ ${shifts.length} planned shifts (S37, ${S37.from} → ${addDays
 console.log('\n=== Chef login ===');
 console.log(`email:    ${CHEF.email}`);
 console.log(`password: ${chefPassword}`);
+if (FIXED_PASSWORD) console.log('(the same password was set for every worker)');
 console.log(`join code: ${company.join_code}`);
 console.log('\nEmployee usernames/passwords are visible to the chef in the app (Employés).');
