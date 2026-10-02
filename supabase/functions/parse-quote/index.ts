@@ -196,13 +196,13 @@ const STEPS_MODEL = Deno.env.get('PARSE_STEPS_MODEL') || 'gpt-5.6-luna';
 /**
  * Pages read at once.
  *
- * All of them, in practice. The pages are independent, and the flagship model
- * takes minutes over a dense scanned page: in waves of four, a ten-page devis
- * spent three wall-clock multiples of that and outlived the function before
- * writing a single line. Ten concurrent requests is modest against a rate limit
- * and turns the reading into one wait rather than three.
+ * The pages are independent, so queueing them wastes wall clock the function
+ * does not have. But twelve at once was the one thing that changed between a
+ * run that wrote 336 lines and a run that wrote none in eleven minutes, and a
+ * fan-out of image requests is exactly what a rate limit answers with a long
+ * backoff. Six until the logs say otherwise.
  */
-const READ_CONCURRENCY = 12;
+const READ_CONCURRENCY = 6;
 
 /** Lines per steps request. Text only, so this is about the answer's size. */
 const STEPS_BATCH = 30;
