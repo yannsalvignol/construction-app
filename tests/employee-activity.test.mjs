@@ -174,6 +174,66 @@ test('employee activity', async t => {
     );
   });
 
+  await t.test('a second devis either replaces the first or adds to it, never silently both', async () => {
+    const makeQuote = async (name) => (await peek(`
+      insert into public.site_quotes (company_id, site_id, file_path, file_name, mime_type, status, uploaded_by, size_bytes)
+      values ($1, $2, $3, $3, 'application/pdf', 'parsed', $4, 1024) returning id`,
+      [ids.company, ids.site, name, ids.chef]))[0].id;
+    const addLine = async (quote, label) => (await peek(`
+      insert into public.quote_lines (quote_id, company_id, position, label, kind, unit, quantity)
+      values ($1, $2, 0, $3, 'work', 'unit', 10) returning id`, [quote, ids.company, label]))[0].id;
+
+    const first = await makeQuote('devis-v1.pdf');
+    await addLine(first, 'Pose de 10 WC');
+    await as(ids.chef, 'select public.validate_quote($1)', [first]);
+
+    // A second devis on the same chantier: the question is asked because there
+    // is something to ask about.
+    const second = await makeQuote('devis-v2.pdf');
+    const line2 = await addLine(second, 'Pose de 12 WC');
+    // Other tests have validated a devis on this chantier too, so the first is
+    // looked for rather than assumed to be alone.
+    const inForce = await as(ids.chef, 'select * from public.quote_in_force($1)', [second]);
+    const v1 = inForce.find((q) => q.file_name === 'devis-v1.pdf');
+    assert.ok(v1, 'the devis in force is offered as the one to replace');
+    assert.equal(v1.replaceable, true, 'nothing declared yet, so it can be replaced');
+
+    // Replacing: the first stops being the target without being destroyed.
+    await as(ids.chef, 'select public.validate_quote($1, $2)', [second, first]);
+    const after = await peek('select id, status from public.site_quotes where id = any($1)', [[first, second]]);
+    assert.equal(after.find((q) => q.id === first).status, 'superseded');
+    assert.equal(after.find((q) => q.id === second).status, 'validated');
+
+    // And the worker sees one devis's lines, not both stacked.
+    const day = (await peek('select id from public.work_days where employee_id = $1', [ids.worker]))[0].id;
+    const visible = await as(ids.worker, 'select label from public.day_quote_lines($1)', [day]);
+    assert.equal(visible.some((r) => r.label === 'Pose de 12 WC'), true);
+    assert.equal(visible.some((r) => r.label === 'Pose de 10 WC'), false, 'a replaced devis is no longer the work');
+
+    // Once the chantier has run on a devis, replacing it is refused: the
+    // declarations point at lines the new version may not have.
+    await as(ids.worker, 'select public.declare_quote_line($1, $2, 3)', [day, line2]);
+    const third = await makeQuote('devis-v3.pdf');
+    await addLine(third, 'Pose de 14 WC');
+    assert.equal(
+      (await as(ids.chef, 'select * from public.quote_in_force($1)', [third]))
+        .find((q) => q.file_name === 'devis-v2.pdf').replaceable,
+      false
+    );
+    await assert.rejects(
+      as(ids.chef, 'select public.validate_quote($1, $2)', [third, second]),
+      /avenant/
+    );
+    // As an avenant it is accepted, and both count.
+    await as(ids.chef, 'select public.validate_quote($1)', [third]);
+    const both = await as(ids.worker, 'select label from public.day_quote_lines($1)', [day]);
+    assert.equal(both.filter((r) => r.label.startsWith('Pose de')).length, 2);
+
+    // Nobody but a chef of the company validates anything.
+    await assert.rejects(as(ids.worker, 'select public.validate_quote($1)', [third]), /Only a chef/);
+    await assert.rejects(as(ids.otherChef, 'select public.validate_quote($1)', [third]), /not found/i);
+  });
+
   await t.test('the dashboard role reads aggregates and nothing else', async () => {
     // Every view answers, without the role holding a single table privilege.
     for (const view of ['companies', 'accounts', 'activity_weekly', 'presence_weekly', 'safety_weekly', 'consent']) {

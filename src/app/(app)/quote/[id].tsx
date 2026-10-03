@@ -12,6 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { cardShadow, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useI18n } from '@/hooks/use-i18n';
+import { translateServerError } from '@/lib/i18n/server-errors';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
@@ -54,6 +55,9 @@ type Quote = {
 
 type Code = { code: string; label_fr: string | null; unit: string };
 
+/** A validated devis already on this chantier, and whether it can still go. */
+type InForce = { other_id: string; file_name: string; total_ht: number | null; replaceable: boolean };
+
 type Milestone = {
   id: string;
   position: number;
@@ -70,7 +74,7 @@ const money = (value: number, currency: string) =>
 export default function QuoteReviewScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -80,6 +84,9 @@ export default function QuoteReviewScreen() {
   const [picking, setPicking] = useState<Line | null>(null);
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  // The devis already in force on this chantier, asked about only when there is
+  // one: a first devis is validated without a question.
+  const [inForce, setInForce] = useState<InForce | null>(null);
   // A hundred lines is a lot of scrolling in card form; the compact view is
   // for reading the devis against the paper, the cards for correcting it.
   const [dense, setDense] = useState(false);
@@ -199,15 +206,33 @@ export default function QuoteReviewScreen() {
     if (failure) { setError(failure.message); void load(); }
   }
 
+  /**
+   * Validating asks what this devis does to the one already in force, because
+   * the answer is a commercial fact the chef has and the app cannot read: a
+   * revision and an avenant on the same lot look almost identical and mean
+   * opposite things.
+   */
   async function validate() {
     if (!quote) return;
+    if (!inForce) {
+      const { data } = await supabase.rpc('quote_in_force', { quote: quote.id });
+      const other = (data as InForce[] | null)?.[0];
+      // Only ask when there is something to ask about.
+      if (other) { setInForce(other); return; }
+    }
+    await commit(null);
+  }
+
+  async function commit(supersedes: string | null) {
+    if (!quote) return;
     setSaving(true);
-    const { error: failure } = await supabase
-      .from('site_quotes')
-      .update({ status: 'validated' })
-      .eq('id', quote.id);
+    const { error: failure } = await supabase.rpc('validate_quote', {
+      quote: quote.id,
+      supersedes,
+    });
     setSaving(false);
-    if (failure) { setError(failure.message); return; }
+    setInForce(null);
+    if (failure) { setError(translateServerError(failure.message, locale)); return; }
     router.back();
   }
 
@@ -422,6 +447,37 @@ export default function QuoteReviewScreen() {
 
         )}
       </SafeAreaView>
+
+      {/* Asked once, at validation, because only the chef knows whether this
+          devis replaces the one in force or adds to it. A devis already worked
+          on cannot be replaced: the declarations point at lines the new reading
+          may not have, and matching lines across two readings is a guess
+          dressed as a fact. */}
+      <AppModal
+        visible={!!inForce}
+        onClose={() => setInForce(null)}
+        title={t.quoteReview.supersedeTitle}
+        icon="documents-outline"
+        actions={
+          <>
+            {inForce?.replaceable && (
+              <ModalButton
+                label={t.quoteReview.supersedeReplace}
+                onPress={() => { void commit(inForce.other_id); }} />
+            )}
+            <ModalButton
+              secondary={inForce?.replaceable}
+              label={t.quoteReview.supersedeAdd}
+              onPress={() => { void commit(null); }} />
+            <ModalButton secondary label={t.common.cancel} onPress={() => setInForce(null)} />
+          </>
+        }>
+        <ThemedText type="small" themeColor="textSecondary">
+          {inForce?.replaceable
+            ? t.quoteReview.supersedeBody(inForce.file_name)
+            : inForce ? t.quoteReview.supersedeLocked(inForce.file_name) : ''}
+        </ThemedText>
+      </AppModal>
 
       <AppModal
         visible={!!picking}

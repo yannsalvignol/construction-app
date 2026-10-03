@@ -23,6 +23,12 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'Only a chef can regenerate the join code': "Seul un chef peut régénérer le code d'invitation.",
   'Could not generate a unique join code': "Impossible de générer un code d'invitation unique.",
   'Invalid work duration': 'Durée de journée invalide.',
+  'Only a chef can validate a devis': 'Seul un chef peut valider un devis.',
+  'This devis has not been read yet': "Ce devis n'a pas encore été lu.",
+  'That devis does not belong to this chantier': 'Ce devis n’appartient pas à ce chantier.',
+  'A devis cannot replace itself': 'Un devis ne peut pas se remplacer lui-même.',
+  'Work has already been declared against that devis; add an avenant instead':
+    'Du travail a déjà été déclaré sur ce devis : il ne peut plus être remplacé. Ajoutez un avenant à la place.',
   'Missing authorization header': "En-tête d'autorisation manquant.",
   'Not authenticated': 'Non authentifié.',
   'Profile not found': 'Profil introuvable.',
