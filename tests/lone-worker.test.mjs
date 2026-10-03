@@ -198,10 +198,25 @@ test('lone worker protection', async t => {
   });
 
   await t.test('the day ending stands the watch down', async () => {
-    await as(ids.worker, 'select public.end_work_day($1)',
-      [(await peek('select id from public.work_days'))[0].id]);
+    const dayId = (await peek('select id from public.work_days'))[0].id;
+    // Put the question to him, then let him go home without answering it.
+    await db.query('update public.lone_worker_watches set asked_at = now() where work_day_id = $1', [dayId]);
+    assert.equal(
+      (await as(ids.worker, 'select public.employee_workspace() as w'))[0].w.lone_worker_asked, true);
+
+    await as(ids.worker, 'select public.end_work_day($1)', [dayId]);
     const reply = await as(ids.worker, 'select public.safety_heartbeat($1, $2, 10) as r', here);
     assert.equal(reply[0].r.day_open, false);
+
+    // Withdrawn, not left hanging: his screen asked him whether he was alright
+    // for hours after he had finished, which is how a safety card stops being
+    // believed.
+    assert.equal(
+      (await peek('select asked_at from public.lone_worker_watches where work_day_id = $1', [dayId]))[0].asked_at,
+      null);
+    assert.equal(
+      (await as(ids.worker, 'select public.employee_workspace() as w'))[0].w.lone_worker_asked, false);
+
     await rewind(30);
     await cron('select * from public.claim_lone_worker_questions()');
     assert.equal(await cron('select public.raise_due_lone_worker_alerts() as n').then(r => r[0].n), 0);

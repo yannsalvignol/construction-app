@@ -29,7 +29,10 @@ export function SafetyCard({ dayOpen, employeeId, watchOn, asked, onChanged }: {
   employeeId: string;
   /** His own choice, as the server holds it. */
   watchOn: boolean;
-  /** The server is waiting for him to say he is alright. */
+  /** The server is waiting for him to say he is alright. Only ever true of an
+   *  open day — and checked against `dayOpen` again here, because a card that
+   *  asks a man on his sofa whether he is still alive is how this feature
+   *  stops being believed. */
   asked: boolean;
   onChanged: () => void;
 }) {
@@ -123,7 +126,7 @@ export function SafetyCard({ dayOpen, employeeId, watchOn, asked, onChanged }: {
             </View>
           ))}
         </>
-      ) : asked ? (
+      ) : asked && dayOpen ? (
         <View style={styles.row}>
           <ThemedText type="smallBold" style={{ flex: 1, color: theme.danger }}>
             {t.safety.askedBody}
