@@ -69,9 +69,12 @@ type Code = { code: string; label_fr: string | null; unit: string };
  */
 function sectionsOf(lines: Line[], untitled: string) {
   const markerOf = (line: Line) => line.label.trim().split(/\s+/)[0] ?? '';
+  // Every heading offers a name for the marker it opens with, whether or not it
+  // also carries that marker as its own lot — which the reading does either way,
+  // and which decided nothing here but the name on the card.
   const titleFor = new Map<string, string>();
   for (const line of lines) {
-    if (line.kind === 'heading' && !(line.lot ?? '').trim() && !titleFor.has(markerOf(line))) {
+    if (line.kind === 'heading' && !titleFor.has(markerOf(line))) {
       titleFor.set(markerOf(line), line.label.trim());
     }
   }
@@ -80,8 +83,9 @@ function sectionsOf(lines: Line[], untitled: string) {
   const byKey = new Map<string, { key: string; title: string; lines: Line[] }>();
   for (const line of lines) {
     const lot = (line.lot ?? '').trim();
-    const isTitle = line.kind === 'heading' && !lot;
-    const key = isTitle ? markerOf(line) : lot || 'untitled';
+    // Membership is the lot and only the lot; a heading with none opens its own.
+    const key = lot || (line.kind === 'heading' ? markerOf(line) : 'untitled');
+    const isTitle = line.kind === 'heading' && markerOf(line) === key;
     let section = byKey.get(key);
     if (!section) {
       section = { key, title: titleFor.get(key) ?? (key === 'untitled' ? untitled : key), lines: [] };
