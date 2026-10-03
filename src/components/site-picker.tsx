@@ -94,11 +94,15 @@ export function SitePicker({ onChange }: {
       setSearching(true);
       void (async () => {
         try {
+          // Dev only: a silent failure here is indistinguishable from a request
+          // that never left, and the two have different causes.
+          if (__DEV__) console.log('[site-picker] searching', JSON.stringify(text), 'near', centre.current);
           const found = await suggestAddresses(text, {
             near: centre.current,
             session: session.current,
             locale,
           });
+          if (__DEV__) console.log('[site-picker] got', found.length, 'suggestions');
           if (sequence !== search.current) return;
           setSuggestions(found);
           setSearchFailed(null);
