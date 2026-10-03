@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
-import { Alert, Pressable } from 'react-native';
+import { Alert, Pressable, StyleSheet } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { Action, Card, Feedback, NumberWheel, Select, ShiftSpan, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/hooks/use-theme';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import type { Locale } from '@/lib/i18n/locale';
 import { PresenceNotice } from '@/components/presence-notice';
@@ -46,6 +48,7 @@ function formatDuration(hours: number) {
 export default function EmployeeHomeScreen() {
   const { profile } = useAuth();
   const { locale } = useI18n();
+  const theme = useTheme();
   const copy = workCopy(locale);
   const { data, loading, error, refresh, now, consented, liveConsented, watchEnabled } = useWorkspace();
   const [site, setSite] = useState('');
@@ -54,6 +57,7 @@ export default function EmployeeHomeScreen() {
   // press, where a boolean would answer the first and ignore the rest. Zero is
   // "nobody has tried yet", and a field is not wrong until somebody has.
   const [refusals, setRefusals] = useState(0);
+  const [proofsOpen, setProofsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pushWarning, setPushWarning] = useState(false);
@@ -114,62 +118,6 @@ export default function EmployeeHomeScreen() {
     {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
     {profile && !profile.is_active ? <Card><ThemedText>{copy.inactive}</ThemedText></Card> : data && <>
       {(!consented || showNotice) && <PresenceNotice accepted={consented} busy={busy} onAccept={() => { void act(() => consent(true)); }} onWithdraw={() => { void act(() => consent(false)); }} />}
-      {/* Protection du travailleur isolé. High on the screen on purpose: the
-          worker reaching for it may be hurt, and it must not be below a fold. */}
-      {consented && profile && <SafetyCard
-        dayOpen={!!active}
-        employeeId={profile.id}
-        watchOn={watchEnabled}
-        asked={!!data.lone_worker_asked}
-        onChanged={() => { void refresh(); }} />}
-      {consented && !active && <Card>
-        {data.sites.length ? <>
-          <Select
-            label={copy.chooseSite}
-            value={site}
-            missing={refusals > 0}
-            refusedAt={refusals}
-            options={data.sites.map(s => ({ value: s.id, label: s.name }))}
-            onChange={value => { setSite(value); setRefusals(0); }} />
-          <NumberWheel
-            label={copy.duration}
-            value={Number(duration)}
-            min={1}
-            max={12}
-            step={0.5}
-            decimals={1}
-            format={formatDuration}
-            onChange={n => setDuration(String(n))} />
-          {/* The two hours the day would run between, if it started now. The
-              server stamps the real end from its own clock a few seconds later,
-              so these are near rather than exact — which nobody reading a
-              planned duration takes them for. */}
-          <ShiftSpan
-            startLabel={copy.startsLabel}
-            endLabel={copy.endsLabel}
-            start={clock(now, locale)}
-            end={clock(now + Number(duration) * 3_600_000, locale)}
-            middle={formatDuration(Number(duration))} />
-          {/* Pressable even with no chantier chosen: a button that does nothing
-              when pressed cannot say why, and "nothing happened" is the worst
-              answer a screen can give. It points at what is missing instead. */}
-          <Action large label={copy.start} busy={busy} onPress={() => {
-            if (!site) {
-              setRefusals(n => n + 1);
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              return;
-            }
-            void act(async () => {
-              setPushWarning(!await enablePresenceNotifications(locale));
-              const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
-              if (failure) throw failure;
-            });
-          }} />
-        </> : <ThemedText>{copy.noSites}</ThemedText>}
-      </Card>}
-      {showNotice && liveConsented && data.location_mode === 'live' && <LiveNotice accepted busy={busy}
-        onAccept={() => { void act(() => liveConsent(true)); }}
-        onWithdraw={() => { void act(() => liveConsent(false)); }} />}
       {/* Long-press cancels a day declared by mistake; the destructive path stays out
           of reach of a normal tap, and the server refuses once the day produced work. */}
       {data.day && <Pressable onLongPress={active ? confirmCancelDay : undefined}
@@ -221,11 +169,89 @@ export default function EmployeeHomeScreen() {
         }} />
         {confirmFinish && <Action secondary label={copy.cancel} onPress={() => setConfirmFinish(false)} />}
       </>}
+      {consented && !active && <Card>
+        {data.sites.length ? <>
+          <Select
+            label={copy.chooseSite}
+            value={site}
+            missing={refusals > 0}
+            refusedAt={refusals}
+            options={data.sites.map(s => ({ value: s.id, label: s.name }))}
+            onChange={value => { setSite(value); setRefusals(0); }} />
+          <NumberWheel
+            label={copy.duration}
+            value={Number(duration)}
+            min={1}
+            max={12}
+            step={0.5}
+            decimals={1}
+            format={formatDuration}
+            onChange={n => setDuration(String(n))} />
+          {/* The two hours the day would run between, if it started now. The
+              server stamps the real end from its own clock a few seconds later,
+              so these are near rather than exact — which nobody reading a
+              planned duration takes them for. */}
+          <ShiftSpan
+            startLabel={copy.startsLabel}
+            endLabel={copy.endsLabel}
+            start={clock(now, locale)}
+            end={clock(now + Number(duration) * 3_600_000, locale)}
+            middle={formatDuration(Number(duration))} />
+          {/* Pressable even with no chantier chosen: a button that does nothing
+              when pressed cannot say why, and "nothing happened" is the worst
+              answer a screen can give. It points at what is missing instead. */}
+          <Action large label={copy.start} busy={busy} onPress={() => {
+            if (!site) {
+              setRefusals(n => n + 1);
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              return;
+            }
+            void act(async () => {
+              setPushWarning(!await enablePresenceNotifications(locale));
+              const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
+              if (failure) throw failure;
+            });
+          }} />
+        </> : <ThemedText>{copy.noSites}</ThemedText>}
+      </Card>}
+      {showNotice && liveConsented && data.location_mode === 'live' && <LiveNotice accepted busy={busy}
+        onAccept={() => { void act(() => liveConsent(true)); }}
+        onWithdraw={() => { void act(() => liveConsent(false)); }} />}
       {/* The proofs already given, under the day they belong to: a tab of its
-          own pushed the employee's six tabs into iOS's "More" list. */}
-      {consented && <PresenceHistory />}
+          own pushed the employee's six tabs into iOS's "More" list. Folded,
+          because he has no reason to read them unless something is disputed,
+          and open they are the longest thing on the screen. */}
+      {consented && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: proofsOpen }}
+          onPress={() => setProofsOpen((current) => !current)}
+          style={({ pressed }) => [styles.disclosure, pressed && { opacity: 0.6 }]}>
+          <ThemedText type="smallBold" style={{ flex: 1 }}>{copy.proofsTitle}</ThemedText>
+          <Ionicons
+            name={proofsOpen ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={theme.textSecondary}
+          />
+        </Pressable>
+      )}
+      {consented && proofsOpen && <PresenceHistory />}
+
+      {/* Protection du travailleur isolé, last on the screen at the chef's
+          request. It is the one thing here somebody reaches for hurt, so it
+          stays a full card rather than a line in a list. */}
+      {consented && profile && <SafetyCard
+        dayOpen={!!active}
+        employeeId={profile.id}
+        watchOn={watchEnabled}
+        asked={!!data.lone_worker_asked}
+        onChanged={() => { void refresh(); }} />}
       {consented && <Action secondary label={showNotice ? copy.close : copy.info} onPress={() => setShowNotice(!showNotice)} />}
     </>}
     </>}
   </WorkPage>;
 }
+
+const styles = StyleSheet.create({
+  disclosure: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+});
