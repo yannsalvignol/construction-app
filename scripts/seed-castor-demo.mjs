@@ -18,7 +18,6 @@
 //   SUPABASE_SERVICE_ROLE_KEY     (Supabase → Settings → API; never EXPO_PUBLIC_)
 
 import { createClient } from '@supabase/supabase-js';
-import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -190,30 +189,16 @@ const PLANNING_ROWS = [
 // Helpers
 // ---------------------------------------------------------------------------
 const ascii = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-const PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 /**
- * One password for the whole demo company, when asked for.
+ * One password, for the chef and every worker of the demo company.
  *
- * Generated passwords are right for a demo you drive yourself, and wrong for
- * one somebody else is told to log into: an App Store reviewer typing a
- * machine-generated string is a reviewer who may mistype it and conclude the
- * app is broken. Pass --password=... (or DEMO_PASSWORD) to set a single
- * password for the chef and every worker; without it, each account keeps its
- * own generated one.
+ * Generated passwords suit a demo you drive yourself and not one somebody else
+ * is told to sign into: an App Store reviewer typing a machine-generated string
+ * is a reviewer who may mistype it and conclude the app is broken. This is a
+ * demonstration company, so the password is a known one and there is nothing to
+ * copy down.
  */
-const FIXED_PASSWORD = (() => {
-  const flag = process.argv.find((a) => a.startsWith('--password='));
-  const value = flag ? flag.slice('--password='.length) : process.env.DEMO_PASSWORD;
-  if (!value) return null;
-  // Thrown rather than passed to fail(), which is not defined this early.
-  if (value.length < 8) throw new Error('--password must be at least 8 characters');
-  return value;
-})();
-function password(length = 8) {
-  if (FIXED_PASSWORD) return FIXED_PASSWORD;
-  const bytes = randomBytes(length);
-  return Array.from(bytes, (b) => PASSWORD_ALPHABET[b % PASSWORD_ALPHABET.length]).join('');
-}
+const PASSWORD = 'Casprod-Demo-2026';
 function usernames(workers) {
   const taken = new Set();
   return workers.map((w) => {
@@ -222,7 +207,7 @@ function usernames(workers) {
     let n = 2;
     while (taken.has(name)) name = `${base.slice(0, 16)}${n++}`;
     taken.add(name);
-    return { ...w, username: name, password: password() };
+    return { ...w, username: name, password: PASSWORD };
   });
 }
 function addDays(iso, n) {
@@ -288,7 +273,7 @@ if (companyError) fail('create company', companyError);
 console.log(`\n✔ company ${company.id} (join code ${company.join_code})`);
 
 // Chef
-const chefPassword = password(10);
+const chefPassword = PASSWORD;
 const { data: chefUser, error: chefError } = await admin.auth.admin.createUser({
   email: CHEF.email, password: chefPassword, email_confirm: true,
 });
@@ -348,7 +333,6 @@ console.log(`✔ ${shifts.length} planned shifts (S37, ${S37.from} → ${addDays
 
 console.log('\n=== Chef login ===');
 console.log(`email:    ${CHEF.email}`);
-console.log(`password: ${chefPassword}`);
-if (FIXED_PASSWORD) console.log('(the same password was set for every worker)');
+console.log(`password: ${chefPassword} (the same for every worker)`);
 console.log(`join code: ${company.join_code}`);
 console.log('\nEmployee usernames/passwords are visible to the chef in the app (Employés).');
