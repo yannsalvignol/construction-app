@@ -134,24 +134,23 @@ Règles:
 
 const STEPS_SYSTEM = `Tu prépares le travail sur chantier (plomberie, CVC, électricité) à partir des lignes d'un devis déjà lu.
 
-Pour chaque ligne qu'on te donne, liste les opérations successives qu'un ouvrier exécute pour la réaliser, et qu'il peut déclarer faites une par une.
+Pour chaque ligne, liste les opérations successives qu'un ouvrier exécute pour la réaliser, et qu'il peut déclarer faites une par une.
 
+- Décompose par défaut. Presque toute ligne posée sur un chantier se décompose: "Pose radiateur" se fait en fixant puis en raccordant, et ces deux-là se cochent séparément sur le terrain.
+- Une à trois étapes, trois au maximum. Deux est le cas courant.
 - Une étape est une opération, pas une mesure: pas de quantité, pas de pourcentage, pas de "50% posé".
 - Une étape doit être vérifiable sur place en regardant l'installation.
-- Formule à l'infinitif, sans numérotation.
-- Si la seule étape possible ne ferait que répéter le libellé de la ligne, rends un tableau vide: une ligne redite n'est pas une ligne décomposée.
-- Une à trois étapes, trois au maximum.
-- Formule chaque étape en deux ou trois mots quand c'est possible: "Fixer", "Câbler les asservissements", "Tester". Pas de phrase, pas de complément inutile.
-- Tableau VIDE pour:
-  - une fourniture seule, un matériel livré non posé, une location;
-  - une ligne qui est déjà une seule opération ("Pose d'un WC", "Percement de dalle"): la décomposer en une étape ne ferait que la répéter;
-  - un forfait global qui couvre un lot entier sans décrire d'ouvrage;
-  - une ligne dont le libellé ne dit pas assez pour savoir ce qu'on y fait.
-- N'invente rien que le libellé n'implique pas. Dans le doute, tableau vide.
-- Rends une entrée par ligne reçue, avec son index, et rien d'autre.
+- Formule à l'infinitif, sans numérotation, en deux ou trois mots: "Fixer", "Câbler les asservissements", "Tester". Pas de phrase.
+- N'invente rien que le libellé n'implique pas: reste sur les gestes que le métier impose pour cet ouvrage-là.
+- Tableau vide dans deux cas seulement:
+  - une fourniture seule, un matériel livré non posé, une location — rien n'est exécuté sur place;
+  - un libellé qui ne dit pas ce qu'on y fait.
+  Dans tous les autres cas, décompose: une ligne rendue vide est une ligne que personne ne pourra cocher.
 
 Exemples.
 "Poste asservi 2 voies (PA)" → ["Fixer", "Câbler les asservissements", "Tester"]
+"Pose radiateur" → ["Fixer le radiateur", "Raccorder les tubes"]
+"5- POSE SIPHON DE SOL" → ["Sceller le siphon", "Raccorder l'évacuation"]
 "Groupe moteur + alternateur 315 kVA insonorisé, posé en toiture" → ["Poser les plots anti-vibrations", "Mettre en place sur la dalle", "Raccorder puissance, commande et terre"]
 "Fourniture de 12 ml de gaine spirale Ø125" → []`;
 
@@ -238,7 +237,7 @@ Deno.serve(async (req) => {
   const { data: caller, error: callerError } = await admin.auth.getUser(token);
   if (callerError || !caller.user) return json({ error: 'Not authenticated' }, 401);
 
-  const { quoteId, only } = await req.json().catch(() => ({}));
+  const { quoteId, only, background } = await req.json().catch(() => ({}));
   if (!quoteId) return json({ error: 'Missing quoteId' }, 400);
 
   const { data: profile } = await admin
@@ -250,7 +249,7 @@ Deno.serve(async (req) => {
 
   const { data: quote } = await admin
     .from('site_quotes')
-    .select('id, company_id, file_path, mime_type, status, parsing_started_at')
+    .select('id, company_id, file_path, mime_type, status, parsing_started_at, parse_warning')
     .eq('id', quoteId)
     .maybeSingle();
   if (!quote || quote.company_id !== profile.company_id) return json({ error: 'Quote not found' }, 404);
@@ -259,10 +258,38 @@ Deno.serve(async (req) => {
   // is the point — it goes back to him so Metro shows it line by line.
   if (only === 'steps') {
     const started = Date.now();
-    const report = await generateSteps(admin, new OpenAI({ apiKey: openaiKey }), quote.id, quote.company_id);
-    const note = stepsNote(report);
-    await admin.from('site_quotes').update({ parse_warning: note }).eq('id', quote.id);
-    console.log(`[parse-quote] steps-only ${quote.id}: ${JSON.stringify(report)}`);
+    const run = (async () => {
+      const report = await generateSteps(admin, new OpenAI({ apiKey: openaiKey }), quote.id, quote.company_id);
+      const note = stepsNote(report);
+      // What the reading said is kept — "331 lignes sur 333" is still true and
+      // still the chef's business — but what a previous operations pass said
+      // is not: it is about this pass, and this pass has just answered. Left
+      // in, a devis that failed once and succeeded twice still told the chef
+      // its sub-tasks had not been generated.
+      const kept = (quote.parse_warning ?? '')
+        .split(' ; ')
+        .map((part) => part.trim())
+        .filter((part) => part && !part.startsWith(STEPS_NOTE_PREFIX))
+        .join(' ; ');
+      await admin
+        .from('site_quotes')
+        .update({ parse_warning: [kept, note].filter(Boolean).join(' ; ') || null })
+        .eq('id', quote.id);
+      console.log(`[parse-quote] steps ${quote.id}: ${JSON.stringify(report)}`);
+      return { report, note };
+    })();
+
+    // Started by the reading: answer at once so that invocation can end, and
+    // keep working in this one, which has a budget of its own.
+    if (background) {
+      // @ts-expect-error EdgeRuntime is provided by the Supabase runtime.
+      if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(run);
+      else await run;
+      return json({ ok: true, status: 'steps' }, 202);
+    }
+
+    // Pressed by a chef who is watching: he gets the whole account of it.
+    const { report, note } = await run;
     return json({ ok: report.inserted > 0, report, note, model: STEPS_MODEL, seconds: (Date.now() - started) / 1000 }, 200);
   }
 
@@ -278,7 +305,7 @@ Deno.serve(async (req) => {
     .eq('id', quote.id);
 
   // Answer now; the parse continues on its own. The client watches the status.
-  const work = parse(admin, openaiKey, quote);
+  const work = parse(admin, openaiKey, quote, authHeader);
   // @ts-expect-error EdgeRuntime is provided by the Supabase runtime.
   if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(work);
   else await work;
@@ -286,7 +313,7 @@ Deno.serve(async (req) => {
   return json({ ok: true, status: 'parsing' }, 202);
 });
 
-type Quote = { id: string; company_id: string; file_path: string; mime_type: string; parsing_started_at?: string | null };
+type Quote = { id: string; company_id: string; file_path: string; mime_type: string; parsing_started_at?: string | null; parse_warning?: string | null };
 
 /** Supabase and OpenAI both reject with plain objects, which String() turns
  *  into "[object Object]" — the reason has to be dug out deliberately. */
@@ -335,6 +362,9 @@ type StepsReport = {
   inserted: number;
   failures: string[];
   sample: { label: string; steps: string[] }[];
+  /** The first answer verbatim, kept only when none of it could be used. A
+   *  count of what did not work says nothing about why. */
+  rejected?: string;
 };
 
 /**
@@ -394,7 +424,7 @@ async function generateSteps(
               {
                 role: 'user',
                 content:
-                  `Rends une entrée pour CHACUNE des ${batch.length} lignes ci-dessous, sans en sauter aucune.\n\n` +
+                  `Décompose les ${batch.length} lignes ci-dessous. Une entrée par ligne, avec son index.\n\n` +
                   batch.map((line, i) => `${i}. ${line.label.slice(0, 300)}`).join('\n'),
               },
             ],
@@ -432,6 +462,7 @@ async function generateSteps(
       proposed = (JSON.parse(body) as { lines: { index: number; steps: string[] }[] }).lines ?? [];
     } catch (failure) { report.failures.push(`réponse illisible: ${describe(failure)}`); continue; }
     report.answered += proposed.length;
+    if (!report.attached && !report.rejected) report.rejected = body.slice(0, 600);
 
     proposed.forEach((entry, order) => {
       // The index is a hint; the batch is indexed from zero for this reason, so
@@ -446,6 +477,7 @@ async function generateSteps(
       report.attached++;
       covered.add(line.id);
       if (report.sample.length < 3) report.sample.push({ label: line.label.slice(0, 70), steps: labels });
+      report.rejected = undefined;
       labels.forEach((label, position) => {
         steps.push({ quote_line_id: line.id, company_id: companyId, position, label });
       });
@@ -474,19 +506,31 @@ async function generateSteps(
   return report;
 }
 
+/** Every note the operations pass writes starts with this, so the next pass
+ *  can take back what the last one said without touching the reading's own
+ *  warnings. */
+const STEPS_NOTE_PREFIX = 'Sous-tâches';
+
 /** What to tell the chef when a devis comes back with no operations. */
 function stepsNote(r: StepsReport): string | null {
-  if (r.inserted > 0) return r.failures.length ? `Certaines sous-tâches manquent : ${r.failures[0].slice(0, 120)}` : null;
-  if (r.failures.length) return `Sous-tâches non générées : ${r.failures[0].slice(0, 160)}`;
-  if (r.workLines === 0) return 'Sous-tâches non générées : aucune ligne de travail dans ce devis.';
-  if (r.answered === 0) return `Sous-tâches non générées : ${r.workLines} ligne(s) envoyée(s), aucune réponse.`;
-  return `Sous-tâches non générées : ${r.answered} réponse(s) reçue(s), aucune rattachée à une ligne.`;
+  if (r.inserted > 0) {
+    return r.failures.length
+      ? `${STEPS_NOTE_PREFIX} partiellement générées : ${r.failures[0].slice(0, 120)}`
+      : null;
+  }
+  if (r.failures.length) return `${STEPS_NOTE_PREFIX} non générées : ${r.failures[0].slice(0, 160)}`;
+  if (r.workLines === 0) return `${STEPS_NOTE_PREFIX} non générées : aucune ligne de travail dans ce devis.`;
+  if (r.answered === 0) return `${STEPS_NOTE_PREFIX} non générées : ${r.workLines} ligne(s) envoyée(s), aucune réponse.`;
+  return `${STEPS_NOTE_PREFIX} non générées : ${r.answered} réponse(s) reçue(s), aucune rattachée à une ligne.`;
 }
 
 async function parse(
   admin: ReturnType<typeof createClient>,
   openaiKey: string,
-  quote: Quote
+  quote: Quote,
+  /** The caller's own token, to hand to the follow-up that breaks the lines
+   *  down: it runs as him, under the same checks, in its own invocation. */
+  authHeader: string
 ) {
   try {
     // Every page of the devis, in the order they were captured. A paper
@@ -800,23 +844,34 @@ async function parse(
       })
       .eq('id', quote.id);
 
-    // Everything above is what makes the devis usable, and it is saved before
-    // this point: the operations take longer than the reading on a
-    // three-hundred-line devis, and if the function is killed working on them
-    // the chef still has his devis instead of a spinner and a lost quarter of
-    // an hour. The button on the review screen generates them again on demand.
-    const report = await generateSteps(admin, openai, quote.id, quote.company_id);
-    const note = stepsNote(report);
-    if (note) {
+    // The operations go to a second invocation rather than running here.
+    //
+    // They used to run inline, after the status was set, so a devis survived
+    // them being killed. It was not enough: a three-hundred-line devis that
+    // needs two recovery reads leaves so little of the budget that the
+    // operations pass got no further than starting, and came back with
+    // nothing and no reason given. Two invocations means two budgets, and
+    // reading a devis never has to compete with breaking it down.
+    //
+    // It runs as the caller, through the same handler and the same checks.
+    const dispatched = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/parse-quote`, {
+      method: 'POST',
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quoteId: quote.id, only: 'steps', background: true }),
+    }).catch((failure) => ({ ok: false, status: 0, text: () => Promise.resolve(describe(failure)) }));
+    if (!dispatched.ok) {
+      const reason = await dispatched.text().catch(() => '');
+      console.error(`[parse-quote] could not start the operations pass: ${dispatched.status} ${reason}`);
       await admin
         .from('site_quotes')
-        .update({ parse_warning: warnings.length ? `${warnings.join(' ; ')}. ${note}` : note })
+        .update({
+          parse_warning: [...warnings, 'sous-tâches non lancées, utilisez le bouton sur la page du devis']
+            .join(' ; ') || null,
+        })
         .eq('id', quote.id);
     }
     console.log(
-      `[parse-quote] ${quote.id}: ${rows.length} lines, ${report.inserted} steps` +
-        ` (${report.workLines} work lines, ${report.batches} batches, ${report.answered} answered,` +
-        ` ${report.attached} attached, ${report.failures.length} failures), ${milestones.length} milestones, total ${parsed.total_ht}` +
+      `[parse-quote] ${quote.id}: ${rows.length} lines, ${milestones.length} milestones, total ${parsed.total_ht}` +
         `, ${inputTokens} in / ${outputTokens} out tokens` +
         (droppedCodes ? `, ${droppedCodes} unknown task codes dropped` : '')
     );
