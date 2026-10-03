@@ -77,10 +77,9 @@ export function Action({ label, onPress, disabled, busy, secondary = false, larg
   tone?: 'finish';
   /**
    * Bumped when something elsewhere sent the person here to press this. The
-   * button breathes once — big enough to catch the eye landing on the screen,
-   * small enough not to read as an error. A counter rather than a flag: a
-   * second refusal that changes nothing on screen reads as the app having
-   * stopped listening.
+   * button swells and settles — enough to catch the eye landing on the screen
+   * and nothing more. A counter rather than a flag: a second refusal that
+   * changes nothing on screen reads as the app having stopped listening.
    */
   nudgedAt?: number;
 }) {
@@ -99,13 +98,6 @@ export function Action({ label, onPress, disabled, busy, secondary = false, larg
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + pulse.value * 0.035 }],
   }));
-  // A halo rather than a colour change: the button keeps its own tone, and the
-  // ring is plainly a pointer at it rather than a new state it has entered.
-  const haloStyle = useAnimatedStyle(() => ({
-    opacity: pulse.value * 0.5,
-    transform: [{ scale: 1 + pulse.value * 0.09 }],
-  }));
-
   const button = (
     <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
       // Secondary is an outlined oval, as on the chef's screens, rather than a
@@ -123,22 +115,11 @@ export function Action({ label, onPress, disabled, busy, secondary = false, larg
 
   // Every button that is never pointed at is exactly what it was: no wrapper,
   // no animated component, nothing to go wrong in the dozen places this is
-  // used. The pulse also rides on wrapper views rather than on the Pressable,
-  // because an animated style handed back from a style *function* is never
-  // resolved — reanimated has to see it on the prop itself.
+  // used. The swell rides on a wrapper rather than on the Pressable, because
+  // an animated style handed back from a style *function* is never resolved —
+  // reanimated has to see it on the prop itself.
   if (nudgedAt === undefined) return button;
-
-  return <Animated.View style={pulseStyle}>
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFill,
-        { borderRadius: 999, borderWidth: 3, borderColor: secondary ? theme.text : fill },
-        haloStyle,
-      ]}
-    />
-    {button}
-  </Animated.View>;
+  return <Animated.View style={pulseStyle}>{button}</Animated.View>;
 }
 /**
  * The two hours a declared day runs between, read off the duration wheel.
