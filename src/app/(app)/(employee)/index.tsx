@@ -179,7 +179,7 @@ export default function EmployeeHomeScreen() {
             options={data.sites.map(s => ({
               value: s.id,
               label: s.name,
-              note: s.awaiting ? copy.awaitingHere(s.awaiting) : undefined,
+              note: s.awaiting ? copy.awaitingHere : undefined,
             }))}
             onChange={value => { setSite(value); setRefusals(0); }} />
           <NumberWheel
