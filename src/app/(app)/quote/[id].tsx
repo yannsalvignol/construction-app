@@ -55,6 +55,44 @@ type Quote = {
 
 type Code = { code: string; label_fr: string | null; unit: string };
 
+/**
+ * The devis cut into the sections it divides itself into.
+ *
+ * A line's lot is its section's marker — "A" — and the devis prints a heading
+ * row called "A Courant fort" carrying no lot of its own, because it is not
+ * inside anything. That heading is the section's title; every row whose lot is
+ * "A" belongs to it, deeper headings included, since "1.1 Cellules MT étanches"
+ * is part of what has to be checked rather than a part of the chantier.
+ *
+ * The same marker the worker's screen groups by on the server, so a chef checks
+ * the devis in the parts his crews will be given it in.
+ */
+function sectionsOf(lines: Line[], untitled: string) {
+  const markerOf = (line: Line) => line.label.trim().split(/\s+/)[0] ?? '';
+  const titleFor = new Map<string, string>();
+  for (const line of lines) {
+    if (line.kind === 'heading' && !(line.lot ?? '').trim() && !titleFor.has(markerOf(line))) {
+      titleFor.set(markerOf(line), line.label.trim());
+    }
+  }
+
+  const out: { key: string; title: string; lines: Line[] }[] = [];
+  const byKey = new Map<string, { key: string; title: string; lines: Line[] }>();
+  for (const line of lines) {
+    const lot = (line.lot ?? '').trim();
+    const isTitle = line.kind === 'heading' && !lot;
+    const key = isTitle ? markerOf(line) : lot || 'untitled';
+    let section = byKey.get(key);
+    if (!section) {
+      section = { key, title: titleFor.get(key) ?? (key === 'untitled' ? untitled : key), lines: [] };
+      byKey.set(key, section);
+      out.push(section);
+    }
+    if (!isTitle) section.lines.push(line);
+  }
+  return out;
+}
+
 /** A validated devis already on this chantier, and whether it can still go. */
 type InForce = { other_id: string; file_name: string; total_ht: number | null; replaceable: boolean };
 
@@ -87,6 +125,33 @@ export default function QuoteReviewScreen() {
   // The devis already in force on this chantier, asked about only when there is
   // one: a first devis is validated without a question.
   const [inForce, setInForce] = useState<InForce | null>(null);
+  // Closed. Three hundred lines in one scroll is a document, not a form to
+  // check; a chef verifies one part of the devis at a time.
+  const [openSections, setOpenSections] = useState<ReadonlySet<string>>(new Set());
+
+  // Section cards, with the lines of the open ones between them. Flattened into
+  // one list so the screen stays virtualised: a devis is three hundred rows and
+  // only a dozen are ever on screen.
+  const items = useMemo(() => {
+    const out: (
+      | { kind: 'section'; section: { key: string; title: string; lines: Line[] }; open: boolean; count: number; total: number }
+      | { kind: 'line'; line: Line }
+    )[] = [];
+    for (const section of sectionsOf(lines, t.quoteReview.sectionUntitled)) {
+      const work = section.lines.filter((line) => line.kind === 'work');
+      out.push({
+        kind: 'section',
+        section,
+        open: openSections.has(section.key),
+        count: work.length,
+        total: work.reduce((sum, line) => sum + (Number(line.amount_ht) || 0), 0),
+      });
+      if (openSections.has(section.key)) {
+        for (const line of section.lines) out.push({ kind: 'line', line });
+      }
+    }
+    return out;
+  }, [lines, openSections, t.quoteReview.sectionUntitled]);
   // A hundred lines is a lot of scrolling in card form; the compact view is
   // for reading the devis against the paper, the cards for correcting it.
   const [dense, setDense] = useState(false);
@@ -296,8 +361,8 @@ export default function QuoteReviewScreen() {
 
         {(quote.status === 'parsed' || quote.status === 'validated') && (
           <FlatList
-            data={lines}
-            keyExtractor={(line) => line.id}
+            data={items}
+            keyExtractor={(item) => (item.kind === 'section' ? `s:${item.section.key}` : item.line.id)}
             // Only the rows on screen are mounted, so three hundred lines cost
             // what a dozen cost. Both the opening and the view switch were slow
             // for the same reason — every row was real — and no amount of
@@ -309,30 +374,59 @@ export default function QuoteReviewScreen() {
             initialNumToRender={12}
             maxToRenderPerBatch={12}
             windowSize={7}
-            renderItem={({ item: line }) => (
+            renderItem={({ item }) => item.kind === 'section' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: item.open }}
+                accessibilityLabel={item.section.title}
+                onPress={() => setOpenSections((current) => {
+                  const next = new Set(current);
+                  if (next.has(item.section.key)) next.delete(item.section.key);
+                  else next.add(item.section.key);
+                  return next;
+                })}
+                style={({ pressed }) => [
+                  styles.section,
+                  cardShadow(theme.isDark),
+                  { backgroundColor: theme.backgroundElement },
+                  pressed && styles.pressed,
+                ]}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <ThemedText type="smallBold" numberOfLines={2}>{item.section.title}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {t.quoteReview.sectionLines(item.count)} · {money(item.total, quote.currency)}
+                  </ThemedText>
+                </View>
+                <Ionicons
+                  name={item.open ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={theme.textSecondary}
+                />
+              </Pressable>
+            ) : (
               <View style={dense ? undefined : styles.cardSpacing}>
-                {line.kind === 'work' ? (
+                {item.line.kind === 'work' ? (
                   <SwipeToDelete
                     label={t.quoteReview.deleteLine}
                     radius={Spacing.three}
-                    onDelete={() => { void removeLine(line); }}>
+                    onDelete={() => { void removeLine(item.line); }}>
                     <LineRow
-                      line={line}
+                      line={item.line}
                       currency={quote.currency}
                       dense={dense}
-                      onPickCode={() => setPicking(line)}
-                      onQuantity={(value) => { void setQuantity(line, value); }}
-                      onLabel={(value) => { void setLabel(line, value); }}
+                      onPickCode={() => setPicking(item.line)}
+                      onQuantity={(value) => { void setQuantity(item.line, value); }}
+                      onLabel={(value) => { void setLabel(item.line, value); }}
                     />
                   </SwipeToDelete>
                 ) : (
                   <LineRow
-                    line={line}
+                    line={item.line}
                     currency={quote.currency}
                     dense={dense}
-                    onPickCode={() => setPicking(line)}
-                    onQuantity={(value) => { void setQuantity(line, value); }}
-                    onLabel={(value) => { void setLabel(line, value); }}
+                    onPickCode={() => setPicking(item.line)}
+                    onQuantity={(value) => { void setQuantity(item.line, value); }}
+                    onLabel={(value) => { void setLabel(item.line, value); }}
                   />
                 )}
               </View>
@@ -737,6 +831,16 @@ const styles = StyleSheet.create({
   /** Header and footer keep the page's rhythm; the rows no longer inherit it. */
   band: { gap: Spacing.two, paddingBottom: Spacing.two },
   cardSpacing: { marginBottom: Spacing.two },
+  /** One part of the devis, closed: it is checked a section at a time. */
+  section: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderRadius: Spacing.three,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    marginBottom: Spacing.two,
+  },
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
   aside: { paddingTop: Spacing.three, paddingHorizontal: Spacing.one, gap: 2 },
   asideDense: { paddingTop: Spacing.two, paddingHorizontal: Spacing.one },

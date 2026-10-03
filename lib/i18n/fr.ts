@@ -489,6 +489,8 @@ const fr = {
     deleteLine: 'Supprimer',
     swipeHint: 'Glissez une ligne vers la gauche pour la supprimer.',
     title: 'Vérifier le devis',
+    sectionLines: (n: number) => `${n} ligne${n > 1 ? 's' : ''}`,
+    sectionUntitled: 'Début du devis',
     supersedeTitle: 'Un devis est déjà en vigueur',
     supersedeBody: (name: string) => `« ${name} » est déjà validé sur ce chantier. Celui-ci le remplace-t-il, ou s'ajoute-t-il ?`,
     supersedeReplace: 'Il remplace le précédent',

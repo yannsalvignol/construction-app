@@ -493,6 +493,8 @@ const en = {
     deleteLine: 'Delete',
     swipeHint: 'Swipe a line left to remove it.',
     title: 'Check the quote',
+    sectionLines: (n: number) => `${n} line${n > 1 ? 's' : ''}`,
+    sectionUntitled: 'Start of the devis',
     supersedeTitle: 'A devis is already in force',
     supersedeBody: (name: string) => `"${name}" is already validated on this site. Does this one replace it, or add to it?`,
     supersedeReplace: 'It replaces the earlier one',
