@@ -65,7 +65,7 @@ export function Card({ children, accent = false }: { children: React.ReactNode; 
     </View>
   );
 }
-export function Action({ label, onPress, disabled, busy, secondary = false, large = false, tone, nudgedAt = 0 }: {
+export function Action({ label, onPress, disabled, busy, secondary = false, large = false, tone, nudgedAt }: {
   label: string; onPress: () => void; disabled?: boolean; busy?: boolean; secondary?: boolean;
   /** For the one action a screen exists for, pressed with a glove on a chantier. */
   large?: boolean;
@@ -106,7 +106,29 @@ export function Action({ label, onPress, disabled, busy, secondary = false, larg
     transform: [{ scale: 1 + pulse.value * 0.09 }],
   }));
 
-  return <View>
+  const button = (
+    <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
+      // Secondary is an outlined oval, as on the chef's screens, rather than a
+      // second purple surface competing with the real action.
+      style={({ pressed }) => [styles.action, large && styles.actionLarge, {
+        backgroundColor: secondary ? 'transparent' : fill,
+        borderWidth: secondary ? 1 : 0,
+        borderColor: theme.text,
+        opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,
+      }]}>
+      {busy && <BrandSpinner color={secondary ? theme.accentText : theme.buttonText} />}
+      <ThemedText type="smallBold" style={{ color: secondary ? theme.text : theme.buttonText, textAlign: 'center', flexShrink: 1 }}>{label}</ThemedText>
+    </Pressable>
+  );
+
+  // Every button that is never pointed at is exactly what it was: no wrapper,
+  // no animated component, nothing to go wrong in the dozen places this is
+  // used. The pulse also rides on wrapper views rather than on the Pressable,
+  // because an animated style handed back from a style *function* is never
+  // resolved — reanimated has to see it on the prop itself.
+  if (nudgedAt === undefined) return button;
+
+  return <Animated.View style={pulseStyle}>
     <Animated.View
       pointerEvents="none"
       style={[
@@ -115,19 +137,8 @@ export function Action({ label, onPress, disabled, busy, secondary = false, larg
         haloStyle,
       ]}
     />
-    <AnimatedPressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
-      // Secondary is an outlined oval, as on the chef's screens, rather than a
-      // second purple surface competing with the real action.
-      style={({ pressed }: { pressed: boolean }) => [styles.action, large && styles.actionLarge, {
-        backgroundColor: secondary ? 'transparent' : fill,
-        borderWidth: secondary ? 1 : 0,
-        borderColor: theme.text,
-        opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,
-      }, pulseStyle]}>
-      {busy && <BrandSpinner color={secondary ? theme.accentText : theme.buttonText} />}
-      <ThemedText type="smallBold" style={{ color: secondary ? theme.text : theme.buttonText, textAlign: 'center', flexShrink: 1 }}>{label}</ThemedText>
-    </AnimatedPressable>
-  </View>;
+    {button}
+  </Animated.View>;
 }
 /**
  * The two hours a declared day runs between, read off the duration wheel.
