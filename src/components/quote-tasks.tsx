@@ -30,6 +30,10 @@ type Step = {
   done: boolean;
   /** Set only when somebody else ticked it; his own tick needs no name. */
   done_by_name: string | null;
+  /** The chef put this operation on him by name. */
+  mine: boolean;
+  /** It is somebody's, his or not. Nobody's means open to whoever gets there. */
+  assigned: boolean;
 };
 
 /** What the devis still expects on this line, or null when it quoted no figure. */
@@ -48,6 +52,9 @@ type Line = {
   quoted: number | null;
   declared_total: number;
   declared_today: number;
+  /** His, by the line or by any one of its operations. */
+  mine: boolean;
+  assigned: boolean;
   steps: Step[];
 };
 
@@ -67,10 +74,20 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
   // and a worker is in one lot at a time; several may be opened at once because
   // a day that spans two of them is not unusual.
   const [openLots, setOpenLots] = useState<ReadonlySet<string>>(new Set());
+  // What the chef put his name on, when he put it on anything. The devis is
+  // the whole chantier and most of it is somebody else's; a worker who was
+  // given four lines should open the app on those four.
+  const [onlyMine, setOnlyMine] = useState(true);
+
+  const mineCount = useMemo(() => (lines ?? []).filter((line) => line.mine).length, [lines]);
+  const showing = useMemo(
+    () => (onlyMine && mineCount > 0 ? (lines ?? []).filter((line) => line.mine) : lines ?? []),
+    [lines, onlyMine, mineCount]
+  );
 
   const grouped = useMemo(() => {
     const byLot = new Map<string, Line[]>();
-    for (const line of lines ?? []) {
+    for (const line of showing) {
       // Insertion order, so the sections follow the devis rather than the
       // alphabet. The heading is what the devis calls this part of the
       // chantier; the lot is only its numbering.
@@ -80,7 +97,7 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
       else byLot.set(lot, [line]);
     }
     return [...byLot.entries()];
-  }, [lines, t.quoteTasks.noLot]);
+  }, [showing, t.quoteTasks.noLot]);
 
   const load = useCallback(async () => {
     const { data, error: failure } = await supabase.rpc('day_quote_lines', { day_id: dayId });
@@ -174,6 +191,32 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
         <ThemedText type="small" themeColor="textSecondary">{t.quoteTasks.hint}</ThemedText>
       </View>
 
+      {/* Only when the chef has actually handed something out. A devis nobody
+          was named on must look exactly as it did before: unassigned means
+          open to whoever gets there, not "not yours". */}
+      {mineCount > 0 && (
+        <View style={styles.scope}>
+          {([true, false] as const).map((value) => (
+            <Pressable
+              key={String(value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: onlyMine === value }}
+              onPress={() => setOnlyMine(value)}
+              style={({ pressed }) => [
+                styles.scopeTab,
+                onlyMine === value && { backgroundColor: theme.backgroundElement },
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText
+                type={onlyMine === value ? 'smallBold' : 'small'}
+                themeColor={onlyMine === value ? 'text' : 'textSecondary'}>
+                {value ? t.quoteTasks.scopeMine(mineCount) : t.quoteTasks.scopeAll}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       {/* One card per lot of the devis, closed. A worker opens the part of the
           chantier he is on and reads twenty lines rather than three hundred;
           each card says how far that lot has got without being opened. */}
@@ -250,12 +293,20 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
                     disabled={left === null}
                     onPress={() => { setOpen(open === line.line_id ? null : line.line_id); setTyped(''); setSaved(null); }}
                     style={({ pressed }) => [styles.headText, pressed && styles.pressed]}>
-                    <ThemedText
-                      type="small"
-                      style={complete ? styles.struck : undefined}
-                      themeColor={complete ? 'textSecondary' : 'text'}>
-                      {line.label}
-                    </ThemedText>
+                    <View style={styles.labelRow}>
+                      {/* Marked even in "tout le devis", where it is the only
+                          thing telling his four lines from the other three
+                          hundred. */}
+                      {line.mine && (
+                        <Ionicons name="person" size={13} color={theme.accentText} />
+                      )}
+                      <ThemedText
+                        type="small"
+                        style={[{ flex: 1 }, complete ? styles.struck : undefined]}
+                        themeColor={complete ? 'textSecondary' : 'text'}>
+                        {line.label}
+                      </ThemedText>
+                    </View>
                     <ThemedText type="small" themeColor={complete ? 'success' : 'textSecondary'}>
                       {complete
                         ? t.quoteTasks.done
@@ -286,12 +337,17 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
                           color={step.done ? theme.success : theme.textPlaceholder}
                         />
                         <View style={{ flex: 1, minWidth: 0 }}>
-                          <ThemedText
-                            type="small"
-                            themeColor={step.done ? 'textSecondary' : 'text'}
-                            style={step.done ? styles.struck : undefined}>
-                            {step.label}
-                          </ThemedText>
+                          <View style={styles.labelRow}>
+                            {step.mine && (
+                              <Ionicons name="person" size={12} color={theme.accentText} />
+                            )}
+                            <ThemedText
+                              type="small"
+                              themeColor={step.done ? 'textSecondary' : 'text'}
+                              style={[{ flex: 1 }, step.done ? styles.struck : undefined]}>
+                              {step.label}
+                            </ThemedText>
+                          </View>
                           {/* Whose work it was, when it was not his. */}
                           {!!step.done_by_name && (
                             <ThemedText type="small" themeColor="textSecondary">
@@ -369,6 +425,14 @@ const styles = StyleSheet.create({
   // than as more lines of the devis.
   steps: { paddingLeft: Spacing.five, paddingBottom: Spacing.two, gap: Spacing.half },
   step: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two, paddingVertical: Spacing.one },
+  /** "Pour moi" / "Tout le devis", when the chef has named him on anything. */
+  scope: { flexDirection: 'row', gap: Spacing.one, alignSelf: 'flex-start' },
+  scopeTab: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
+  },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   struck: { textDecorationLine: 'line-through' },
   pressed: { opacity: 0.6 },
 });

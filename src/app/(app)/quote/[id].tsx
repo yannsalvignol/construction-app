@@ -100,6 +100,12 @@ function sectionsOf(lines: Line[], untitled: string) {
 /** A validated devis already on this chantier, and whether it can still go. */
 type InForce = { other_id: string; file_name: string; total_ht: number | null; replaceable: boolean };
 
+/** An operation under a line, and the people it was given to. */
+type Step = { id: string; label: string };
+
+/** Somebody who can be given work. */
+type Person = { id: string; first_name: string | null; last_name: string | null };
+
 type StepsReport = {
   workLines: number;
   batches: number;
@@ -145,7 +151,17 @@ export default function QuoteReviewScreen() {
   // The operations proposed for each line. The chef reads them here because
   // this is the moment he can still say no: once the devis is validated they
   // are what his crews are given.
-  const [steps, setSteps] = useState<Map<string, string[]>>(new Map());
+  const [steps, setSteps] = useState<Map<string, Step[]>>(new Map());
+  // Who may be given work, and who has been. The keys are "l:<line>" and
+  // "s:<step>" so a line and one of its operations never collide.
+  const [team, setTeam] = useState<Person[]>([]);
+  const [assigned, setAssigned] = useState<Map<string, string[]>>(new Map());
+  const [assigning, setAssigning] = useState<{ key: string; label: string } | null>(null);
+  const [teamSearch, setTeamSearch] = useState('');
+  // An operation the chef wants struck off, held until he confirms: the model
+  // proposes these, and one of them being wrong is not the same as it being
+  // safe to lose the ones around it to a stray tap.
+  const [removing, setRemoving] = useState<Step | null>(null);
   const [stepsBusy, setStepsBusy] = useState(false);
   const [stepsMessage, setStepsMessage] = useState<string | null>(null);
   const [stepsInfo, setStepsInfo] = useState(false);
@@ -180,7 +196,10 @@ export default function QuoteReviewScreen() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [{ data: q }, { data: rows }, { data: catalogue }, { data: schedule }, { data: stepRows }] = await Promise.all([
+    const [
+      { data: q }, { data: rows }, { data: catalogue }, { data: schedule },
+      { data: stepRows }, { data: assignmentRows }, { data: people },
+    ] = await Promise.all([
       supabase
         .from('site_quotes')
         .select('id, company_id, file_name, status, total_ht, currency, parse_error, parse_warning, site_id')
@@ -201,19 +220,45 @@ export default function QuoteReviewScreen() {
       // "this devis" rather than listing three hundred ids.
       supabase
         .from('quote_line_steps')
-        .select('quote_line_id, label, position, quote_lines!inner(quote_id)')
+        .select('id, quote_line_id, label, position, quote_lines!inner(quote_id)')
         .eq('quote_lines.quote_id', id)
         .order('position'),
+      // The whole company's, filtered to this devis below. A devis has three
+      // hundred lines and as many operations; naming them all in one query
+      // builds a URL nothing will accept, and RLS already keeps this to the
+      // chef's own company.
+      supabase.from('quote_assignments').select('quote_line_id, step_id, employee_id'),
+      supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('role', 'employee')
+        .eq('is_active', true)
+        .order('first_name'),
     ]);
     setQuote((q as Quote) ?? null);
     setLines((rows as Line[]) ?? []);
-    const byLine = new Map<string, string[]>();
-    for (const row of (stepRows as { quote_line_id: string; label: string }[] | null) ?? []) {
+    const byLine = new Map<string, Step[]>();
+    const stepIds = new Set<string>();
+    for (const row of (stepRows as { id: string; quote_line_id: string; label: string }[] | null) ?? []) {
+      stepIds.add(row.id);
       const list = byLine.get(row.quote_line_id);
-      if (list) list.push(row.label);
-      else byLine.set(row.quote_line_id, [row.label]);
+      if (list) list.push({ id: row.id, label: row.label });
+      else byLine.set(row.quote_line_id, [{ id: row.id, label: row.label }]);
     }
     setSteps(byLine);
+
+    const lineIds = new Set(((rows as Line[]) ?? []).map((line) => line.id));
+    const byTask = new Map<string, string[]>();
+    for (const row of (assignmentRows as
+      { quote_line_id: string | null; step_id: string | null; employee_id: string }[] | null) ?? []) {
+      const key = row.quote_line_id ? `l:${row.quote_line_id}` : `s:${row.step_id}`;
+      if (row.quote_line_id ? !lineIds.has(row.quote_line_id) : !stepIds.has(row.step_id!)) continue;
+      const list = byTask.get(key);
+      if (list) list.push(row.employee_id);
+      else byTask.set(key, [row.employee_id]);
+    }
+    setAssigned(byTask);
+    setTeam((people as Person[]) ?? []);
     setCodes((catalogue as Code[]) ?? []);
     setMilestones((schedule as Milestone[]) ?? []);
   }, [id]);
@@ -288,10 +333,18 @@ export default function QuoteReviewScreen() {
     setLines((current) => [...current, data as Line]);
   }
 
+  /**
+   * Strikes a line off, through the guard rather than straight out of the
+   * table: a line with declarations against it is somebody's day's work, and
+   * deleting it leaves those quantities pointing at nothing. The chef is told
+   * to set the quantity to zero instead, which says the same thing honestly.
+   */
   async function removeLine(line: Line) {
+    setError(null);
     setLines((current) => current.filter((row) => row.id !== line.id));
-    const { error: failure } = await supabase.from('quote_lines').delete().eq('id', line.id);
-    if (failure) { setError(failure.message); void load(); }
+    const { error: failure } = await supabase.rpc('delete_quote_line', { line: line.id });
+    if (failure) { setError(translateServerError(failure.message, locale)); }
+    await load();
   }
 
   async function toggleMilestone(milestone: Milestone) {
@@ -334,6 +387,75 @@ export default function QuoteReviewScreen() {
     setInForce(null);
     if (failure) { setError(translateServerError(failure.message, locale)); return; }
     router.back();
+  }
+
+  /** "Youssef B." — a first name and an initial is what a chef says out loud. */
+  const shortName = useCallback((person: Person) => {
+    const first = (person.first_name ?? '').trim();
+    const last = (person.last_name ?? '').trim();
+    return [first, last ? `${last[0]}.` : ''].filter(Boolean).join(' ') || t.quoteReview.someone;
+  }, [t.quoteReview.someone]);
+
+  // Who the sheet lists: the people already on the task first, then whoever
+  // matches what has been typed.
+  const shownTeam = useMemo(() => {
+    const on = new Set(assigning ? assigned.get(assigning.key) ?? [] : []);
+    const needle = teamSearch.trim().toLowerCase();
+    return team.filter((person) =>
+      on.has(person.id) ||
+      !needle ||
+      `${person.first_name ?? ''} ${person.last_name ?? ''}`.toLowerCase().includes(needle)
+    ).sort((a, b) => Number(on.has(b.id)) - Number(on.has(a.id)));
+  }, [team, assigned, assigning, teamSearch]);
+
+  /** The people on a line or an operation, in the order the team is listed. */
+  const peopleOn = useCallback(
+    (key: string) => {
+      const ids = assigned.get(key);
+      if (!ids?.length) return [];
+      return team.filter((person) => ids.includes(person.id));
+    },
+    [assigned, team]
+  );
+
+  /**
+   * Puts somebody on a task or takes them off, redrawing before the server
+   * answers: a chef handing out a morning's work taps a dozen names, and a
+   * round trip between each one is the difference between a list and a form.
+   */
+  async function toggleAssignment(key: string, employeeId: string) {
+    const [kind, taskId] = [key.slice(0, 1), key.slice(2)];
+    const had = assigned.get(key)?.includes(employeeId) ?? false;
+    setError(null);
+    setAssigned((current) => {
+      const next = new Map(current);
+      const list = next.get(key) ?? [];
+      next.set(key, had ? list.filter((id) => id !== employeeId) : [...list, employeeId]);
+      return next;
+    });
+    const { error: failure } = await supabase.rpc('set_quote_assignment', {
+      line: kind === 'l' ? taskId : null,
+      step: kind === 's' ? taskId : null,
+      employee: employeeId,
+      assigned: !had,
+    });
+    if (failure) {
+      setError(translateServerError(failure.message, locale));
+      await load();
+    }
+  }
+
+  /**
+   * Strikes an operation off. Refused by the database once it has been ticked,
+   * which is the answer the chef needs to hear: the thing he wants gone is a
+   * record of somebody's work.
+   */
+  async function removeStep(step: Step) {
+    setError(null);
+    setRemoving(null);
+    const { error: failure } = await supabase.rpc('delete_quote_line_step', { step: step.id });
+    if (failure) setError(translateServerError(failure.message, locale));
+    await load();
   }
 
   // Generating the operations on their own, without re-reading the PDF. The
@@ -489,6 +611,10 @@ export default function QuoteReviewScreen() {
                       currency={quote.currency}
                       steps={steps.get(item.line.id) ?? []}
                       dense={dense}
+                      peopleOn={peopleOn}
+                      nameOf={shortName}
+                      onAssign={(key, label) => setAssigning({ key, label })}
+                      onDeleteStep={setRemoving}
                       onPickCode={() => setPicking(item.line)}
                       onQuantity={(value) => { void setQuantity(item.line, value); }}
                       onLabel={(value) => { void setLabel(item.line, value); }}
@@ -500,6 +626,10 @@ export default function QuoteReviewScreen() {
                     currency={quote.currency}
                     steps={steps.get(item.line.id) ?? []}
                     dense={dense}
+                    peopleOn={peopleOn}
+                    nameOf={shortName}
+                    onAssign={(key, label) => setAssigning({ key, label })}
+                    onDeleteStep={setRemoving}
                     onPickCode={() => setPicking(item.line)}
                     onQuantity={(value) => { void setQuantity(item.line, value); }}
                     onLabel={(value) => { void setLabel(item.line, value); }}
@@ -696,6 +826,87 @@ export default function QuoteReviewScreen() {
         </ThemedText>
       </AppModal>
 
+      {/* Handing out the work. Several people on one task is normal — a poste
+          is two men — so this is a list of ticks rather than a single choice,
+          and it stays open while the chef works down it. */}
+      <AppModal
+        visible={!!assigning}
+        onClose={() => { setAssigning(null); setTeamSearch(''); }}
+        title={t.quoteReview.assignTitle}
+        icon="people-outline"
+        actions={
+          <ModalButton
+            secondary
+            label={t.common.done}
+            onPress={() => { setAssigning(null); setTeamSearch(''); }} />
+        }>
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+          {assigning?.label}
+        </ThemedText>
+        {team.length === 0 ? (
+          <ThemedText type="small" themeColor="textSecondary">{t.quoteReview.assignNoTeam}</ThemedText>
+        ) : (
+          <>
+            {/* A company of sixty is a scroll, not a list. The people already
+                on the task stay at the top whatever is typed, so taking
+                somebody off never means finding them again. */}
+            {team.length > 8 && (
+              <TextInput
+                value={teamSearch}
+                onChangeText={setTeamSearch}
+                placeholder={t.quoteReview.assignSearch}
+                placeholderTextColor={theme.textPlaceholder}
+                autoCorrect={false}
+                style={[styles.search, { backgroundColor: theme.backgroundInput, color: theme.text }]}
+              />
+            )}
+          <ScrollView style={styles.codeList} keyboardShouldPersistTaps="handled">
+            {shownTeam.map((person) => {
+              const on = assigning ? (assigned.get(assigning.key)?.includes(person.id) ?? false) : false;
+              return (
+                <Pressable
+                  key={person.id}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                  onPress={() => { if (assigning) void toggleAssignment(assigning.key, person.id); }}
+                  style={({ pressed }) => [styles.codeRow, pressed && styles.pressed]}>
+                  <Ionicons
+                    name={on ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={on ? theme.accent : theme.textPlaceholder}
+                  />
+                  <ThemedText type="small" style={{ flex: 1 }}>
+                    {[person.first_name, person.last_name].filter(Boolean).join(' ') || t.quoteReview.someone}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          </>
+        )}
+      </AppModal>
+
+      {/* Asked before striking an operation out, because the ones around it
+          are a tap away and losing them is not undoable. */}
+      <AppModal
+        visible={!!removing}
+        onClose={() => setRemoving(null)}
+        title={t.quoteReview.deleteStepTitle}
+        icon="trash-outline"
+        iconColor={theme.danger}
+        actions={
+          <>
+            <ModalButton
+              label={t.common.delete}
+              onPress={() => { if (removing) void removeStep(removing); }} />
+            <ModalButton secondary label={t.common.cancel} onPress={() => setRemoving(null)} />
+          </>
+        }>
+        <ThemedText type="small" themeColor="textSecondary">
+          {t.quoteReview.deleteStepBody(removing?.label ?? '')}
+        </ThemedText>
+      </AppModal>
+
       <AppModal
         visible={!!picking}
         onClose={() => { setPicking(null); setSearch(''); }}
@@ -810,6 +1021,10 @@ function LineRow({
   currency,
   steps,
   dense,
+  peopleOn,
+  nameOf,
+  onAssign,
+  onDeleteStep,
   onPickCode,
   onQuantity,
   onLabel,
@@ -817,9 +1032,15 @@ function LineRow({
   line: Line;
   currency: string;
   /** What a worker will be asked to tick off for this line. */
-  steps: string[];
+  steps: Step[];
   /** One line per row instead of a card. Editing still opens in place. */
   dense: boolean;
+  /** The people on a line or an operation, by "l:<id>" / "s:<id>". */
+  peopleOn: (key: string) => Person[];
+  nameOf: (person: Person) => string;
+  onAssign: (key: string, label: string) => void;
+  /** An operation only: a line is struck off by swiping its card. */
+  onDeleteStep: (step: Step) => void;
   onPickCode: () => void;
   onQuantity: (value: string) => void;
   onLabel: (value: string) => void;
@@ -828,6 +1049,7 @@ function LineRow({
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
+  const lineTeam = peopleOn(`l:${line.id}`);
 
   // A heading carries no quantity and a discount is not work: neither takes a
   // code, and neither is worth an edit affordance.
@@ -868,6 +1090,9 @@ function LineRow({
             <Ionicons name="list-outline" size={13} color={theme.accentText} />
             <ThemedText type="small" themeColor="accentText">{steps.length}</ThemedText>
           </View>
+        )}
+        {lineTeam.length > 0 && (
+          <Ionicons name="people" size={13} color={theme.accentText} />
         )}
         <ThemedText type="small" themeColor="textSecondary">
           {line.quantity ?? '—'} {line.source_unit ?? line.unit ?? ''}
@@ -934,6 +1159,25 @@ function LineRow({
           together meant nobody found it. Read-only — correcting the wording is
           a different job from checking the figures, and this screen is for the
           figures. */}
+      {/* Who the line is for. Named here rather than only on the operations,
+          because a line without a breakdown still has to be given to somebody,
+          and because "the whole poste is Youssef's" is the usual case. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t.quoteReview.assignTo(line.label)}
+        hitSlop={6}
+        onPress={() => onAssign(`l:${line.id}`, line.label)}
+        style={({ pressed }) => [styles.who, pressed && styles.pressed]}>
+        <Ionicons
+          name={lineTeam.length ? 'people' : 'person-add-outline'}
+          size={15}
+          color={lineTeam.length ? theme.accentText : theme.textPlaceholder}
+        />
+        <ThemedText type="small" themeColor={lineTeam.length ? 'accentText' : 'textPlaceholder'}>
+          {lineTeam.length ? lineTeam.map(nameOf).join(', ') : t.quoteReview.assignNobody}
+        </ThemedText>
+      </Pressable>
+
       {steps.length > 0 && (
         <Pressable
           accessibilityRole="button"
@@ -952,12 +1196,44 @@ function LineRow({
       )}
       {showSteps && steps.length > 0 && (
         <View style={[styles.steps, { backgroundColor: theme.background, borderLeftColor: theme.separator }]}>
-          {steps.map((label, index) => (
-            <View key={index} style={styles.step}>
-              <Ionicons name="square-outline" size={16} color={theme.textPlaceholder} />
-              <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>{label}</ThemedText>
-            </View>
-          ))}
+          {steps.map((step) => {
+            const on = peopleOn(`s:${step.id}`);
+            return (
+              <View key={step.id} style={styles.step}>
+                <Ionicons name="square-outline" size={16} color={theme.textPlaceholder} />
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <ThemedText type="small" themeColor="textSecondary">{step.label}</ThemedText>
+                  {/* Given to somebody, or open. An operation is often a trade
+                      of its own — "câbler" and "fixer" on the same poste are
+                      two people — so this is where the finer handing out
+                      happens. */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t.quoteReview.assignTo(step.label)}
+                    hitSlop={6}
+                    onPress={() => onAssign(`s:${step.id}`, step.label)}
+                    style={({ pressed }) => [styles.who, pressed && styles.pressed]}>
+                    <Ionicons
+                      name={on.length ? 'person' : 'person-add-outline'}
+                      size={13}
+                      color={on.length ? theme.accentText : theme.textPlaceholder}
+                    />
+                    <ThemedText type="small" themeColor={on.length ? 'accentText' : 'textPlaceholder'}>
+                      {on.length ? on.map(nameOf).join(', ') : t.quoteReview.assignNobody}
+                    </ThemedText>
+                  </Pressable>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t.quoteReview.deleteStep}
+                  hitSlop={8}
+                  onPress={() => onDeleteStep(step)}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <Ionicons name="close" size={16} color={theme.textPlaceholder} />
+                </Pressable>
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -1077,6 +1353,8 @@ const styles = StyleSheet.create({
     right: Spacing.two,
     zIndex: 1,
   },
+  /** Who a line or an operation was given to, or that it is open. */
+  who: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   addLine: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -29,6 +29,21 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'A devis cannot replace itself': 'Un devis ne peut pas se remplacer lui-même.',
   'Work has already been declared against that devis; add an avenant instead':
     'Du travail a déjà été déclaré sur ce devis : il ne peut plus être remplacé. Ajoutez un avenant à la place.',
+  // Handing out devis work, and striking lines off it.
+  'Only a chef can hand out work': 'Seul un chef peut attribuer du travail.',
+  'Say whether the work is theirs': "Précisez si la tâche lui est attribuée.",
+  'Name a line or an operation, not both': 'Désignez une ligne ou une opération, pas les deux.',
+  'That employee is not in your company': "Cet employé n'appartient pas à votre entreprise.",
+  'That account is closed': 'Ce compte est clôturé.',
+  'That task does not belong to your company': "Cette tâche n'appartient pas à votre entreprise.",
+  'Only a chef can delete an operation': 'Seul un chef peut supprimer une opération.',
+  'That operation does not exist': "Cette opération n'existe pas.",
+  'That operation is already done; it cannot be deleted':
+    'Cette opération est déjà faite : elle ne peut pas être supprimée.',
+  'Only a chef can delete a line': 'Seul un chef peut supprimer une ligne.',
+  'That line does not exist': "Cette ligne n'existe pas.",
+  'Work has already been declared on that line':
+    'Du travail a déjà été déclaré sur cette ligne : mettez sa quantité à zéro plutôt que de la supprimer.',
   'Missing authorization header': "En-tête d'autorisation manquant.",
   'Not authenticated': 'Non authentifié.',
   'Profile not found': 'Profil introuvable.',
