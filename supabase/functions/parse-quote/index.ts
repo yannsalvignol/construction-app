@@ -196,6 +196,14 @@ const READ_MODEL = Deno.env.get('PARSE_QUOTE_MODEL') || 'gpt-5.6-luna';
 const STEPS_MODEL = Deno.env.get('PARSE_STEPS_MODEL') || 'gpt-5.6-luna';
 
 
+/**
+ * How many times a short reading is asked again. Two: the first recovers the
+ * usual shortfall, the second catches a devis long enough that the recovery
+ * itself stopped short, and a third has never been the difference between a
+ * usable devis and an unusable one.
+ */
+const MAX_RECOVERY_PASSES = 2;
+
 /** Lines per steps request. Text only, so this is about the answer's size. */
 const STEPS_BATCH = 30;
 /** Steps batches at once. Text-only and on the cheap tier, so wider than the pages. */
@@ -437,12 +445,63 @@ async function parse(
     parsed.lines ??= [];
 
     const warnings: string[] = [];
-    // Omission is a known failure of structured extraction, and the devis is
-    // asked to count its own lines so a short answer is visible rather than
-    // silent. Read in one pass there is nowhere to retry to, so this is a
-    // warning on the chef's screen rather than a second request.
-    if (typeof parsed.printed_line_count === 'number' && parsed.lines.length < parsed.printed_line_count) {
-      warnings.push(`${parsed.lines.length} ligne(s) relevée(s) sur ${parsed.printed_line_count} comptée(s)`);
+    // Omission is a known failure of structured extraction: the line is printed
+    // and simply absent from the answer, with nothing in the response saying so.
+    // Models also stop short of a long list rather than refusing it — the same
+    // devis has come back 327, 328 and 89 lines on identical input. So the devis
+    // is asked to count its own lines, and a short answer is read again.
+    //
+    // Asking for what is missing rather than for the whole devis again: the
+    // first answer's lines were not wrong, they were incomplete, and a second
+    // full pass would be as likely to stop short as the first.
+    const counted = typeof parsed.printed_line_count === 'number' ? parsed.printed_line_count : 0;
+    for (let attempt = 0; attempt < MAX_RECOVERY_PASSES && parsed.lines.length < counted; attempt++) {
+      const have = parsed.lines.map((line) => String(line.label ?? '')).filter(Boolean);
+      const before = parsed.lines.length;
+      const extra = await openai.chat.completions.create({
+        model: READ_MODEL,
+        max_completion_tokens: 100000,
+        response_format: {
+          type: 'json_schema',
+          json_schema: { name: 'devis', strict: true, schema: SCHEMA },
+        },
+        messages: [
+          { role: 'system', content: SYSTEM },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text:
+                  `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
+                  `Tu as compté ${counted} lignes dans ce devis et tu n'en as rendu que ${before}. ` +
+                  `Voici les libellés déjà relevés, dans l'ordre :\n${have.join('\n')}\n\n` +
+                  `Rends UNIQUEMENT les lignes du devis qui manquent dans cette liste, dans l'ordre du document. ` +
+                  `Si rien ne manque, rends une liste vide.`,
+              },
+              ...fileIds.map((fid) => ({ type: 'file' as const, file: { file_id: fid } })),
+              ...images.map((image) => ({
+                type: 'image_url' as const,
+                image_url: { url: `data:${image.mime};base64,${image.base64}`, detail: 'high' as const },
+              })),
+            ] as never,
+          },
+        ],
+      });
+      inputTokens += extra.usage?.prompt_tokens ?? 0;
+      outputTokens += extra.usage?.completion_tokens ?? 0;
+      const extraBody = extra.choices[0]?.message?.content;
+      if (!extraBody || extra.choices[0]?.finish_reason === 'length') break;
+      const recovered = (JSON.parse(extraBody) as Parsed).lines ?? [];
+      // Appended rather than spliced into place: the order within the devis is
+      // lost for the recovered lines, which is a smaller loss than losing them.
+      parsed.lines.push(...recovered);
+      // No progress means asking again will not help either.
+      if (parsed.lines.length === before) break;
+    }
+
+    if (counted && parsed.lines.length < counted) {
+      warnings.push(`${parsed.lines.length} ligne(s) relevée(s) sur ${counted} comptée(s)`);
     }
 
     // Replaces any earlier attempt rather than accumulating duplicates.
