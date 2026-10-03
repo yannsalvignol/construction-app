@@ -118,20 +118,24 @@ export default function EmployeeHomeScreen() {
     {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
     {profile && !profile.is_active ? <Card><ThemedText>{copy.inactive}</ThemedText></Card> : data && <>
       {(!consented || showNotice) && <PresenceNotice accepted={consented} busy={busy} onAccept={() => { void act(() => consent(true)); }} onWithdraw={() => { void act(() => consent(false)); }} />}
-      {/* Long-press cancels a day declared by mistake; the destructive path stays out
-          of reach of a normal tap, and the server refuses once the day produced work. */}
-      {data.day && <Pressable onLongPress={active ? confirmCancelDay : undefined}
+      {/* Only while the day is running. A finished day is a record, and a
+          record belongs in the history behind the arrow by the title, not at
+          the top of the screen where the next day is started: a worker about
+          to begin his second day was reading yesterday's totals first.
+          Long-press cancels a day declared by mistake; the destructive path
+          stays out of reach of a normal tap, and the server refuses once the
+          day produced work. */}
+      {active && data.day && <Pressable onLongPress={active ? confirmCancelDay : undefined}
         accessibilityRole={active ? 'button' : undefined}
         accessibilityHint={active ? copy.cancelDayHint : undefined}
         style={({ pressed }) => pressed && active ? { opacity: 0.7 } : undefined}>
         <Card accent>
-        <ThemedText type="small" themeColor="accentText">{active ? copy.today : copy.dayDone}</ThemedText>
+        <ThemedText type="small" themeColor="accentText">{copy.today}</ThemedText>
         <ThemedText style={{ fontSize: 24, fontWeight: '700' }}>{data.sites.find(s => s.id === data.day?.site_id)?.name ?? copy.site}</ThemedText>
-        {/* Counts up from the declared start, and freezes at the total once finished.
-            `now` already ticks every second in useWorkspace. */}
+        {/* Counts up from the declared start. `now` already ticks every second
+            in useWorkspace, and the card is gone by the time the day ends. */}
         <ThemedText themeColor="textSecondary">
-          {active ? copy.elapsedLabel : copy.workedLabel} : {formatElapsed(
-            (data.day.ended_at ? Date.parse(data.day.ended_at) : now) - Date.parse(data.day.started_at), copy)}
+          {copy.elapsedLabel} : {formatElapsed(now - Date.parse(data.day.started_at), copy)}
         </ThemedText>
         {data.location_mode === 'live' && <ThemedText type="small" themeColor={liveConsented ? 'accentText' : 'textSecondary'}>
           {liveConsented ? copy.liveOn : copy.liveOff}</ThemedText>}
@@ -141,10 +145,9 @@ export default function EmployeeHomeScreen() {
         {liveSharing && <ZoneTime
           secondsInside={data.day.seconds_inside}
           secondsOutside={data.day.seconds_outside}
-          secondsElapsed={Math.max(0, Math.round(
-            ((data.day.ended_at ? Date.parse(data.day.ended_at) : now) - Date.parse(data.day.started_at)) / 1000))} />}
+          secondsElapsed={Math.max(0, Math.round((now - Date.parse(data.day.started_at)) / 1000))} />}
         {!!missed && <ThemedText>{missed} · {copy.missed}</ThemedText>}
-        {active && <ThemedText type="small" themeColor="textSecondary">{copy.cancelDayHint}</ThemedText>}
+        <ThemedText type="small" themeColor="textSecondary">{copy.cancelDayHint}</ThemedText>
         </Card>
       </Pressable>}
       {active && <>
@@ -175,6 +178,12 @@ export default function EmployeeHomeScreen() {
         }} />
         {confirmFinish && <Action secondary label={copy.cancel} onPress={() => setConfirmFinish(false)} />}
       </>}
+      {/* One line instead of the card that used to sit here: a worker who has
+          just pressed "terminer" needs to know it was recorded, not to read
+          the totals again. The day itself is behind the arrow by the title. */}
+      {consented && !active && data.day?.ended_at && (
+        <ThemedText type="small" themeColor="textSecondary">{copy.dayDoneHint}</ThemedText>
+      )}
       {consented && !active && <Card>
         {data.sites.length ? <>
           <Select
