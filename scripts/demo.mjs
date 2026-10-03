@@ -1,14 +1,18 @@
 #!/usr/bin/env node
-// One command for the whole demo company: accounts and chantiers, a month of
-// history behind them, then live positions and declarations until you stop it.
+// The demonstration company, and the working day it is having.
 //
-//   npm run demo                  # seed what is missing, then run live
-//   npm run demo -- --days=90     # a longer history
-//   npm run demo -- --seed-only   # stop before the live simulation
-//   npm run demo -- --reset       # delete the company first, then seed it again
+//   npm run demo              # make sure Castor Ingénierie exists, then run the day
+//   npm run demo -- --stop    # close the day and stop
 //
-// Every flag is passed through to the step it belongs to, so the three scripts
-// stay usable on their own.
+// The company, its chantiers, its employees and anything done to them since —
+// a devis read, a line ticked off, a photograph taken — are never touched.
+// There is no reset: this script creates what is missing and runs, and nothing
+// it does removes anything. Seeding a month of history and a devis happens once,
+// when the company is created, because doing it again would write over work
+// somebody has since done.
+//
+// Stopping closes today's declared days and clears the live positions. The
+// declarations stay: they are the record of what was done.
 
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -16,42 +20,39 @@ import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const has = (name) => args.includes(`--${name}`);
+const stop = args.includes('--stop');
 const passthrough = args.filter((a) => a.startsWith('--days='));
 
 /** Runs one script to completion, inheriting stdio so its output is the output. */
 function run(script, scriptArgs = []) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [join(here, script), ...scriptArgs], { stdio: 'inherit' });
-    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${script} exited with ${code}`))));
+    // 3 means seed-castor-demo found the company already there, which is the
+    // ordinary case and not a failure.
+    child.on('exit', (code) => (code === 0 || code === 3 ? resolve(code) : reject(new Error(`${script} exited with ${code}`))));
     child.on('error', reject);
   });
 }
 
 try {
-  if (has('reset')) {
-    console.log('— Suppression de l’entreprise de démonstration');
-    await run('seed-quotes.mjs', ['--wipe']);
-    await run('seed-castor-demo.mjs', ['--wipe']);
-  }
-
-  console.log('— Entreprise, employés, chantiers, planning');
-  await run('seed-castor-demo.mjs');
-
-  console.log('\n— Historique des journées et des tâches');
-  await run('seed-history.mjs', passthrough);
-
-  // After the history: the declarations that advance a devis hang off the
-  // work days it creates.
-  console.log('\n— Devis et avancement');
-  await run('seed-quotes.mjs');
-
-  if (has('seed-only')) {
-    console.log('\n✔ Données en place. Lancez `npm run demo` sans --seed-only pour la simulation en direct.');
+  if (stop) {
+    await run('simulate-castor-live.mjs', ['--stop']);
     process.exit(0);
   }
 
-  console.log('\n— Positions et déclarations en direct (Ctrl-C pour arrêter)');
+  console.log('— Entreprise, employés, chantiers, planning');
+  const code = await run('seed-castor-demo.mjs');
+
+  if (code === 0) {
+    // Only on the run that created the company. Afterwards this is somebody's
+    // chantier and the history is whatever actually happened on it.
+    console.log('\n— Historique des journées et des tâches');
+    await run('seed-history.mjs', passthrough);
+    console.log('\n— Devis et avancement');
+    await run('seed-quotes.mjs');
+  }
+
+  console.log('\n— Journées en cours et positions en direct (Ctrl-C pour arrêter)');
   await run('simulate-castor-live.mjs');
 } catch (error) {
   console.error(`\n✖ ${error.message}`);

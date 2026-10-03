@@ -262,8 +262,10 @@ if (existing) {
   // Not an error: this script is the first step of `npm run demo`, which is
   // meant to be run again and again. --wipe is how you start over.
   console.log(`\n${COMPANY_NAME} already exists (${existing.id}) — nothing to create.`);
-  console.log('Use --wipe to remove it and seed again.');
-  process.exit(0);
+  // 3, not 0: the caller needs to tell "created it" from "it was already there"
+  // so that a month of history and a devis are not seeded a second time over
+  // work somebody has since done.
+  process.exit(3);
 }
 
 // Company
