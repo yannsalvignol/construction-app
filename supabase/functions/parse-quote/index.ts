@@ -138,17 +138,21 @@ Pour chaque ligne qu'on te donne, liste les opérations successives qu'un ouvrie
 
 - Une étape est une opération, pas une mesure: pas de quantité, pas de pourcentage, pas de "50% posé".
 - Une étape doit être vérifiable sur place en regardant l'installation.
-- Formule à l'infinitif, courte, sans numérotation: "Poser les plots anti-vibrations", "Raccorder puissance, commande et terre".
-- Deux à cinq étapes quand la ligne en mérite. Tableau VIDE pour:
+- Formule à l'infinitif, sans numérotation.
+- Si la seule étape possible ne ferait que répéter le libellé de la ligne, rends un tableau vide: une ligne redite n'est pas une ligne décomposée.
+- Une à trois étapes, trois au maximum.
+- Formule chaque étape en deux ou trois mots quand c'est possible: "Fixer", "Câbler les asservissements", "Tester". Pas de phrase, pas de complément inutile.
+- Tableau VIDE pour:
   - une fourniture seule, un matériel livré non posé, une location;
-  - une ligne qui est déjà une seule opération ("Pose d'un WC", "Percement de dalle");
+  - une ligne qui est déjà une seule opération ("Pose d'un WC", "Percement de dalle"): la décomposer en une étape ne ferait que la répéter;
   - un forfait global qui couvre un lot entier sans décrire d'ouvrage;
   - une ligne dont le libellé ne dit pas assez pour savoir ce qu'on y fait.
 - N'invente rien que le libellé n'implique pas. Dans le doute, tableau vide.
 - Rends une entrée par ligne reçue, avec son index, et rien d'autre.
 
 Exemples.
-"Groupe moteur + alternateur 315 kVA insonorisé, posé en toiture" → ["Poser les plots anti-vibrations", "Mettre le groupe en place sur la dalle", "Raccorder puissance, commande et terre", "Essai de démarrage en charge"]
+"Poste asservi 2 voies (PA)" → ["Fixer", "Câbler les asservissements", "Tester"]
+"Groupe moteur + alternateur 315 kVA insonorisé, posé en toiture" → ["Poser les plots anti-vibrations", "Mettre en place sur la dalle", "Raccorder puissance, commande et terre"]
 "Fourniture de 12 ml de gaine spirale Ø125" → []`;
 
 const STEPS_SCHEMA = {
@@ -204,7 +208,7 @@ const STEPS_CONCURRENCY = 6;
 const STALE_PARSE_MS = 5 * 60_000;
 
 /** More than this is a method statement, not a line of a devis. */
-const MAX_STEPS_PER_LINE = 6;
+const MAX_STEPS_PER_LINE = 3;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -624,8 +628,11 @@ async function parse(
           .map((label) => String(label ?? '').trim().slice(0, 200))
           .filter((label) => label.length > 0)
           .slice(0, MAX_STEPS_PER_LINE);
-        // A line broken into one operation has not been broken down.
-        if (labels.length < 2) continue;
+        // One is allowed: plenty of lines are a single operation, and saying so
+        // is useful. The prompt refuses the case that is not — a lone step that
+        // only restates the line — because a line repeated is not a line broken
+        // down, and that is a judgement about the wording rather than a count.
+        if (!labels.length) continue;
         labels.forEach((label, position) => {
           steps.push({ quote_line_id: lineId, company_id: quote.company_id, position, label });
         });
