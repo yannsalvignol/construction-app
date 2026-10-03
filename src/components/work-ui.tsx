@@ -65,7 +65,7 @@ export function Card({ children, accent = false }: { children: React.ReactNode; 
     </View>
   );
 }
-export function Action({ label, onPress, disabled, busy, secondary = false, large = false, tone }: {
+export function Action({ label, onPress, disabled, busy, secondary = false, large = false, tone, nudgedAt = 0 }: {
   label: string; onPress: () => void; disabled?: boolean; busy?: boolean; secondary?: boolean;
   /** For the one action a screen exists for, pressed with a glove on a chantier. */
   large?: boolean;
@@ -75,21 +75,59 @@ export function Action({ label, onPress, disabled, busy, secondary = false, larg
    * warning about an ordinary act.
    */
   tone?: 'finish';
+  /**
+   * Bumped when something elsewhere sent the person here to press this. The
+   * button breathes once — big enough to catch the eye landing on the screen,
+   * small enough not to read as an error. A counter rather than a flag: a
+   * second refusal that changes nothing on screen reads as the app having
+   * stopped listening.
+   */
+  nudgedAt?: number;
 }) {
   const theme = useTheme();
   const fill = tone === 'finish' ? theme.successFill : theme.accent;
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
-    // Secondary is an outlined oval, as on the chef's screens, rather than a
-    // second purple surface competing with the real action.
-    style={({ pressed }) => [styles.action, large && styles.actionLarge, {
-      backgroundColor: secondary ? 'transparent' : fill,
-      borderWidth: secondary ? 1 : 0,
-      borderColor: theme.text,
-      opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,
-    }]}>
-    {busy && <BrandSpinner color={secondary ? theme.accentText : theme.buttonText} />}
-    <ThemedText type="smallBold" style={{ color: secondary ? theme.text : theme.buttonText, textAlign: 'center', flexShrink: 1 }}>{label}</ThemedText>
-  </Pressable>;
+
+  const pulse = useSharedValue(0);
+  React.useEffect(() => {
+    if (!nudgedAt) return;
+    // Twice, because one pulse on a screen that has just changed is missed.
+    pulse.value = withSequence(
+      withTiming(1, { duration: 220 }), withTiming(0, { duration: 260 }),
+      withTiming(1, { duration: 220 }), withTiming(0, { duration: 420 })
+    );
+  }, [nudgedAt, pulse]);
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + pulse.value * 0.035 }],
+  }));
+  // A halo rather than a colour change: the button keeps its own tone, and the
+  // ring is plainly a pointer at it rather than a new state it has entered.
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: pulse.value * 0.5,
+    transform: [{ scale: 1 + pulse.value * 0.09 }],
+  }));
+
+  return <View>
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        { borderRadius: 999, borderWidth: 3, borderColor: secondary ? theme.text : fill },
+        haloStyle,
+      ]}
+    />
+    <AnimatedPressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
+      // Secondary is an outlined oval, as on the chef's screens, rather than a
+      // second purple surface competing with the real action.
+      style={({ pressed }: { pressed: boolean }) => [styles.action, large && styles.actionLarge, {
+        backgroundColor: secondary ? 'transparent' : fill,
+        borderWidth: secondary ? 1 : 0,
+        borderColor: theme.text,
+        opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,
+      }, pulseStyle]}>
+      {busy && <BrandSpinner color={secondary ? theme.accentText : theme.buttonText} />}
+      <ThemedText type="smallBold" style={{ color: secondary ? theme.text : theme.buttonText, textAlign: 'center', flexShrink: 1 }}>{label}</ThemedText>
+    </AnimatedPressable>
+  </View>;
 }
 /**
  * The two hours a declared day runs between, read off the duration wheel.

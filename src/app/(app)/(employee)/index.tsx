@@ -17,6 +17,7 @@ import { ZoneTime } from '@/components/zone-time';
 import { DayHistory, PastDayView, formatDay, useDayHistory } from '@/components/day-history';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
+import { useStartDayNudge } from '@/hooks/use-day-required';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { capturePresence, NOTICE_VERSION } from '@/lib/presence';
 import { LIVE_NOTICE_VERSION } from '@/lib/live-location';
@@ -102,6 +103,9 @@ export default function EmployeeHomeScreen() {
       }); } },
     ]);
   }
+  // Bumped by a tab that refused to open without a declared day; the start
+  // button breathes once so the eye lands on it rather than hunting the card.
+  const nudge = useStartDayNudge();
   const missed = data?.requests.filter(r => Date.parse(r.expires_at) <= now && !data.checks.some(c => c.request_id === r.id)).length ?? 0;
   const pickedDays = picked ? (history.days ?? []).filter(day => day.work_date === picked) : [];
 
@@ -178,12 +182,6 @@ export default function EmployeeHomeScreen() {
         }} />
         {confirmFinish && <Action secondary label={copy.cancel} onPress={() => setConfirmFinish(false)} />}
       </>}
-      {/* One line instead of the card that used to sit here: a worker who has
-          just pressed "terminer" needs to know it was recorded, not to read
-          the totals again. The day itself is behind the arrow by the title. */}
-      {consented && !active && data.day?.ended_at && (
-        <ThemedText type="small" themeColor="textSecondary">{copy.dayDoneHint}</ThemedText>
-      )}
       {consented && !active && <Card>
         {data.sites.length ? <>
           <Select
@@ -219,7 +217,7 @@ export default function EmployeeHomeScreen() {
           {/* Pressable even with no chantier chosen: a button that does nothing
               when pressed cannot say why, and "nothing happened" is the worst
               answer a screen can give. It points at what is missing instead. */}
-          <Action large label={copy.start} busy={busy} onPress={() => {
+          <Action large label={copy.start} busy={busy} nudgedAt={nudge} onPress={() => {
             if (!site) {
               setRefusals(n => n + 1);
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);

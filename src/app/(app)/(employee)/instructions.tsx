@@ -5,9 +5,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useI18n } from '@/hooks/use-i18n';
+import { useDayRequired } from '@/hooks/use-day-required';
 
 export default function InstructionsScreen() {
   const { t } = useI18n();
+  // Nothing here applies before a day is declared, so the tab bounces back to
+  // the day screen and lights the button that starts one.
+  const active = useDayRequired();
+  if (!active) return null;
 
   return (
     <ThemedView style={styles.container}>
