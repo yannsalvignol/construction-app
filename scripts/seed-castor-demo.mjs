@@ -260,8 +260,40 @@ if (WIPE) {
 
 if (existing) {
   // Not an error: this script is the first step of `npm run demo`, which is
-  // meant to be run again and again. --wipe is how you start over.
-  console.log(`\n${COMPANY_NAME} already exists (${existing.id}) — nothing to create.`);
+  // meant to be run again and again.
+  console.log(`\n${COMPANY_NAME} already exists (${existing.id}).`);
+
+  // The credentials are told to people, so they have to be true. A company
+  // seeded before the password became a constant has whatever was generated
+  // that day, and no non-destructive way back to a known one. Setting them is
+  // that way: nothing is deleted, and the password printed below is the
+  // password that works.
+  const { data: people, error: peopleError } = await admin
+    .from('profiles')
+    .select('id, role, username')
+    .eq('company_id', existing.id);
+  if (peopleError) fail('read the company members', peopleError);
+
+  let fixed = 0;
+  for (const person of people ?? []) {
+    const { error } = await admin.auth.admin.updateUserById(person.id, { password: PASSWORD });
+    if (error) { console.warn(`  ! ${person.username ?? person.id}: ${error.message}`); continue; }
+    fixed++;
+  }
+  // The chef reads a worker's password off their fiche, so the copy he is shown
+  // has to say the same thing.
+  const { error: shownError } = await admin
+    .from('profiles')
+    .update({ employee_password: PASSWORD })
+    .eq('company_id', existing.id)
+    .eq('role', 'employee');
+  if (shownError) console.warn(`  ! employee_password: ${shownError.message}`);
+
+  console.log(`✔ ${fixed} account(s) set to the demo password`);
+  console.log(`\nchef:     ${CHEF.email}`);
+  console.log(`password: ${PASSWORD} (the same for every worker)`);
+  const names = (people ?? []).filter((p) => p.username).map((p) => p.username).sort();
+  if (names.length) console.log(`workers:  ${names.slice(0, 6).join(', ')}${names.length > 6 ? `, +${names.length - 6}` : ''}`);
   // 3, not 0: the caller needs to tell "created it" from "it was already there"
   // so that a month of history and a devis are not seeded a second time over
   // work somebody has since done.
