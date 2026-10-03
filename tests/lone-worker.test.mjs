@@ -83,8 +83,9 @@ test('lone worker protection', async t => {
   await as(ids.worker, 'select public.start_work_day($1, 8)', [ids.site]);
 
   await t.test('the watch runs on a declared day with no live sharing enabled', async () => {
-    // This is the whole point of the rearrangement: location_mode is still the
-    // default 'checkpoint', nobody is tracking anybody, and the watch runs.
+    // The whole point of the rearrangement: with the chef's map switched off
+    // for this worker, nobody is tracking anybody, and the watch still runs.
+    await peek("update public.profiles set location_mode = 'checkpoint' where id = $1", [ids.worker]);
     const mode = await as(ids.worker, 'select location_mode from public.profiles where id = auth.uid()');
     assert.equal(mode[0].location_mode, 'checkpoint');
     const reply = await as(ids.worker, 'select public.safety_heartbeat($1, $2, 10) as r', here);

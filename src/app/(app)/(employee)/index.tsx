@@ -163,7 +163,7 @@ export default function EmployeeHomeScreen() {
           <DeclaredTasks data={data} />
         </Card>
         {confirmFinish && <Card><ThemedText>{copy.finishConfirm}</ThemedText></Card>}
-        <Action secondary label={copy.finish} busy={busy} onPress={() => {
+        <Action large tone="finish" label={copy.finish} busy={busy} onPress={() => {
           if (!confirmFinish) { setConfirmFinish(true); return; }
           void act(async () => { const { error: failure } = await supabase.rpc('end_work_day', { day_id: data.day!.id }); if (failure) throw failure; setConfirmFinish(false); });
         }} />

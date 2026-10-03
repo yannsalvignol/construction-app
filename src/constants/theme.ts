@@ -28,6 +28,8 @@ export const Colors = {
     accentSoft: '#F3ECFD',
     danger: '#B82746',
     success: '#26734A',
+    /** A surface that carries white text, where success is a tone for text. */
+    successFill: '#26734A',
     warning: '#8A5410',
     /** A wash of the warning tone, for lighting a field that was left empty. */
     warningSoft: '#FAE8D2',
@@ -53,6 +55,9 @@ export const Colors = {
     accentSoft: '#3B2A4D',
     danger: '#FF91A4',
     success: '#83D5A7',
+    /** A surface that carries white text: the dark success tone is a pale green
+     * meant for lettering, and white on it is unreadable. */
+    successFill: '#2E7D56',
     warning: '#F1C077',
     /** A wash of the warning tone, for lighting a field that was left empty. */
     warningSoft: '#4A3418',

@@ -65,17 +65,24 @@ export function Card({ children, accent = false }: { children: React.ReactNode; 
     </View>
   );
 }
-export function Action({ label, onPress, disabled, busy, secondary = false, large = false }: {
+export function Action({ label, onPress, disabled, busy, secondary = false, large = false, tone }: {
   label: string; onPress: () => void; disabled?: boolean; busy?: boolean; secondary?: boolean;
   /** For the one action a screen exists for, pressed with a glove on a chantier. */
   large?: boolean;
+  /**
+   * "finish" closes something that was running. It takes the success tone, not
+   * the danger one: ending a day is the day going well, and red would read as a
+   * warning about an ordinary act.
+   */
+  tone?: 'finish';
 }) {
   const theme = useTheme();
+  const fill = tone === 'finish' ? theme.successFill : theme.accent;
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
     // Secondary is an outlined oval, as on the chef's screens, rather than a
     // second purple surface competing with the real action.
     style={({ pressed }) => [styles.action, large && styles.actionLarge, {
-      backgroundColor: secondary ? 'transparent' : theme.accent,
+      backgroundColor: secondary ? 'transparent' : fill,
       borderWidth: secondary ? 1 : 0,
       borderColor: theme.text,
       opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,

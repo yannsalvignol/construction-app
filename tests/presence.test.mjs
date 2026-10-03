@@ -220,6 +220,10 @@ test('presence and productivity database contracts', async t => {
     assert.equal((await db.query('select * from auth.users where id=$1', [fresh])).rows.length, 0);
   });
   await t.test('live location needs the chef to enable it, the employee to agree, and an open day', async () => {
+    // Live is the setup a company starts in, so the mode is put back to
+    // checkpoint here to prove the gate still exists rather than to describe a
+    // default.
+    await db.query("update public.profiles set location_mode = 'checkpoint' where id = $1", [ids.worker]);
     // The chef's switch alone shares nothing: agreement is a separate, explicit act.
     await assert.rejects(as(ids.worker, 'select public.update_live_position(33.5::float8, -7.6::float8, 12::float8)'), /not enabled/);
     // A self-edit is not rejected, it is reverted by the trigger: the statement
