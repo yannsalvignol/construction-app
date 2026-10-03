@@ -181,7 +181,7 @@ export function Select({ label, value, options, missing = false, refusedAt = 0, 
       </ThemedText>
     </AnimatedPressable>
     {!!options.find(o => o.value === value)?.note && (
-      <ThemedText type="small" themeColor="accentText">
+      <ThemedText type="small" themeColor="marked">
         {options.find(o => o.value === value)!.note}
       </ThemedText>
     )}
@@ -191,7 +191,13 @@ export function Select({ label, value, options, missing = false, refusedAt = 0, 
         {options.map(option => <Pressable key={option.value} accessibilityRole="radio" accessibilityState={{ checked: option.value === value }} onPress={() => { onChange(option.value); setOpen(false); }}
           style={[styles.field, styles.option, {
             backgroundColor: theme.backgroundElement,
-            borderColor: option.value === value ? theme.text : theme.backgroundSelected,
+            // Gold round the ones something is waiting at, so they are picked
+            // out of the list before a word of it is read. It outranks the
+            // selected outline: the tick already says which one is chosen,
+            // and nothing else on the page says which one he is expected at.
+            borderColor: option.note
+              ? theme.marked
+              : option.value === value ? theme.text : theme.backgroundSelected,
           }]}>
           <View style={{ flex: 1, gap: 2 }}>
             <ThemedText>{option.label}</ThemedText>
@@ -199,7 +205,7 @@ export function Select({ label, value, options, missing = false, refusedAt = 0, 
                 choosing, rather than after starting the day on the wrong
                 chantier. */}
             {!!option.note && (
-              <ThemedText type="small" themeColor="accentText">{option.note}</ThemedText>
+              <ThemedText type="small" themeColor="marked">{option.note}</ThemedText>
             )}
           </View>
           {option.value === value && <ThemedText type="smallBold">✓</ThemedText>}

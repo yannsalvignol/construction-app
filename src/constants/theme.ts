@@ -19,6 +19,10 @@ export const Colors = {
      * folder sits under its white cards instead of beside them. Untinted on
      * purpose — the accent is for things you press, not for furniture. */
     backgroundGroup: '#C8CBCD',
+    /** A thin gold edge round something somebody is expected at. Not the
+     * accent: the accent means "press me", and this means "this one is
+     * yours". Dark enough to be an edge on white. */
+    marked: '#B8860B',
     /** Hairlines between rows. Darker than the page, where backgroundSelected
      * is lighter than it and therefore invisible on anything but a card. */
     separator: '#B9B2C6',
@@ -49,6 +53,9 @@ export const Colors = {
     /** A group heading: a neutral grey a step LIGHTER than the page, since on
      * a dark page depth runs the other way. Untinted on purpose. */
     backgroundGroup: '#2D2D32',
+    /** A thin gold edge round something somebody is expected at. Lighter than
+     * the light-mode gold, which disappears on a dark card. */
+    marked: '#E3B341',
     /** Hairlines between rows. Darker than the page, where backgroundSelected
      * is lighter than it and therefore invisible on anything but a card. */
     separator: '#4A3F58',
