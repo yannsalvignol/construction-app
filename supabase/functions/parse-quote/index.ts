@@ -723,9 +723,16 @@ async function parse(
     // quieter one than an exception: every batch succeeds and nothing is saved.
     const note = stepFailure
       ? `Opérations non générées : ${stepFailure.slice(0, 160)}`
-      : answered > 0 && steps.length === 0
-        ? `Opérations non générées : ${answered} réponse(s) reçue(s), aucune rattachée à une ligne.`
-        : null;
+      // Nothing was even asked for: every line of the devis was read as a
+      // heading or a discount, so there was no work to break down. Silent
+      // until now, and indistinguishable from the pass failing.
+      : workLines.length === 0
+        ? `Opérations non générées : aucune ligne de travail sur ${parsed.lines.length} lue(s).`
+        : answered > 0 && steps.length === 0
+          ? `Opérations non générées : ${answered} réponse(s) reçue(s), aucune rattachée à une ligne.`
+          : steps.length === 0
+            ? `Opérations non générées : ${workLines.length} ligne(s) envoyée(s), aucune réponse exploitable.`
+            : null;
     if (note) {
       await admin
         .from('site_quotes')
