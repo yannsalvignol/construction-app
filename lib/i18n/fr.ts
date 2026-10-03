@@ -491,6 +491,8 @@ const fr = {
     title: 'Vérifier le devis',
     sectionLines: (n: number) => `${n} ligne${n > 1 ? 's' : ''}`,
     sectionUntitled: 'Début du devis',
+    showSteps: (n: number) => `Voir les sous-tâches (${n})`,
+    hideSteps: 'Masquer les sous-tâches',
     supersedeTitle: 'Un devis est déjà en vigueur',
     supersedeBody: (name: string) => `« ${name} » est déjà validé sur ce chantier. Celui-ci le remplace-t-il, ou s'ajoute-t-il ?`,
     supersedeReplace: 'Il remplace le précédent',

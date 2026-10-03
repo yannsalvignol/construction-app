@@ -495,6 +495,8 @@ const en = {
     title: 'Check the quote',
     sectionLines: (n: number) => `${n} line${n > 1 ? 's' : ''}`,
     sectionUntitled: 'Start of the devis',
+    showSteps: (n: number) => `Show the sub-tasks (${n})`,
+    hideSteps: 'Hide the sub-tasks',
     supersedeTitle: 'A devis is already in force',
     supersedeBody: (name: string) => `"${name}" is already validated on this site. Does this one replace it, or add to it?`,
     supersedeReplace: 'It replaces the earlier one',

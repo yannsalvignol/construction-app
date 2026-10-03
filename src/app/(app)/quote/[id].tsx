@@ -728,6 +728,7 @@ function LineRow({
   const theme = useTheme();
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
 
   // A heading carries no quantity and a discount is not work: neither takes a
   // code, and neither is worth an edit affordance.
@@ -760,6 +761,15 @@ function LineRow({
           pressed && styles.pressed,
         ]}>
         <ThemedText type="small" numberOfLines={1} style={{ flex: 1 }}>{line.label}</ThemedText>
+        {/* Not the sub-tasks themselves — the list view exists to fit a devis on
+            one screen — but a mark saying there are some, so the row is not
+            silent about what opening it would show. */}
+        {steps.length > 0 && (
+          <View style={styles.stepsMark}>
+            <Ionicons name="list-outline" size={13} color={theme.accentText} />
+            <ThemedText type="small" themeColor="accentText">{steps.length}</ThemedText>
+          </View>
+        )}
         <ThemedText type="small" themeColor="textSecondary">
           {line.quantity ?? '—'} {line.source_unit ?? line.unit ?? ''}
         </ThemedText>
@@ -820,11 +830,28 @@ function LineRow({
         )}
       </View>
 
-      {/* What his crews will tick off, shown when he opens the line — the one
-          moment he can still say the breakdown is wrong, since validating hands
-          it to them. Read-only: correcting the wording is a different job from
-          checking the figures, and this screen is for the figures. */}
-      {editing && steps.length > 0 && (
+      {/* What his crews will tick off, behind a button of its own: seeing the
+          breakdown and editing the line are different things, and tying them
+          together meant nobody found it. Read-only — correcting the wording is
+          a different job from checking the figures, and this screen is for the
+          figures. */}
+      {steps.length > 0 && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showSteps }}
+          onPress={() => setShowSteps((current) => !current)}
+          style={({ pressed }) => [styles.stepsToggle, pressed && styles.pressed]}>
+          <Ionicons
+            name={showSteps ? 'chevron-up' : 'list-outline'}
+            size={16}
+            color={theme.accentText}
+          />
+          <ThemedText type="small" themeColor="accentText">
+            {showSteps ? t.quoteReview.hideSteps : t.quoteReview.showSteps(steps.length)}
+          </ThemedText>
+        </Pressable>
+      )}
+      {showSteps && steps.length > 0 && (
         <View style={styles.steps}>
           {steps.map((label, index) => (
             <View key={index} style={styles.step}>
@@ -873,6 +900,8 @@ const styles = StyleSheet.create({
   /** Header and footer keep the page's rhythm; the rows no longer inherit it. */
   band: { gap: Spacing.two, paddingBottom: Spacing.two },
   cardSpacing: { marginBottom: Spacing.two },
+  stepsMark: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  stepsToggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingTop: Spacing.one },
   steps: { gap: 2, paddingLeft: Spacing.two },
   step: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   /** One part of the devis, closed: it is checked a section at a time. */
