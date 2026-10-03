@@ -56,45 +56,96 @@ type Quote = {
 type Code = { code: string; label_fr: string | null; unit: string };
 
 /**
- * The devis cut into the sections it divides itself into.
+ * The devis as a tree, cut exactly where it cuts itself.
  *
- * A line's lot is its section's marker — "A" — and the devis prints a heading
- * row called "A Courant fort" carrying no lot of its own, because it is not
- * inside anything. That heading is the section's title; every row whose lot is
- * "A" belongs to it, deeper headings included, since "1.1 Cellules MT étanches"
- * is part of what has to be checked rather than a part of the chantier.
+ * The same rule the worker's screen runs on the server, so a chef checks the
+ * devis in the parts his crews will be given it in: a heading opens a part and
+ * the next heading of the same or shallower rank closes it, which is the rule
+ * every printed document follows whatever it numbers its parts with.
  *
- * The same marker the worker's screen groups by on the server, so a chef checks
- * the devis in the parts his crews will be given it in.
+ * Numbering decides one thing only — rank. A dotted number is as deep as it
+ * has parts, so "1.1" is rank 2; anything else is rank 1, a divider at the top
+ * of its lot. A row goes inside every heading still open above it that is
+ * shallower than its own rank, so "3- RESEAUX" stands beside "2- UNITE
+ * INTERIEURE" rather than inside it, while "a- Pf 14 kw", which numbers
+ * nothing, sits inside whatever is open. Assuming one numbering scheme would
+ * be assuming one devis: this database holds two, and they disagree.
+ *
+ * Headings are consumed into the tree rather than listed. A title that is also
+ * a row is the same thing said twice.
  */
-function sectionsOf(lines: Line[], untitled: string) {
-  const markerOf = (line: Line) => line.label.trim().split(/\s+/)[0] ?? '';
-  // Every heading offers a name for the marker it opens with, whether or not it
-  // also carries that marker as its own lot — which the reading does either way,
-  // and which decided nothing here but the name on the card.
+type Group = { kind: 'group'; key: string; title: string; depth: number; lines: Line[]; items: Node[] };
+type Node = Group | { kind: 'line'; line: Line };
+
+/** The first word of a row: its printed number, where it has one. */
+function markerOf(line: Line) {
+  return line.label.trim().split(/\s+/)[0] ?? '';
+}
+/** How deep that number goes. 1.1.1 is three; "7-" and "a-" are one. */
+function rankOf(label: string) {
+  const digits = (/^\d+(\.\d+)*/.exec(label.trim()) ?? [''])[0];
+  return digits ? digits.split('.').length : 1;
+}
+
+function treeOf(lines: Line[], untitled: string): Node[] {
+  // A lot's title, taken from the heading carrying its marker where the lot is
+  // one, and from the lot itself where the parser already kept the name.
   const titleFor = new Map<string, string>();
   for (const line of lines) {
-    if (line.kind === 'heading' && !titleFor.has(markerOf(line))) {
-      titleFor.set(markerOf(line), line.label.trim());
-    }
+    if (line.kind !== 'heading') continue;
+    const marker = markerOf(line);
+    if (!titleFor.has(marker)) titleFor.set(marker, line.label.trim());
   }
 
-  const out: { key: string; title: string; lines: Line[] }[] = [];
-  const byKey = new Map<string, { key: string; title: string; lines: Line[] }>();
+  const root: Node[] = [];
+  const byKey = new Map<string, Group>();
+  // One stack of open headings per lot, since a lot is a document of its own
+  // and lots A and B each start again at "1".
+  const stacks = new Map<string, { label: string; rank: number }[]>();
+
   for (const line of lines) {
     const lot = (line.lot ?? '').trim();
-    // Membership is the lot and only the lot; a heading with none opens its own.
-    const key = lot || (line.kind === 'heading' ? markerOf(line) : 'untitled');
-    const isTitle = line.kind === 'heading' && markerOf(line) === key;
-    let section = byKey.get(key);
-    if (!section) {
-      section = { key, title: titleFor.get(key) ?? (key === 'untitled' ? untitled : key), lines: [] };
-      byKey.set(key, section);
-      out.push(section);
+    const lotTitle = (titleFor.get(lot) !== lot ? titleFor.get(lot) : undefined) ?? lot ?? '';
+    const stack = stacks.get(lot) ?? [];
+    stacks.set(lot, stack);
+
+    // A heading that names the lot is the lot, not a part of it.
+    const isLotTitle = line.kind === 'heading'
+      && (line.label.trim() === lotTitle || markerOf(line) === lot || line.label.trim() === lot);
+
+    const rank = line.kind === 'heading' || /^\d/.test(line.label.trim())
+      ? rankOf(line.label)
+      : Number.MAX_SAFE_INTEGER;
+    if (!isLotTitle) {
+      while (stack.length && stack[stack.length - 1].rank >= rank) stack.pop();
     }
-    if (!isTitle) section.lines.push(line);
+
+    const path = [lotTitle || untitled, ...stack.map((open) => open.label)];
+    if (line.kind === 'heading' && !isLotTitle) {
+      stack.push({ label: line.label.trim(), rank });
+      path.push(line.label.trim());
+    }
+
+    let items = root;
+    let key = '';
+    let depth = 0;
+    for (const title of path) {
+      key = key ? `${key} \u203a ${title}` : title;
+      let group = byKey.get(key);
+      if (!group) {
+        group = { kind: 'group', key, title, depth, lines: [], items: [] };
+        byKey.set(key, group);
+        items.push(group);
+      }
+      // A heading counts towards the group it opens, not towards itself: the
+      // count on a card is what is inside it.
+      if (line.kind !== 'heading') group.lines.push(line);
+      items = group.items;
+      depth += 1;
+    }
+    if (line.kind !== 'heading') items.push({ kind: 'line', line });
   }
-  return out;
+  return root;
 }
 
 /** A validated devis already on this chantier, and whether it can still go. */
@@ -169,24 +220,35 @@ export default function QuoteReviewScreen() {
   // Section cards, with the lines of the open ones between them. Flattened into
   // one list so the screen stays virtualised: a devis is three hundred rows and
   // only a dozen are ever on screen.
+  // Flattened into one list so the screen stays virtualised: a devis is three
+  // hundred rows and only a dozen are ever on screen. Depth travels with each
+  // row instead of through nesting, and a closed group's contents are simply
+  // never emitted.
   const items = useMemo(() => {
     const out: (
-      | { kind: 'section'; section: { key: string; title: string; lines: Line[] }; open: boolean; count: number; total: number }
-      | { kind: 'line'; line: Line }
+      | { kind: 'group'; group: Group; open: boolean; count: number; total: number }
+      | { kind: 'line'; line: Line; depth: number }
     )[] = [];
-    for (const section of sectionsOf(lines, t.quoteReview.sectionUntitled)) {
-      const work = section.lines.filter((line) => line.kind === 'work');
-      out.push({
-        kind: 'section',
-        section,
-        open: openSections.has(section.key),
-        count: work.length,
-        total: work.reduce((sum, line) => sum + (Number(line.amount_ht) || 0), 0),
-      });
-      if (openSections.has(section.key)) {
-        for (const line of section.lines) out.push({ kind: 'line', line });
+    const walk = (nodes: Node[], depth: number) => {
+      for (const node of nodes) {
+        if (node.kind === 'line') { out.push({ kind: 'line', line: node.line, depth }); continue; }
+        // A heading that opens nothing is not a part of the devis, it is a
+        // repeated title or a stray row the reading picked up. Showing it as
+        // an empty card invites a chef to open it and find out.
+        if (!node.lines.length) continue;
+        const work = node.lines.filter((line) => line.kind === 'work');
+        const open = openSections.has(node.key);
+        out.push({
+          kind: 'group',
+          group: node,
+          open,
+          count: work.length,
+          total: work.reduce((sum, line) => sum + (Number(line.amount_ht) || 0), 0),
+        });
+        if (open) walk(node.items, depth + 1);
       }
-    }
+    };
+    walk(treeOf(lines, t.quoteReview.sectionUntitled), 0);
     return out;
   }, [lines, openSections, t.quoteReview.sectionUntitled]);
   // A hundred lines is a lot of scrolling in card form; the compact view is
@@ -558,7 +620,7 @@ export default function QuoteReviewScreen() {
         {(quote.status === 'parsed' || quote.status === 'validated') && (
           <FlatList
             data={items}
-            keyExtractor={(item) => (item.kind === 'section' ? `s:${item.section.key}` : item.line.id)}
+            keyExtractor={(item) => (item.kind === 'group' ? `g:${item.group.key}` : item.line.id)}
             // Only the rows on screen are mounted, so three hundred lines cost
             // what a dozen cost. Both the opening and the view switch were slow
             // for the same reason — every row was real — and no amount of
@@ -570,25 +632,34 @@ export default function QuoteReviewScreen() {
             initialNumToRender={12}
             maxToRenderPerBatch={12}
             windowSize={7}
-            renderItem={({ item }) => item.kind === 'section' ? (
+            renderItem={({ item }) => item.kind === 'group' ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: item.open }}
-                accessibilityLabel={item.section.title}
+                accessibilityLabel={item.group.title}
                 onPress={() => setOpenSections((current) => {
                   const next = new Set(current);
-                  if (next.has(item.section.key)) next.delete(item.section.key);
-                  else next.add(item.section.key);
+                  if (next.has(item.group.key)) next.delete(item.group.key);
+                  else next.add(item.group.key);
                   return next;
                 })}
                 style={({ pressed }) => [
                   styles.section,
-                  { backgroundColor: theme.backgroundGroup, borderColor: theme.separator },
+                  // Depth by surface and by indent together: the tones run out
+                  // after two steps, the indent does not, and a devis five
+                  // deep still reads.
+                  {
+                    backgroundColor: item.group.depth === 0 ? theme.backgroundGroup
+                      : item.group.depth === 1 ? theme.nest1 : theme.nest2,
+                    borderColor: theme.separator,
+                    marginLeft: item.group.depth * Spacing.three,
+                  },
+                  item.group.depth > 0 && styles.sectionNested,
                   item.open && styles.sectionOpen,
                   pressed && styles.pressed,
                 ]}>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <ThemedText type="smallBold" numberOfLines={2}>{item.section.title}</ThemedText>
+                  <ThemedText type="smallBold" numberOfLines={2}>{item.group.title}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
                     {t.quoteReview.sectionLines(item.count)} · {money(item.total, quote.currency)}
                   </ThemedText>
@@ -600,7 +671,10 @@ export default function QuoteReviewScreen() {
                 />
               </Pressable>
             ) : (
-              <View style={dense ? undefined : styles.cardSpacing}>
+              <View style={[
+                dense ? undefined : styles.cardSpacing,
+                { marginLeft: item.depth * Spacing.three },
+              ]}>
                 {item.line.kind === 'work' ? (
                   <SwipeToDelete
                     label={t.quoteReview.deleteLine}
@@ -1331,6 +1405,9 @@ const styles = StyleSheet.create({
   },
   /** Open, the folder sits against its lines instead of floating above them. */
   sectionOpen: { marginBottom: Spacing.one },
+  /** A chapter inside a lot: smaller than the lot's own card, so the levels
+   *  are told apart by weight as well as by tone and indent. */
+  sectionNested: { paddingVertical: Spacing.two, borderRadius: Spacing.two },
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
   aside: { paddingTop: Spacing.three, paddingHorizontal: Spacing.one, gap: 2 },
   asideDense: { paddingTop: Spacing.two, paddingHorizontal: Spacing.one },

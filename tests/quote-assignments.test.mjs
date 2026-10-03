@@ -317,12 +317,35 @@ test('handing out devis work', async t => {
     assert.equal(seen['Chemins de câbles'].section, null);
     assert.deepEqual(seen['Chemins de câbles'].path, []);
 
-    // And one with a lot but no numbering is a single level, not none.
-    await peek(`insert into public.quote_lines (quote_id, company_id, position, lot, label, kind, unit, quantity)
-                values ($1, $2, 200, 'LOT: PLOMBERIE', '3- POSE LAVABO', 'work', 'unit', 1)`,
-      [deep, ids.company]);
-    const flat = (await linesFor(ids.worker)).find((r) => r.label === '3- POSE LAVABO');
-    assert.deepEqual(flat.path, ['LOT: PLOMBERIE']);
+    // A devis numbered another way entirely — "1-", "2-", "10-" with lettered
+    // variants under them, which is how a second devis in this trade is
+    // printed. Nothing there is a prefix of anything, so grouping has to come
+    // from where the headings are, not from how they are numbered.
+    const other = [
+      ['LOT: CLIMATISATION', 'LOT: CLIMATISATION', 'heading'],
+      ['LOT: CLIMATISATION', '1- UNITE EXTERIEURE DRV', 'heading'],
+      ['LOT: CLIMATISATION', 'a- Pf : 60.3 kw', 'work'],
+      ['LOT: CLIMATISATION', '2- UNITE INTERIEURE GAINABLE', 'heading'],
+      ['LOT: CLIMATISATION', 'b- Pf : 7,1 kw', 'work'],
+      ['LOT: CLIMATISATION', '3- RESEAUX FRIGORIFIQUES', 'work'],
+    ];
+    for (let i = 0; i < other.length; i += 1) {
+      await peek(`insert into public.quote_lines (quote_id, company_id, position, lot, label, kind, unit, quantity)
+                  values ($1, $2, $3, $4, $5, $6, 'unit', 1)`,
+        [deep, ids.company, 200 + i, other[i][0], other[i][1], other[i][2]]);
+    }
+    const clim = Object.fromEntries((await linesFor(ids.worker)).map((r) => [r.label, r]));
+
+    assert.deepEqual(clim['a- Pf : 60.3 kw'].path,
+      ['LOT: CLIMATISATION', '1- UNITE EXTERIEURE DRV'],
+      'a lettered variant sits inside whatever heading is open');
+    assert.deepEqual(clim['b- Pf : 7,1 kw'].path,
+      ['LOT: CLIMATISATION', '2- UNITE INTERIEURE GAINABLE'],
+      'and the next heading closes the one before it');
+    // The one that matters: a numbered line is a sibling of the numbered
+    // headings, not a child of the last one.
+    assert.deepEqual(clim['3- RESEAUX FRIGORIFIQUES'].path, ['LOT: CLIMATISATION'],
+      'a line of the same rank as the heading above it stands beside it');
 
     await db.query('delete from public.site_quotes where id = $1', [deep]);
   });
