@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Keyboard } from 'react-native';
+import { Keyboard, View } from 'react-native';
 import { Action, Card, Feedback, Field, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
 import { PresenceHistory } from '@/components/screens/presence-history';
@@ -51,7 +51,19 @@ export default function SitesScreen() {
     {sites.map(site => <SiteRow key={site.id} site={site} onRemoved={refresh} />)}
     {!!sites.length && <ThemedText type="small" themeColor="textSecondary">{copy.removeSiteHint}</ThemedText>}
     {adding ? <Card>
-      <Field accessibilityLabel={copy.siteName} placeholder={copy.siteName} value={name} onChangeText={setName} maxLength={120} />
+      {/* Labelled rather than placeheld: a placeholder is gone the moment you
+          type, and these two fields sat next to each other looking the same —
+          one naming the chantier, the other finding it on a map. */}
+      <View style={{ gap: 8 }}>
+        <ThemedText type="smallBold">{copy.siteName}</ThemedText>
+        <Field
+          accessibilityLabel={copy.siteName}
+          placeholder={copy.siteNameExample}
+          value={name}
+          onChangeText={setName}
+          maxLength={120} />
+        <ThemedText type="small" themeColor="textSecondary">{copy.siteNameHint}</ThemedText>
+      </View>
       <SitePicker onChange={setLocated} />
       <Action label={copy.save} busy={busy} disabled={!name.trim() || !located} onPress={save} />
       <Action secondary label={copy.cancel} disabled={busy} onPress={() => { setLocated(null); setAdding(false); }} />

@@ -164,7 +164,10 @@ export function SitePicker({ onChange }: {
   }
 
   return <View style={{ gap: 10 }}>
-    <View style={{ gap: 0 }}>
+    <View style={{ gap: 8 }}>
+      {/* The second field of the form, and the one that does something quite
+          different from the first: it searches rather than records. */}
+      <ThemedText type="smallBold">{copy.siteAddress}</ThemedText>
       <View style={{
         flexDirection: 'row', alignItems: 'center', gap: 8,
         borderWidth: 1, borderColor: theme.backgroundSelected, borderRadius: 12,
@@ -196,7 +199,7 @@ export function SitePicker({ onChange }: {
         <ScrollView
           keyboardShouldPersistTaps="handled"
           style={{
-            maxHeight: 190, marginTop: 6,
+            maxHeight: 190,
             borderWidth: 1, borderColor: theme.backgroundSelected, borderRadius: 12,
             backgroundColor: theme.backgroundElement,
           }}>
@@ -224,9 +227,7 @@ export function SitePicker({ onChange }: {
       )}
 
       {!!searchFailed && (
-        <ThemedText type="small" themeColor="warning" style={{ marginTop: 6 }}>
-          {searchFailed}
-        </ThemedText>
+        <ThemedText type="small" themeColor="warning">{searchFailed}</ThemedText>
       )}
     </View>
 
