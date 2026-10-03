@@ -41,6 +41,8 @@ function remaining(line: Line) {
 type Line = {
   line_id: string;
   lot: string | null;
+  /** The heading the line is printed under — the devis's words, not its numbering. */
+  section: string | null;
   label: string;
   unit: string | null;
   quoted: number | null;
@@ -69,8 +71,10 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
   const grouped = useMemo(() => {
     const byLot = new Map<string, Line[]>();
     for (const line of lines ?? []) {
-      // Insertion order, so the lots follow the devis rather than the alphabet.
-      const lot = line.lot?.trim() || t.quoteTasks.noLot;
+      // Insertion order, so the sections follow the devis rather than the
+      // alphabet. The heading is what the devis calls this part of the
+      // chantier; the lot is only its numbering.
+      const lot = line.section?.trim() || line.lot?.trim() || t.quoteTasks.noLot;
       const rows = byLot.get(lot);
       if (rows) rows.push(line);
       else byLot.set(lot, [line]);
