@@ -659,21 +659,22 @@ async function parse(
               },
             ],
           });
-          return { response, failed: false as const, reason: '' };
+          return { batch, response, failed: false as const, reason: '' };
         } catch (failure) {
           // A devis that parsed is worth keeping even if its operations did not.
           // The reason travels with it: a silent failure here produced a devis
           // with no operations at all and nothing anywhere saying why.
           const reason = describe(failure);
           console.error('[parse-quote] steps batch', reason);
-          return { response: null, failed: true as const, reason };
+          return { batch, response: null, failed: true as const, reason };
         }
       }),
       STEPS_CONCURRENCY
     );
 
     const stepFailure = proposals.find((p) => p.failed)?.reason;
-    for (const { response } of proposals) {
+    let answered = 0;
+    for (const { batch, response } of proposals) {
       if (!response) continue;
       inputTokens += response.usage?.prompt_tokens ?? 0;
       outputTokens += response.usage?.completion_tokens ?? 0;
@@ -684,9 +685,17 @@ async function parse(
         proposed = (JSON.parse(body) as { lines: { index: number; steps: string[] }[] }).lines ?? [];
       } catch { continue; }
 
-      for (const entry of proposed) {
-        const lineId = idByPosition.get(entry.index);
-        if (!lineId) continue;
+      answered += proposed.length;
+      proposed.forEach((entry, order) => {
+        // The index is what the model was asked to echo back, and a model that
+        // renumbers its answer from zero would otherwise lose every operation
+        // silently — which is exactly what happened. Position in the answer is
+        // the fallback, since the lines were given in order and asked for in
+        // order.
+        const byEcho = idByPosition.get(entry.index);
+        const byOrder = batch[order] ? idByPosition.get(batch[order].index) : undefined;
+        const lineId = byEcho ?? byOrder;
+        if (!lineId) return;
         const labels = (Array.isArray(entry.steps) ? entry.steps : [])
           .map((label) => String(label ?? '').trim().slice(0, 200))
           .filter((label) => label.length > 0)
@@ -695,11 +704,11 @@ async function parse(
         // is useful. The prompt refuses the case that is not — a lone step that
         // only restates the line — because a line repeated is not a line broken
         // down, and that is a judgement about the wording rather than a count.
-        if (!labels.length) continue;
+        if (!labels.length) return;
         labels.forEach((label, position) => {
           steps.push({ quote_line_id: lineId, company_id: quote.company_id, position, label });
         });
-      }
+      });
     }
 
     for (let i = 0; i < steps.length; i += 500) {
@@ -710,8 +719,14 @@ async function parse(
     // The status was written before this pass, deliberately: a devis is usable
     // without its operations. So a failure here needs its own write, or it
     // leaves a devis with no operations and nothing anywhere saying why.
-    if (stepFailure) {
-      const note = `Opérations non générées : ${stepFailure.slice(0, 160)}`;
+    // Answers that resolved to no operation at all is its own failure, and a
+    // quieter one than an exception: every batch succeeds and nothing is saved.
+    const note = stepFailure
+      ? `Opérations non générées : ${stepFailure.slice(0, 160)}`
+      : answered > 0 && steps.length === 0
+        ? `Opérations non générées : ${answered} réponse(s) reçue(s), aucune rattachée à une ligne.`
+        : null;
+    if (note) {
       await admin
         .from('site_quotes')
         .update({ parse_warning: warnings.length ? `${warnings.join(' ; ')}. ${note}` : note })
