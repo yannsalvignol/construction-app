@@ -498,7 +498,11 @@ const en = {
     showSteps: (n: number) => `Show the sub-tasks (${n})`,
     hideSteps: 'Hide the sub-tasks',
     stepsSummary: (withSteps: number, total: number) => `${withSteps} of ${total} lines have sub-tasks.`,
-    stepsNone: 'No sub-tasks on this devis. Read it again to generate them.',
+    stepsNone: 'No sub-tasks on this devis.',
+    stepsGenerate: 'Generate the sub-tasks',
+    stepsGenerating: 'Generating the sub-tasks…',
+    stepsDone: (n: number, lines: number, seconds: string) =>
+      `${n} sub-task(s) generated across ${lines} line(s) in ${seconds} s.`,
     supersedeTitle: 'A devis is already in force',
     supersedeBody: (name: string) => `"${name}" is already validated on this site. Does this one replace it, or add to it?`,
     supersedeReplace: 'It replaces the earlier one',

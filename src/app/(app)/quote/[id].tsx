@@ -100,6 +100,16 @@ function sectionsOf(lines: Line[], untitled: string) {
 /** A validated devis already on this chantier, and whether it can still go. */
 type InForce = { other_id: string; file_name: string; total_ht: number | null; replaceable: boolean };
 
+type StepsReport = {
+  workLines: number;
+  batches: number;
+  answered: number;
+  attached: number;
+  inserted: number;
+  failures: string[];
+  sample: { label: string; steps: string[] }[];
+};
+
 type Milestone = {
   id: string;
   position: number;
@@ -136,6 +146,8 @@ export default function QuoteReviewScreen() {
   // this is the moment he can still say no: once the devis is validated they
   // are what his crews are given.
   const [steps, setSteps] = useState<Map<string, string[]>>(new Map());
+  const [stepsBusy, setStepsBusy] = useState(false);
+  const [stepsMessage, setStepsMessage] = useState<string | null>(null);
 
   // Section cards, with the lines of the open ones between them. Flattened into
   // one list so the screen stays virtualised: a devis is three hundred rows and
@@ -323,6 +335,45 @@ export default function QuoteReviewScreen() {
     router.back();
   }
 
+  // Generating the operations on their own, without re-reading the PDF. The
+  // function answers with what it did rather than only with a status, so the
+  // whole pass is readable from the terminal running the app: this is the one
+  // step that has failed silently, and silence is what made it hard.
+  async function makeSteps() {
+    setError(null);
+    setStepsBusy(true);
+    setStepsMessage(null);
+    const started = Date.now();
+    console.log(`[steps] asking for the sub-tasks of devis ${id}`);
+    const { data, error: failure } = await supabase.functions.invoke('parse-quote', {
+      body: { quoteId: id, only: 'steps' },
+    });
+    setStepsBusy(false);
+    if (failure) {
+      console.log(`[steps] the call itself failed: ${failure.message}`);
+      setError(String(failure.message));
+      return;
+    }
+    const report = (data as { report?: StepsReport; note?: string | null; model?: string; seconds?: number } | null) ?? {};
+    const r = report.report;
+    console.log(`[steps] model ${report.model}, ${report.seconds}s server side, ${((Date.now() - started) / 1000).toFixed(1)}s round trip`);
+    if (r) {
+      console.log(`[steps] ${r.workLines} work lines, sent in ${r.batches} batch(es)`);
+      console.log(`[steps] ${r.answered} line(s) answered, ${r.attached} attached to a line, ${r.inserted} sub-task(s) written`);
+      for (const example of r.sample ?? []) console.log(`[steps] e.g. "${example.label}" → ${example.steps.join(' / ')}`);
+      for (const reason of r.failures ?? []) console.log(`[steps] failure: ${reason}`);
+    } else {
+      console.log(`[steps] no report came back: ${JSON.stringify(data)}`);
+    }
+    if (report.note) console.log(`[steps] shown to the chef: ${report.note}`);
+    setStepsMessage(
+      r && r.inserted > 0
+        ? t.quoteReview.stepsDone(r.inserted, r.attached, ((report.seconds ?? 0)).toFixed(1))
+        : (report.note ?? t.quoteReview.stepsNone)
+    );
+    await load();
+  }
+
   async function reparse() {
     setError(null);
     const { error: failure } = await supabase.functions.invoke('parse-quote', { body: { quoteId: id } });
@@ -466,10 +517,29 @@ export default function QuoteReviewScreen() {
                 button that only appears on lines that have sub-tasks cannot
                 tell "this line has none" from "none were generated". */}
             <ThemedText type="small" themeColor={steps.size ? 'textSecondary' : 'warning'}>
-              {steps.size
-                ? t.quoteReview.stepsSummary(steps.size, lines.filter((l) => l.kind === 'work').length)
-                : t.quoteReview.stepsNone}
+              {stepsBusy
+                ? t.quoteReview.stepsGenerating
+                : steps.size
+                  ? t.quoteReview.stepsSummary(steps.size, lines.filter((l) => l.kind === 'work').length)
+                  : t.quoteReview.stepsNone}
             </ThemedText>
+            {!!stepsMessage && !stepsBusy && (
+              <ThemedText type="small" themeColor="textSecondary">{stepsMessage}</ThemedText>
+            )}
+            {/* On demand, and separate from re-reading the PDF: the reading is
+                the expensive half and it is already right. */}
+            <Pressable
+              disabled={stepsBusy}
+              onPress={() => { void makeSteps(); }}
+              style={({ pressed }) => [
+                styles.stepsButton,
+                { borderColor: theme.accent },
+                (pressed || stepsBusy) && styles.pressed,
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                {stepsBusy ? t.quoteReview.stepsGenerating : t.quoteReview.stepsGenerate}
+              </ThemedText>
+            </Pressable>
 
             {!!quote.parse_warning && (
                 <ThemedText type="small" style={{ color: theme.warning }}>
@@ -1018,4 +1088,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.three,
   },
   pressed: { opacity: 0.6 },
+  stepsButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
 });

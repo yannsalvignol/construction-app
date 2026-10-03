@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
   const { data: caller, error: callerError } = await admin.auth.getUser(token);
   if (callerError || !caller.user) return json({ error: 'Not authenticated' }, 401);
 
-  const { quoteId } = await req.json().catch(() => ({}));
+  const { quoteId, only } = await req.json().catch(() => ({}));
   if (!quoteId) return json({ error: 'Missing quoteId' }, 400);
 
   const { data: profile } = await admin
@@ -254,6 +254,18 @@ Deno.serve(async (req) => {
     .eq('id', quoteId)
     .maybeSingle();
   if (!quote || quote.company_id !== profile.company_id) return json({ error: 'Quote not found' }, 404);
+  // Generating the operations on their own, and answering with what happened.
+  // This one waits: the chef pressed a button and is watching, and the report
+  // is the point — it goes back to him so Metro shows it line by line.
+  if (only === 'steps') {
+    const started = Date.now();
+    const report = await generateSteps(admin, new OpenAI({ apiKey: openaiKey }), quote.id, quote.company_id);
+    const note = stepsNote(report);
+    await admin.from('site_quotes').update({ parse_warning: note }).eq('id', quote.id);
+    console.log(`[parse-quote] steps-only ${quote.id}: ${JSON.stringify(report)}`);
+    return json({ ok: report.inserted > 0, report, note, model: STEPS_MODEL, seconds: (Date.now() - started) / 1000 }, 200);
+  }
+
   // A parse still plausibly running is protected; one older than this function
   // can live is abandoned, and refusing to restart it would strand the devis.
   if (quote.status === 'parsing') {
@@ -313,6 +325,140 @@ async function pooled<T>(tasks: (() => Promise<T>)[], width: number): Promise<T[
     })
   );
   return results;
+}
+
+type StepsReport = {
+  workLines: number;
+  batches: number;
+  answered: number;
+  attached: number;
+  inserted: number;
+  failures: string[];
+  sample: { label: string; steps: string[] }[];
+};
+
+/**
+ * The operations each work line breaks down into, read from the lines as
+ * stored rather than from the answer that produced them.
+ *
+ * Working off the database rather off the reading removes the one thing that
+ * broke this silently: the model was asked to echo back an index, and a model
+ * that renumbers its answer lost every operation without a single error. Here
+ * each batch carries its own line ids, so an answer is matched by its place in
+ * the batch and an echoed index is only a hint.
+ *
+ * Returns what happened rather than logging it: the caller may be a chef
+ * pressing a button, and the terminal he is watching is his own.
+ */
+async function generateSteps(
+  admin: ReturnType<typeof createClient>,
+  openai: OpenAI,
+  quoteId: string,
+  companyId: string
+): Promise<StepsReport> {
+  const report: StepsReport = {
+    workLines: 0, batches: 0, answered: 0, attached: 0, inserted: 0, failures: [], sample: [],
+  };
+
+  const { data: rows, error: readError } = await admin
+    .from('quote_lines')
+    .select('id, label, kind, position')
+    .eq('quote_id', quoteId)
+    .eq('kind', 'work')
+    .order('position');
+  if (readError) { report.failures.push(`lecture des lignes: ${readError.message}`); return report; }
+
+  const work = (rows ?? []) as { id: string; label: string }[];
+  report.workLines = work.length;
+  if (!work.length) return report;
+
+  const batches: { id: string; label: string }[][] = [];
+  for (let from = 0; from < work.length; from += STEPS_BATCH) {
+    batches.push(work.slice(from, from + STEPS_BATCH));
+  }
+  report.batches = batches.length;
+
+  const answers = await pooled(
+    batches.map((batch) => async () => {
+      try {
+        const response = await openai.chat.completions.create({
+          model: STEPS_MODEL,
+          max_completion_tokens: 8000,
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: 'etapes', strict: true, schema: STEPS_SCHEMA },
+          },
+          messages: [
+            { role: 'system', content: STEPS_SYSTEM },
+            {
+              role: 'user',
+              content: batch.map((line, i) => `${i}. ${line.label.slice(0, 300)}`).join('\n'),
+            },
+          ],
+        });
+        return { batch, response, error: '' };
+      } catch (failure) {
+        return { batch, response: null, error: describe(failure) };
+      }
+    }),
+    STEPS_CONCURRENCY
+  );
+
+  const steps: { quote_line_id: string; company_id: string; position: number; label: string }[] = [];
+  for (const { batch, response, error } of answers) {
+    if (error) { report.failures.push(error.slice(0, 200)); continue; }
+    if (!response) continue;
+    const body = response.choices[0]?.message?.content;
+    if (!body || response.choices[0]?.finish_reason === 'length') {
+      report.failures.push(`réponse vide ou tronquée (${response.choices[0]?.finish_reason ?? 'sans contenu'})`);
+      continue;
+    }
+    let proposed: { index: number; steps: string[] }[] = [];
+    try {
+      proposed = (JSON.parse(body) as { lines: { index: number; steps: string[] }[] }).lines ?? [];
+    } catch (failure) { report.failures.push(`réponse illisible: ${describe(failure)}`); continue; }
+    report.answered += proposed.length;
+
+    proposed.forEach((entry, order) => {
+      // The index is a hint; the batch is indexed from zero for this reason, so
+      // a model that renumbers lands on the same line anyway.
+      const line = batch[entry.index] ?? batch[order];
+      if (!line) return;
+      const labels = (Array.isArray(entry.steps) ? entry.steps : [])
+        .map((label) => String(label ?? '').trim().slice(0, 200))
+        .filter((label) => label.length > 0)
+        .slice(0, MAX_STEPS_PER_LINE);
+      if (!labels.length) return;
+      report.attached++;
+      if (report.sample.length < 3) report.sample.push({ label: line.label.slice(0, 70), steps: labels });
+      labels.forEach((label, position) => {
+        steps.push({ quote_line_id: line.id, company_id: companyId, position, label });
+      });
+    });
+  }
+
+  // Replaces whatever a previous run left, so pressing the button twice does
+  // not stack two breakdowns on one line.
+  const ids = work.map((line) => line.id);
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await admin.from('quote_line_steps').delete().in('quote_line_id', ids.slice(i, i + 200));
+    if (error) { report.failures.push(`suppression: ${error.message}`); break; }
+  }
+  for (let i = 0; i < steps.length; i += 500) {
+    const { error } = await admin.from('quote_line_steps').insert(steps.slice(i, i + 500));
+    if (error) { report.failures.push(`insertion: ${error.message}`); break; }
+    report.inserted += steps.slice(i, i + 500).length;
+  }
+  return report;
+}
+
+/** What to tell the chef when a devis comes back with no operations. */
+function stepsNote(r: StepsReport): string | null {
+  if (r.inserted > 0) return r.failures.length ? `Certaines sous-tâches manquent : ${r.failures[0].slice(0, 120)}` : null;
+  if (r.failures.length) return `Sous-tâches non générées : ${r.failures[0].slice(0, 160)}`;
+  if (r.workLines === 0) return 'Sous-tâches non générées : aucune ligne de travail dans ce devis.';
+  if (r.answered === 0) return `Sous-tâches non générées : ${r.workLines} ligne(s) envoyée(s), aucune réponse.`;
+  return `Sous-tâches non générées : ${r.answered} réponse(s) reçue(s), aucune rattachée à une ligne.`;
 }
 
 async function parse(
@@ -597,8 +743,6 @@ async function parse(
     const { error: candidateError } = await admin.rpc('record_quote_candidates', { quote: quote.id });
     if (candidateError) console.error('[parse-quote] candidates', candidateError.message);
 
-    const steps: { quote_line_id: string; company_id: string; position: number; label: string }[] = [];
-
     await admin
       .from('site_quotes')
       .update({
@@ -616,132 +760,23 @@ async function parse(
       })
       .eq('id', quote.id);
 
-    // Everything above is what makes the devis usable, and it is now saved. The
-    // operations are a bonus on top: they take longer than the reading on a
-    // three-hundred-line devis, and if this function is killed working on them
-    // the chef still has his devis instead of a spinner and a lost quarter of an
-    // hour. generate-steps picks up where this leaves off.
-    // The operations each line breaks down into, asked for separately.
-    //
-    // Not part of the extraction: a line already costs nine required fields,
-    // and adding two to five operations to each was enough to overflow the
-    // answer on four scanned pages. This pass sees only the wording that came
-    // out — no pages, no images — so it is cheap, its answer is small, and it
-    // can be rerun on a devis that was imported before operations existed.
-    const workLines = parsed.lines
-      .map((line, index) => ({ line, index }))
-      .filter(({ line, index }) => line.kind === 'work' && idByPosition.has(index));
-
-    // Run the batches together. They do not depend on one another, and a devis
-    // of three hundred lines is a dozen of them: sequentially that was eleven
-    // minutes of a chef watching a spinner, almost all of it waiting.
-    const stepBatches = [];
-    for (let from = 0; from < workLines.length; from += STEPS_BATCH) {
-      stepBatches.push(workLines.slice(from, from + STEPS_BATCH));
-    }
-    const proposals = await pooled(
-      stepBatches.map((batch) => async () => {
-        try {
-          const response = await openai.chat.completions.create({
-            model: STEPS_MODEL,
-            max_completion_tokens: 8000,
-            response_format: {
-              type: 'json_schema',
-              json_schema: { name: 'etapes', strict: true, schema: STEPS_SCHEMA },
-            },
-            messages: [
-              { role: 'system', content: STEPS_SYSTEM },
-              {
-                role: 'user',
-                content: batch
-                  .map(({ line, index }) => `${index}. ${String(line.label ?? '').slice(0, 300)}`)
-                  .join('\n'),
-              },
-            ],
-          });
-          return { batch, response, failed: false as const, reason: '' };
-        } catch (failure) {
-          // A devis that parsed is worth keeping even if its operations did not.
-          // The reason travels with it: a silent failure here produced a devis
-          // with no operations at all and nothing anywhere saying why.
-          const reason = describe(failure);
-          console.error('[parse-quote] steps batch', reason);
-          return { batch, response: null, failed: true as const, reason };
-        }
-      }),
-      STEPS_CONCURRENCY
-    );
-
-    const stepFailure = proposals.find((p) => p.failed)?.reason;
-    let answered = 0;
-    for (const { batch, response } of proposals) {
-      if (!response) continue;
-      inputTokens += response.usage?.prompt_tokens ?? 0;
-      outputTokens += response.usage?.completion_tokens ?? 0;
-      const body = response.choices[0]?.message?.content;
-      if (response.choices[0]?.finish_reason === 'length' || !body) continue;
-      let proposed: { index: number; steps: string[] }[] = [];
-      try {
-        proposed = (JSON.parse(body) as { lines: { index: number; steps: string[] }[] }).lines ?? [];
-      } catch { continue; }
-
-      answered += proposed.length;
-      proposed.forEach((entry, order) => {
-        // The index is what the model was asked to echo back, and a model that
-        // renumbers its answer from zero would otherwise lose every operation
-        // silently — which is exactly what happened. Position in the answer is
-        // the fallback, since the lines were given in order and asked for in
-        // order.
-        const byEcho = idByPosition.get(entry.index);
-        const byOrder = batch[order] ? idByPosition.get(batch[order].index) : undefined;
-        const lineId = byEcho ?? byOrder;
-        if (!lineId) return;
-        const labels = (Array.isArray(entry.steps) ? entry.steps : [])
-          .map((label) => String(label ?? '').trim().slice(0, 200))
-          .filter((label) => label.length > 0)
-          .slice(0, MAX_STEPS_PER_LINE);
-        // One is allowed: plenty of lines are a single operation, and saying so
-        // is useful. The prompt refuses the case that is not — a lone step that
-        // only restates the line — because a line repeated is not a line broken
-        // down, and that is a judgement about the wording rather than a count.
-        if (!labels.length) return;
-        labels.forEach((label, position) => {
-          steps.push({ quote_line_id: lineId, company_id: quote.company_id, position, label });
-        });
-      });
-    }
-
-    for (let i = 0; i < steps.length; i += 500) {
-      const { error } = await admin.from('quote_line_steps').insert(steps.slice(i, i + 500));
-      if (error) { console.error('[parse-quote] steps', error.message); break; }
-    }
-
-    // The status was written before this pass, deliberately: a devis is usable
-    // without its operations. So a failure here needs its own write, or it
-    // leaves a devis with no operations and nothing anywhere saying why.
-    // Answers that resolved to no operation at all is its own failure, and a
-    // quieter one than an exception: every batch succeeds and nothing is saved.
-    const note = stepFailure
-      ? `Opérations non générées : ${stepFailure.slice(0, 160)}`
-      // Nothing was even asked for: every line of the devis was read as a
-      // heading or a discount, so there was no work to break down. Silent
-      // until now, and indistinguishable from the pass failing.
-      : workLines.length === 0
-        ? `Opérations non générées : aucune ligne de travail sur ${parsed.lines.length} lue(s).`
-        : answered > 0 && steps.length === 0
-          ? `Opérations non générées : ${answered} réponse(s) reçue(s), aucune rattachée à une ligne.`
-          : steps.length === 0
-            ? `Opérations non générées : ${workLines.length} ligne(s) envoyée(s), aucune réponse exploitable.`
-            : null;
+    // Everything above is what makes the devis usable, and it is saved before
+    // this point: the operations take longer than the reading on a
+    // three-hundred-line devis, and if the function is killed working on them
+    // the chef still has his devis instead of a spinner and a lost quarter of
+    // an hour. The button on the review screen generates them again on demand.
+    const report = await generateSteps(admin, openai, quote.id, quote.company_id);
+    const note = stepsNote(report);
     if (note) {
       await admin
         .from('site_quotes')
         .update({ parse_warning: warnings.length ? `${warnings.join(' ; ')}. ${note}` : note })
         .eq('id', quote.id);
     }
-
     console.log(
-      `[parse-quote] ${quote.id}: ${rows.length} lines, ${steps.length} steps, ${milestones.length} milestones, total ${parsed.total_ht}` +
+      `[parse-quote] ${quote.id}: ${rows.length} lines, ${report.inserted} steps` +
+        ` (${report.workLines} work lines, ${report.batches} batches, ${report.answered} answered,` +
+        ` ${report.attached} attached, ${report.failures.length} failures), ${milestones.length} milestones, total ${parsed.total_ht}` +
         `, ${inputTokens} in / ${outputTokens} out tokens` +
         (droppedCodes ? `, ${droppedCodes} unknown task codes dropped` : '')
     );
