@@ -15,6 +15,10 @@ export const Colors = {
     /** Text fields: a shade under the page, so a form reads as recessed. */
     backgroundInput: '#F3F0FA',
     backgroundSelected: '#E3DDED',
+    /** A group heading: a neutral grey a step DARKER than the page, so a
+     * folder sits under its white cards instead of beside them. Untinted on
+     * purpose — the accent is for things you press, not for furniture. */
+    backgroundGroup: '#C8CBCD',
     /** Hairlines between rows. Darker than the page, where backgroundSelected
      * is lighter than it and therefore invisible on anything but a card. */
     separator: '#B9B2C6',
@@ -42,6 +46,9 @@ export const Colors = {
     /** Text fields: a shade under the page, so a form reads as recessed. */
     backgroundInput: '#1B1626',
     backgroundSelected: '#44364F',
+    /** A group heading: a neutral grey a step LIGHTER than the page, since on
+     * a dark page depth runs the other way. Untinted on purpose. */
+    backgroundGroup: '#2D2D32',
     /** Hairlines between rows. Darker than the page, where backgroundSelected
      * is lighter than it and therefore invisible on anything but a card. */
     separator: '#4A3F58',

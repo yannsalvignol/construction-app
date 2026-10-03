@@ -460,22 +460,20 @@ export default function QuoteReviewScreen() {
                 })}
                 style={({ pressed }) => [
                   styles.section,
-                  { backgroundColor: theme.accentSoft, borderColor: theme.accent },
+                  { backgroundColor: theme.backgroundGroup, borderColor: theme.separator },
                   item.open && styles.sectionOpen,
                   pressed && styles.pressed,
                 ]}>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <ThemedText type="smallBold" themeColor="accentText" numberOfLines={2}>
-                    {item.section.title}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="accentText" style={styles.sectionMeta}>
+                  <ThemedText type="smallBold" numberOfLines={2}>{item.section.title}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
                     {t.quoteReview.sectionLines(item.count)} · {money(item.total, quote.currency)}
                   </ThemedText>
                 </View>
                 <Ionicons
                   name={item.open ? 'chevron-up' : 'chevron-down'}
                   size={20}
-                  color={theme.accentText}
+                  color={theme.textSecondary}
                 />
               </Pressable>
             ) : (
@@ -937,7 +935,7 @@ function LineRow({
         </Pressable>
       )}
       {showSteps && steps.length > 0 && (
-        <View style={[styles.steps, { backgroundColor: theme.backgroundInput, borderLeftColor: theme.accent }]}>
+        <View style={[styles.steps, { backgroundColor: theme.background, borderLeftColor: theme.separator }]}>
           {steps.map((label, index) => (
             <View key={index} style={styles.step}>
               <Ionicons name="square-outline" size={16} color={theme.textPlaceholder} />
@@ -989,7 +987,8 @@ const styles = StyleSheet.create({
   stepsToggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingTop: Spacing.one },
   /** Recessed inside the line's own card, with the accent down its edge: the
    *  operations belong to the line above them, and on the card's own white
-   *  they read as another list at the same level. */
+   *  they read as another list at the same level. The page's own grey, so the
+   *  inset reads as a hole in the card rather than as a coloured block. */
   steps: {
     gap: 2,
     marginTop: Spacing.one,
@@ -1000,10 +999,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
   },
   step: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  /** One part of the devis, closed: it is checked a section at a time. A wash
-   *  of the accent rather than a white card, because a folder and the lines
-   *  inside it were the same object on the same surface, which is what made
-   *  the screen hard to read. */
+  /** One part of the devis, closed: it is checked a section at a time. A
+   *  darker grey rather than another white card, because a folder and the
+   *  lines inside it were the same object on the same surface, which is what
+   *  made the screen hard to read. */
   section: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1016,9 +1015,6 @@ const styles = StyleSheet.create({
   },
   /** Open, the folder sits against its lines instead of floating above them. */
   sectionOpen: { marginBottom: Spacing.one },
-  /** The count and the total, a step quieter than the title without leaving
-   *  the accent family: a grey line here would read as a different object. */
-  sectionMeta: { opacity: 0.75 },
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
   aside: { paddingTop: Spacing.three, paddingHorizontal: Spacing.one, gap: 2 },
   asideDense: { paddingTop: Spacing.two, paddingHorizontal: Spacing.one },
