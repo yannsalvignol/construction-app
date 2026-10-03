@@ -359,6 +359,8 @@ async function generateSteps(
   const report: StepsReport = {
     workLines: 0, batches: 0, answered: 0, attached: 0, inserted: 0, failures: [], sample: [],
   };
+  // Named so the caller can see the two rounds apart, and so a devis where the
+  // second round changes nothing is recognisable from the log alone.
 
   const { data: rows, error: readError } = await admin
     .from('quote_lines')
@@ -372,39 +374,51 @@ async function generateSteps(
   report.workLines = work.length;
   if (!work.length) return report;
 
-  const batches: { id: string; label: string }[][] = [];
-  for (let from = 0; from < work.length; from += STEPS_BATCH) {
-    batches.push(work.slice(from, from + STEPS_BATCH));
-  }
-  report.batches = batches.length;
-
-  const answers = await pooled(
-    batches.map((batch) => async () => {
-      try {
-        const response = await openai.chat.completions.create({
-          model: STEPS_MODEL,
-          max_completion_tokens: 8000,
-          response_format: {
-            type: 'json_schema',
-            json_schema: { name: 'etapes', strict: true, schema: STEPS_SCHEMA },
-          },
-          messages: [
-            { role: 'system', content: STEPS_SYSTEM },
-            {
-              role: 'user',
-              content: batch.map((line, i) => `${i}. ${line.label.slice(0, 300)}`).join('\n'),
+  type Row = { id: string; label: string };
+  const ask = async (lines: Row[], size: number) => {
+    const batches: Row[][] = [];
+    for (let from = 0; from < lines.length; from += size) batches.push(lines.slice(from, from + size));
+    report.batches += batches.length;
+    return pooled(
+      batches.map((batch) => async () => {
+        try {
+          const response = await openai.chat.completions.create({
+            model: STEPS_MODEL,
+            max_completion_tokens: 8000,
+            response_format: {
+              type: 'json_schema',
+              json_schema: { name: 'etapes', strict: true, schema: STEPS_SCHEMA },
             },
-          ],
-        });
-        return { batch, response, error: '' };
-      } catch (failure) {
-        return { batch, response: null, error: describe(failure) };
-      }
-    }),
-    STEPS_CONCURRENCY
-  );
+            messages: [
+              { role: 'system', content: STEPS_SYSTEM },
+              {
+                role: 'user',
+                content:
+                  `Rends une entrée pour CHACUNE des ${batch.length} lignes ci-dessous, sans en sauter aucune.\n\n` +
+                  batch.map((line, i) => `${i}. ${line.label.slice(0, 300)}`).join('\n'),
+              },
+            ],
+          });
+          return { batch, response, error: '' };
+        } catch (failure) {
+          return { batch, response: null, error: describe(failure) };
+        }
+      }),
+      STEPS_CONCURRENCY
+    );
+  };
 
   const steps: { quote_line_id: string; company_id: string; position: number; label: string }[] = [];
+  const covered = new Set<string>();
+  let answers = await ask(work, STEPS_BATCH);
+
+  // A second round for whatever came back without operations. The model
+  // answers for some of a batch and silently drops the rest — half the lines
+  // of a three-hundred-line devis, in practice — and nothing in the reply
+  // says which. Asked again in small batches, most of them answer: the first
+  // round's omissions are a length problem, not a judgement that the line
+  // needs no operations.
+  for (let round = 0; round < 2; round++) {
   for (const { batch, response, error } of answers) {
     if (error) { report.failures.push(error.slice(0, 200)); continue; }
     if (!response) continue;
@@ -430,11 +444,19 @@ async function generateSteps(
         .slice(0, MAX_STEPS_PER_LINE);
       if (!labels.length) return;
       report.attached++;
+      covered.add(line.id);
       if (report.sample.length < 3) report.sample.push({ label: line.label.slice(0, 70), steps: labels });
       labels.forEach((label, position) => {
         steps.push({ quote_line_id: line.id, company_id: companyId, position, label });
       });
     });
+  }
+    if (round === 1) break;
+    const missed = work.filter((line) => !covered.has(line.id));
+    if (!missed.length) break;
+    // Ten at a time: the omissions are what a long answer loses at the end,
+    // so a shorter answer is the fix rather than a sterner instruction.
+    answers = await ask(missed, 10);
   }
 
   // Replaces whatever a previous run left, so pressing the button twice does
@@ -600,8 +622,24 @@ async function parse(
     // Asking for what is missing rather than for the whole devis again: the
     // first answer's lines were not wrong, they were incomplete, and a second
     // full pass would be as likely to stop short as the first.
+    //
+    // The model's own count is the weaker of the two signals: a model that
+    // stops short of a long list stops counting it too, and this devis came
+    // back saying it had found all 160 of the 160 lines it claimed to see,
+    // where the document has 295. The printed total is the signal that does
+    // not come from the reading — the devis states 13 718 771 and the lines
+    // summed to 8 732 268, which no amount of self-consistency can explain
+    // away. Either shortfall asks again.
     const counted = typeof parsed.printed_line_count === 'number' ? parsed.printed_line_count : 0;
-    for (let attempt = 0; attempt < MAX_RECOVERY_PASSES && parsed.lines.length < counted; attempt++) {
+    const sumOf = (lines: Record<string, unknown>[]) => lines
+      .filter((line) => (line.kind ?? 'work') === 'work')
+      .reduce((total, line) => total + (Number(line.amount_ht) || 0), 0);
+    const short = () => {
+      if (parsed.lines.length < counted) return true;
+      const sum = sumOf(parsed.lines);
+      return !!parsed.total_ht && sum > 0 && sum / parsed.total_ht < 0.9;
+    };
+    for (let attempt = 0; attempt < MAX_RECOVERY_PASSES && short(); attempt++) {
       const have = parsed.lines.map((line) => String(line.label ?? '')).filter(Boolean);
       const before = parsed.lines.length;
       const extra = await openai.chat.completions.create({
@@ -620,7 +658,9 @@ async function parse(
                 type: 'text',
                 text:
                   `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
-                  `Tu as compté ${counted} lignes dans ce devis et tu n'en as rendu que ${before}. ` +
+                  (parsed.total_ht
+                    ? `Le devis annonce un total de ${Math.round(parsed.total_ht)} et les lignes rendues n'en font que ${Math.round(sumOf(parsed.lines))} : il manque des lignes. `
+                    : `Tu as compté ${counted} lignes dans ce devis et tu n'en as rendu que ${before}. `) +
                   `Voici les libellés déjà relevés, dans l'ordre :\n${have.join('\n')}\n\n` +
                   `Rends UNIQUEMENT les lignes du devis qui manquent dans cette liste, dans l'ordre du document. ` +
                   `Si rien ne manque, rends une liste vide.`,
