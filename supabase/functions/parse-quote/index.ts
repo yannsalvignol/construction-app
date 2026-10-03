@@ -659,16 +659,20 @@ async function parse(
               },
             ],
           });
-          return { response, failed: false as const };
+          return { response, failed: false as const, reason: '' };
         } catch (failure) {
           // A devis that parsed is worth keeping even if its operations did not.
-          console.error('[parse-quote] steps batch', describe(failure));
-          return { response: null, failed: true as const };
+          // The reason travels with it: a silent failure here produced a devis
+          // with no operations at all and nothing anywhere saying why.
+          const reason = describe(failure);
+          console.error('[parse-quote] steps batch', reason);
+          return { response: null, failed: true as const, reason };
         }
       }),
       STEPS_CONCURRENCY
     );
 
+    const stepFailure = proposals.find((p) => p.failed)?.reason;
     for (const { response } of proposals) {
       if (!response) continue;
       inputTokens += response.usage?.prompt_tokens ?? 0;
@@ -701,6 +705,17 @@ async function parse(
     for (let i = 0; i < steps.length; i += 500) {
       const { error } = await admin.from('quote_line_steps').insert(steps.slice(i, i + 500));
       if (error) { console.error('[parse-quote] steps', error.message); break; }
+    }
+
+    // The status was written before this pass, deliberately: a devis is usable
+    // without its operations. So a failure here needs its own write, or it
+    // leaves a devis with no operations and nothing anywhere saying why.
+    if (stepFailure) {
+      const note = `Opérations non générées : ${stepFailure.slice(0, 160)}`;
+      await admin
+        .from('site_quotes')
+        .update({ parse_warning: warnings.length ? `${warnings.join(' ; ')}. ${note}` : note })
+        .eq('id', quote.id);
     }
 
     console.log(
