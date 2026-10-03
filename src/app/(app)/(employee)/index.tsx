@@ -176,7 +176,11 @@ export default function EmployeeHomeScreen() {
             value={site}
             missing={refusals > 0}
             refusedAt={refusals}
-            options={data.sites.map(s => ({ value: s.id, label: s.name }))}
+            options={data.sites.map(s => ({
+              value: s.id,
+              label: s.name,
+              note: s.awaiting ? copy.awaitingHere(s.awaiting) : undefined,
+            }))}
             onChange={value => { setSite(value); setRefusals(0); }} />
           <NumberWheel
             label={copy.duration}

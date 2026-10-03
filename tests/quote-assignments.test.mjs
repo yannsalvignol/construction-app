@@ -228,6 +228,39 @@ test('handing out devis work', async t => {
     assert.equal(Number((await peek('select count(*) from public.quote_assignments where quote_line_id = $1', [spare]))[0].count), 0);
   });
 
+  await t.test('the site list says what is waiting for him there', async () => {
+    const siteRow = async (who) =>
+      (await as(who, 'select public.employee_workspace() as w'))[0].w.sites.find((s) => s.id === ids.site);
+
+    // Nothing of the worker's is left: the chemins were taken back earlier and
+    // the spare line is gone.
+    assert.equal(Number((await siteRow(ids.worker)).awaiting), 0);
+
+    // Two things named on him: a line with quantity left, and an operation.
+    await as(ids.chef, 'select public.set_quote_assignment($1, null, $2, true)', [chemins, ids.worker]);
+    await as(ids.chef, 'select public.set_quote_assignment(null, $1, $2, true)', [steps[0].id, ids.worker]);
+    assert.equal(Number((await siteRow(ids.worker)).awaiting), 2);
+
+    // Ticking the operation takes it off the count: work done is not waiting.
+    await as(ids.worker, 'select public.set_quote_line_step($1, true)', [steps[0].id]);
+    assert.equal(Number((await siteRow(ids.worker)).awaiting), 1);
+
+    // And declaring the line's whole quantity takes the line off too. The
+    // declaration is the day's figure for that line, not an addition to it.
+    await as(ids.worker, 'select public.declare_quote_line($1, $2, 40)', [await dayOf(ids.worker), chemins]);
+    assert.equal(Number((await siteRow(ids.worker)).awaiting), 0);
+
+    // The mate was named on none of it and sees nothing.
+    assert.equal(Number((await siteRow(ids.mate)).awaiting), 0);
+
+    // A devis still being checked is not work anybody was asked for.
+    await as(ids.worker, 'select public.set_quote_line_step($1, false)', [steps[0].id]);
+    assert.equal(Number((await siteRow(ids.worker)).awaiting), 1);
+    await db.query("update public.site_quotes set status = 'parsed' where id = $1", [quote]);
+    assert.equal(Number((await siteRow(ids.worker)).awaiting), 0, 'an unvalidated devis asks nothing of anybody');
+    await db.query("update public.site_quotes set status = 'validated' where id = $1", [quote]);
+  });
+
   await t.test('nobody reads another company\'s assignments', async () => {
     assert.equal((await as(ids.otherChef, 'select * from public.quote_assignments')).length, 0);
     assert.ok((await as(ids.chef, 'select * from public.quote_assignments')).length > 0);

@@ -134,7 +134,10 @@ export function Feedback({ message, success = false }: { message?: string | null
   return <ThemedText accessibilityRole="alert" style={{ color: success ? theme.success : theme.danger }}>{message}</ThemedText>;
 }
 export function Select({ label, value, options, missing = false, refusedAt = 0, onChange }: {
-  label: string; value: string; options: { value: string; label: string }[];
+  label: string;
+  /** `note` is said beside the option and under the closed field: something
+   *  about this choice the person needs before making it, not after. */
+  value: string; options: { value: string; label: string; note?: string }[];
   /** Marked when an action was refused for want of this answer, not on sight:
    *  a field is not wrong until somebody has tried to go on without it. */
   missing?: boolean;
@@ -177,6 +180,11 @@ export function Select({ label, value, options, missing = false, refusedAt = 0, 
         {options.find(o => o.value === value)?.label ?? label} ▾
       </ThemedText>
     </AnimatedPressable>
+    {!!options.find(o => o.value === value)?.note && (
+      <ThemedText type="small" themeColor="accentText">
+        {options.find(o => o.value === value)!.note}
+      </ThemedText>
+    )}
     <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
       <WorkPage title={label}>
         <Action secondary label={copy.close} onPress={() => setOpen(false)} />
@@ -185,7 +193,15 @@ export function Select({ label, value, options, missing = false, refusedAt = 0, 
             backgroundColor: theme.backgroundElement,
             borderColor: option.value === value ? theme.text : theme.backgroundSelected,
           }]}>
-          <ThemedText style={{ flex: 1 }}>{option.label}</ThemedText>
+          <View style={{ flex: 1, gap: 2 }}>
+            <ThemedText>{option.label}</ThemedText>
+            {/* What is waiting for him there. The one thing he needs before
+                choosing, rather than after starting the day on the wrong
+                chantier. */}
+            {!!option.note && (
+              <ThemedText type="small" themeColor="accentText">{option.note}</ThemedText>
+            )}
+          </View>
           {option.value === value && <ThemedText type="smallBold">✓</ThemedText>}
         </Pressable>)}
       </WorkPage>

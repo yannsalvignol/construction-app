@@ -6,7 +6,9 @@ import { supabase } from './supabase';
 import { workCopy } from './work-copy';
 import type { Locale } from './i18n/locale';
 
-export type Site = { id: string; name: string; address: string | null; is_active: boolean; latitude: number | null; longitude: number | null };
+export type Site = { id: string; name: string; address: string | null; is_active: boolean; latitude: number | null; longitude: number | null;
+  /** Lines and operations the chef named this worker on there, still unfinished. */
+  awaiting?: number };
 export type WorkDay = { id: string; site_id: string; work_date: string; started_at: string; planned_end_at: string; ended_at: string | null;
   seconds_inside: number; seconds_outside: number };
 export type PresenceRequest = { id: string; due_at: string; expires_at: string };

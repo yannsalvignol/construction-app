@@ -646,18 +646,25 @@ export default function QuoteReviewScreen() {
                   the way of the one who just wants the sub-tasks generated,
                   they are noise at the top of a three-hundred-line devis. */}
             <View style={styles.stepsRow}>
-              <Pressable
-                disabled={stepsBusy}
-                onPress={() => { void makeSteps(); }}
-                style={({ pressed }) => [
-                  styles.stepsButton,
-                  { borderColor: theme.accent },
-                  (pressed || stepsBusy) && styles.pressed,
-                ]}>
-                <ThemedText type="smallBold" style={{ color: theme.accent }}>
-                  {stepsBusy ? t.quoteReview.stepsGenerating : t.quoteReview.stepsGenerate}
-                </ThemedText>
-              </Pressable>
+              {/* Gone once the devis has them. The job is done, and a button
+                  offering to do it again — at the top, every visit — reads as
+                  something still outstanding. It stays reachable behind the
+                  question mark, where somebody who wants a second attempt
+                  will think to look. */}
+              {!steps.size && (
+                <Pressable
+                  disabled={stepsBusy}
+                  onPress={() => { void makeSteps(); }}
+                  style={({ pressed }) => [
+                    styles.stepsButton,
+                    { borderColor: theme.accent },
+                    (pressed || stepsBusy) && styles.pressed,
+                  ]}>
+                  <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                    {stepsBusy ? t.quoteReview.stepsGenerating : t.quoteReview.stepsGenerate}
+                  </ThemedText>
+                </Pressable>
+              )}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t.quoteReview.stepsExplain}
@@ -684,6 +691,23 @@ export default function QuoteReviewScreen() {
                   <ThemedText type="small" themeColor={steps.size ? 'textSecondary' : 'warning'}>
                     {stepsMessage}
                   </ThemedText>
+                )}
+                {/* The way back to a second attempt, for a breakdown the chef
+                    does not like. It replaces every line's operations, which
+                    is why it is here and not under the thumb. */}
+                {!!steps.size && (
+                  <Pressable
+                    disabled={stepsBusy}
+                    onPress={() => { void makeSteps(); }}
+                    style={({ pressed }) => [
+                      styles.stepsButton,
+                      { alignSelf: 'flex-start', borderColor: theme.accent },
+                      (pressed || stepsBusy) && styles.pressed,
+                    ]}>
+                    <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                      {stepsBusy ? t.quoteReview.stepsGenerating : t.quoteReview.stepsRegenerate}
+                    </ThemedText>
+                  </Pressable>
                 )}
               </View>
             )}
@@ -1404,7 +1428,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.three,
   },
   pressed: { opacity: 0.6 },
-  stepsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  stepsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, alignSelf: 'flex-start' },
   stepsInfo: { borderRadius: Spacing.two, padding: Spacing.two, gap: Spacing.one },
   stepsButton: {
     borderWidth: 1,

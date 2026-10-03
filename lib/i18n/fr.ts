@@ -499,6 +499,7 @@ const fr = {
     stepsSummary: (withSteps: number, total: number) => `${withSteps} ligne(s) sur ${total} ont des sous-tâches.`,
     stepsNone: 'Aucune sous-tâche sur ce devis.',
     stepsGenerate: 'Générer les sous-tâches',
+    stepsRegenerate: 'Régénérer les sous-tâches',
     assignTitle: 'Qui fait cette tâche ?',
     assignTo: (label: string) => `Attribuer : ${label}`,
     assignSearch: 'Chercher un employé',

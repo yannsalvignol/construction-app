@@ -503,6 +503,7 @@ const en = {
     stepsSummary: (withSteps: number, total: number) => `${withSteps} of ${total} lines have sub-tasks.`,
     stepsNone: 'No sub-tasks on this devis.',
     stepsGenerate: 'Generate the sub-tasks',
+    stepsRegenerate: 'Generate them again',
     assignTitle: 'Who does this task?',
     assignTo: (label: string) => `Assign: ${label}`,
     assignSearch: 'Search for an employee',
