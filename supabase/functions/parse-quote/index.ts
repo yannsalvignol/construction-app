@@ -77,7 +77,8 @@ const SCHEMA = {
         properties: {
           lot: {
             type: ['string', 'null'],
-            description: 'The LOT heading this line falls under, verbatim.',
+            description:
+              "Le titre de la section où la ligne est imprimée, EN ENTIER: numéro ET intitulé, tel qu'imprimé — \"A Courant fort\", \"LOT N° 10 : COURANT FORT COURANT FAIBLE\". Jamais la seule lettre ou le seul numéro: \"A\" tout court ne dit rien à personne. Si la section n'a pas d'intitulé imprimé, null.",
           },
           label: {
             type: 'string',
@@ -123,7 +124,8 @@ const SYSTEM = `Tu lis des devis du bâtiment (plomberie, CVC, électricité) au
 Règles:
 - Restitue CHAQUE ligne imprimée, dans l'ordre du document, sans en fusionner ni en inventer.
 - Garde le libellé d'origine mot pour mot, numéro ou lettre compris ("3- RESEAUX FRIGORIFIQUES", "a- Ø250").
-- Une ligne numérotée qui ne porte aucune quantité et qui chapeaute des sous-lignes est un "heading".
+- Une ligne numérotée qui ne porte aucune quantité et qui chapeaute des sous-lignes est un "heading". Restitue-la comme ligne ET reporte son titre complet dans le "lot" des lignes qu'elle chapeaute.
+- "lot" porte toujours l'intitulé, pas seulement le repère: "A Courant fort", jamais "A".
 - Une remise, un rabais ou toute ligne négative est un "discount", jamais du travail.
 - Reporte les quantités et les prix tels quels. N'arrondis pas, ne recalcule pas, ne corrige pas une incohérence: elle appartient au document.
 - task_code: uniquement si la correspondance est évidente. Dans le doute, null.
