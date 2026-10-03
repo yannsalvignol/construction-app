@@ -19,6 +19,11 @@ export const Colors = {
      * folder sits under its white cards instead of beside them. Untinted on
      * purpose — the accent is for things you press, not for furniture. */
     backgroundGroup: '#C8CBCD',
+    /** Panels nested inside a card: a chapter of a devis, then one of its
+     * sub-chapters. Two deliberate steps away from the card's white, so three
+     * levels of a document read as three levels at a glance. */
+    nest1: '#EEECF3',
+    nest2: '#DEDAE7',
     /** A thin gold edge round something somebody is expected at. Not the
      * accent: the accent means "press me", and this means "this one is
      * yours". Dark enough to be an edge on white. */
@@ -53,6 +58,10 @@ export const Colors = {
     /** A group heading: a neutral grey a step LIGHTER than the page, since on
      * a dark page depth runs the other way. Untinted on purpose. */
     backgroundGroup: '#2D2D32',
+    /** Panels nested inside a card. On a dark page depth runs the other way,
+     * so these step towards the light rather than away from it. */
+    nest1: '#2B2338',
+    nest2: '#372C47',
     /** A thin gold edge round something somebody is expected at. Lighter than
      * the light-mode gold, which disappears on a dark card. */
     marked: '#E3B341',

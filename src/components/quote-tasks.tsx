@@ -36,6 +36,10 @@ type Step = {
   assigned: boolean;
 };
 
+/** One level of the devis: a lot, a chapter, or a sub-chapter. */
+type Group = { kind: 'group'; key: string; title: string; lines: Line[]; items: Node[] };
+type Node = Group | { kind: 'line'; line: Line };
+
 /** What the devis still expects on this line, or null when it quoted no figure. */
 function remaining(line: Line) {
   if (line.quoted == null) return null;
@@ -47,6 +51,11 @@ type Line = {
   lot: string | null;
   /** The heading the line is printed under — the devis's words, not its numbering. */
   section: string | null;
+  /** The two levels below the lot, where the devis has them: "1 Poste de
+   *  transformation client", then "1.1 Cellules MT étanches". Null on a devis
+   *  that does not divide itself that far, which is most small ones. */
+  chapter: string | null;
+  sub_chapter: string | null;
   label: string;
   unit: string | null;
   quoted: number | null;
@@ -73,7 +82,7 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
   // Closed to begin with. A devis of three hundred lines is unreadable open,
   // and a worker is in one lot at a time; several may be opened at once because
   // a day that spans two of them is not unusual.
-  const [openLots, setOpenLots] = useState<ReadonlySet<string>>(new Set());
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(new Set());
   // What the chef put his name on, when he put it on anything. The devis is
   // the whole chantier and most of it is somebody else's; a worker who was
   // given four lines should open the app on those four.
@@ -85,18 +94,40 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
     [lines, onlyMine, mineCount]
   );
 
-  const grouped = useMemo(() => {
-    const byLot = new Map<string, Line[]>();
+  /**
+   * The devis as it is printed: lot, chapter, sub-chapter, line.
+   *
+   * Groups and lines are kept in one ordered list per level rather than lines
+   * after groups, because that is how the paper reads — "1.1 Cellules MT" is
+   * followed by "1.2 Liaison", a sub-chapter and then a line of the chapter
+   * above it. Each group carries every line beneath it, however deep, so a
+   * closed lot can say how far it has got without being opened.
+   */
+  const tree = useMemo(() => {
+    const root: Node[] = [];
+    const byKey = new Map<string, Group>();
     for (const line of showing) {
-      // Insertion order, so the sections follow the devis rather than the
-      // alphabet. The heading is what the devis calls this part of the
-      // chantier; the lot is only its numbering.
-      const lot = line.section?.trim() || line.lot?.trim() || t.quoteTasks.noLot;
-      const rows = byLot.get(lot);
-      if (rows) rows.push(line);
-      else byLot.set(lot, [line]);
+      const path = [
+        line.section?.trim() || line.lot?.trim() || t.quoteTasks.noLot,
+        line.chapter?.trim(),
+        line.sub_chapter?.trim(),
+      ].filter((part): part is string => !!part);
+      let items = root;
+      let key = '';
+      for (const title of path) {
+        key = key ? `${key} \u203a ${title}` : title;
+        let group = byKey.get(key);
+        if (!group) {
+          group = { kind: 'group', key, title, lines: [], items: [] };
+          byKey.set(key, group);
+          items.push(group);
+        }
+        group.lines.push(line);
+        items = group.items;
+      }
+      items.push({ kind: 'line', line });
     }
-    return [...byLot.entries()];
+    return root;
   }, [showing, t.quoteTasks.noLot]);
 
   const load = useCallback(async () => {
@@ -179,6 +210,200 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
     await onSaved();
   }
 
+  function renderLine(line: Line) {
+
+    const left = remaining(line);
+    const complete = left === 0;
+    const unit = line.unit ? unitShort(line.unit as never, copy) : '';
+    const today = Number(line.declared_today);
+    return (
+      <View key={line.line_id} style={[styles.row, { borderTopColor: theme.separator }]}>
+        <View style={styles.head}>
+          {/* The tick is its own target, so finishing a line is one tap
+              and does not go through a number anybody has to type. */}
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: complete, disabled: left === null }}
+            accessibilityLabel={line.label}
+            disabled={left === null || busy}
+            hitSlop={10}
+            onPress={() => { void toggleLine(line); }}
+            style={({ pressed }) => pressed && styles.pressed}>
+            <Ionicons
+              name={complete ? 'checkmark-circle' : 'ellipse-outline'}
+              size={26}
+              color={complete ? theme.success : left === null ? theme.textPlaceholder : theme.accent}
+            />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.quoteTasks.quantityFor(line.label)}
+            disabled={left === null}
+            onPress={() => { setOpen(open === line.line_id ? null : line.line_id); setTyped(''); setSaved(null); }}
+            style={({ pressed }) => [styles.headText, pressed && styles.pressed]}>
+            <View style={styles.labelRow}>
+              {/* Marked even in "tout le devis", where it is the only
+                  thing telling his four lines from the other three
+                  hundred. */}
+              {line.mine && (
+                <Ionicons name="person" size={13} color={theme.accentText} />
+              )}
+              <ThemedText
+                type="small"
+                style={[{ flex: 1 }, complete ? styles.struck : undefined]}
+                themeColor={complete ? 'textSecondary' : 'text'}>
+                {line.label}
+              </ThemedText>
+            </View>
+            <ThemedText type="small" themeColor={complete ? 'success' : 'textSecondary'}>
+              {complete
+                ? t.quoteTasks.done
+                : left == null
+                  ? ''
+                  : t.quoteTasks.remaining(`${left} ${unit}`)}
+              {today > 0 ? ` · ${t.quoteTasks.todayLabel(`${today} ${unit}`)}` : ''}
+            </ThemedText>
+          </Pressable>
+
+          {saved === line.line_id && <Ionicons name="checkmark" size={18} color={theme.success} />}
+        </View>
+
+        {line.steps.length > 0 && (
+          <View style={styles.steps}>
+            {line.steps.map((step) => (
+              <Pressable
+                key={step.step_id}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: step.done, busy: stepBusy === step.step_id }}
+                accessibilityLabel={step.label}
+                disabled={!!stepBusy}
+                onPress={() => { void toggle(step); }}
+                style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
+                <Ionicons
+                  name={step.done ? 'checkbox' : 'square-outline'}
+                  size={20}
+                  color={step.done ? theme.success : theme.textPlaceholder}
+                />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={styles.labelRow}>
+                    {step.mine && (
+                      <Ionicons name="person" size={12} color={theme.accentText} />
+                    )}
+                    <ThemedText
+                      type="small"
+                      themeColor={step.done ? 'textSecondary' : 'text'}
+                      style={[{ flex: 1 }, step.done ? styles.struck : undefined]}>
+                      {step.label}
+                    </ThemedText>
+                  </View>
+                  {/* Whose work it was, when it was not his. */}
+                  {!!step.done_by_name && (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t.quoteTasks.doneBy(step.done_by_name)}
+                    </ThemedText>
+                  )}
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {open === line.line_id && (
+          <View style={styles.form}>
+            <TextInput
+              value={typed}
+              onChangeText={setTyped}
+              keyboardType="decimal-pad"
+              autoFocus
+              accessibilityLabel={t.quoteTasks.quantityFor(line.label)}
+              placeholder={unit}
+              placeholderTextColor={theme.textPlaceholder}
+              style={[styles.input, { backgroundColor: theme.backgroundInput, color: theme.text }]}
+            />
+            <Pressable
+              disabled={busy}
+              onPress={() => { void declare(line); }}
+              style={({ pressed }) => [
+                styles.declare,
+                { backgroundColor: theme.accent, opacity: pressed || busy ? 0.7 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                {busy ? t.quoteTasks.saving : t.quoteTasks.declare}
+              </ThemedText>
+            </Pressable>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  /** A chapter sits a step away from its card, a sub-chapter a step further. */
+  const nestTone = (depth: number) => (depth === 1 ? theme.nest1 : theme.nest2);
+
+  function renderNode(node: Node, depth: number): React.ReactNode {
+    if (node.kind === 'line') return renderLine(node.line);
+
+    const total = node.lines.length;
+    const finished = node.lines.filter((line) => remaining(line) === 0).length;
+    const allDone = total > 0 && finished === total;
+    const isOpen = openGroups.has(node.key);
+    const toggle = () => setOpenGroups((current) => {
+      const next = new Set(current);
+      if (next.has(node.key)) next.delete(node.key); else next.add(node.key);
+      return next;
+    });
+
+    const head = (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isOpen }}
+        accessibilityLabel={node.title}
+        onPress={toggle}
+        style={({ pressed }) => [
+          depth === 0 ? styles.lotHead : styles.nestHead,
+          pressed && styles.pressed,
+        ]}>
+        <Ionicons
+          name={allDone ? 'checkmark-circle' : depth === 0 ? 'folder-outline' : 'file-tray-outline'}
+          size={depth === 0 ? 22 : 18}
+          color={allDone ? theme.success : theme.accentText}
+        />
+        <View style={{ flex: 1, gap: 2 }}>
+          <ThemedText type="smallBold">{node.title}</ThemedText>
+          <ThemedText type="small" themeColor={allDone ? 'success' : 'textSecondary'}>
+            {allDone ? t.quoteTasks.lotAllDone : t.quoteTasks.lotProgress(finished, total)}
+          </ThemedText>
+        </View>
+        <Ionicons
+          name={isOpen ? 'chevron-up' : 'chevron-down'}
+          size={depth === 0 ? 20 : 18}
+          color={theme.textSecondary}
+        />
+      </Pressable>
+    );
+
+    // The lot is a card on the page; everything under it is a panel inside
+    // that card, so the nesting is read off the surfaces rather than counted
+    // in indentation.
+    if (depth === 0) {
+      return (
+        <View
+          key={node.key}
+          style={[styles.lotCard, cardShadow(theme.isDark), { backgroundColor: theme.backgroundElement }]}>
+          {head}
+          {isOpen && node.items.map((item) => renderNode(item, 1))}
+        </View>
+      );
+    }
+    return (
+      <View key={node.key} style={[styles.nestCard, { backgroundColor: nestTone(depth) }]}>
+        {head}
+        {isOpen && node.items.map((item) => renderNode(item, depth + 1))}
+      </View>
+    );
+  }
+
   if (!lines) return <Card><BrandSpinner /></Card>;
   if (!lines.length) return null;
 
@@ -217,180 +442,7 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
         </View>
       )}
 
-      {/* One card per lot of the devis, closed. A worker opens the part of the
-          chantier he is on and reads twenty lines rather than three hundred;
-          each card says how far that lot has got without being opened. */}
-      {grouped.map(([lot, rows]) => {
-        const total = rows.length;
-        const finished = rows.filter((line) => remaining(line) === 0).length;
-        const allDone = finished === total;
-        const isOpen = openLots.has(lot);
-        return (
-          <View
-            key={lot}
-            style={[
-              styles.lotCard,
-              cardShadow(theme.isDark),
-              { backgroundColor: theme.backgroundElement },
-            ]}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isOpen }}
-              accessibilityLabel={lot}
-              onPress={() => setOpenLots((current) => {
-                const next = new Set(current);
-                if (next.has(lot)) next.delete(lot); else next.add(lot);
-                return next;
-              })}
-              style={({ pressed }) => [styles.lotHead, pressed && styles.pressed]}>
-              <Ionicons
-                name={allDone ? 'checkmark-circle' : 'folder-outline'}
-                size={22}
-                color={allDone ? theme.success : theme.accentText}
-              />
-              <View style={{ flex: 1, gap: 2 }}>
-                <ThemedText type="smallBold">{lot}</ThemedText>
-                <ThemedText type="small" themeColor={allDone ? 'success' : 'textSecondary'}>
-                  {allDone ? t.quoteTasks.lotAllDone : t.quoteTasks.lotProgress(finished, total)}
-                </ThemedText>
-              </View>
-              <Ionicons
-                name={isOpen ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={theme.textSecondary}
-              />
-            </Pressable>
-
-            {isOpen && rows.map((line) => {
-
-            const left = remaining(line);
-            const complete = left === 0;
-            const unit = line.unit ? unitShort(line.unit as never, copy) : '';
-            const today = Number(line.declared_today);
-            return (
-              <View key={line.line_id} style={[styles.row, { borderTopColor: theme.separator }]}>
-                <View style={styles.head}>
-                  {/* The tick is its own target, so finishing a line is one tap
-                      and does not go through a number anybody has to type. */}
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: complete, disabled: left === null }}
-                    accessibilityLabel={line.label}
-                    disabled={left === null || busy}
-                    hitSlop={10}
-                    onPress={() => { void toggleLine(line); }}
-                    style={({ pressed }) => pressed && styles.pressed}>
-                    <Ionicons
-                      name={complete ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={26}
-                      color={complete ? theme.success : left === null ? theme.textPlaceholder : theme.accent}
-                    />
-                  </Pressable>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t.quoteTasks.quantityFor(line.label)}
-                    disabled={left === null}
-                    onPress={() => { setOpen(open === line.line_id ? null : line.line_id); setTyped(''); setSaved(null); }}
-                    style={({ pressed }) => [styles.headText, pressed && styles.pressed]}>
-                    <View style={styles.labelRow}>
-                      {/* Marked even in "tout le devis", where it is the only
-                          thing telling his four lines from the other three
-                          hundred. */}
-                      {line.mine && (
-                        <Ionicons name="person" size={13} color={theme.accentText} />
-                      )}
-                      <ThemedText
-                        type="small"
-                        style={[{ flex: 1 }, complete ? styles.struck : undefined]}
-                        themeColor={complete ? 'textSecondary' : 'text'}>
-                        {line.label}
-                      </ThemedText>
-                    </View>
-                    <ThemedText type="small" themeColor={complete ? 'success' : 'textSecondary'}>
-                      {complete
-                        ? t.quoteTasks.done
-                        : left == null
-                          ? ''
-                          : t.quoteTasks.remaining(`${left} ${unit}`)}
-                      {today > 0 ? ` · ${t.quoteTasks.todayLabel(`${today} ${unit}`)}` : ''}
-                    </ThemedText>
-                  </Pressable>
-
-                  {saved === line.line_id && <Ionicons name="checkmark" size={18} color={theme.success} />}
-                </View>
-
-                {line.steps.length > 0 && (
-                  <View style={styles.steps}>
-                    {line.steps.map((step) => (
-                      <Pressable
-                        key={step.step_id}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: step.done, busy: stepBusy === step.step_id }}
-                        accessibilityLabel={step.label}
-                        disabled={!!stepBusy}
-                        onPress={() => { void toggle(step); }}
-                        style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
-                        <Ionicons
-                          name={step.done ? 'checkbox' : 'square-outline'}
-                          size={20}
-                          color={step.done ? theme.success : theme.textPlaceholder}
-                        />
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <View style={styles.labelRow}>
-                            {step.mine && (
-                              <Ionicons name="person" size={12} color={theme.accentText} />
-                            )}
-                            <ThemedText
-                              type="small"
-                              themeColor={step.done ? 'textSecondary' : 'text'}
-                              style={[{ flex: 1 }, step.done ? styles.struck : undefined]}>
-                              {step.label}
-                            </ThemedText>
-                          </View>
-                          {/* Whose work it was, when it was not his. */}
-                          {!!step.done_by_name && (
-                            <ThemedText type="small" themeColor="textSecondary">
-                              {t.quoteTasks.doneBy(step.done_by_name)}
-                            </ThemedText>
-                          )}
-                        </View>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-
-                {open === line.line_id && (
-                  <View style={styles.form}>
-                    <TextInput
-                      value={typed}
-                      onChangeText={setTyped}
-                      keyboardType="decimal-pad"
-                      autoFocus
-                      accessibilityLabel={t.quoteTasks.quantityFor(line.label)}
-                      placeholder={unit}
-                      placeholderTextColor={theme.textPlaceholder}
-                      style={[styles.input, { backgroundColor: theme.backgroundInput, color: theme.text }]}
-                    />
-                    <Pressable
-                      disabled={busy}
-                      onPress={() => { void declare(line); }}
-                      style={({ pressed }) => [
-                        styles.declare,
-                        { backgroundColor: theme.accent, opacity: pressed || busy ? 0.7 : 1 },
-                      ]}>
-                      <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
-                        {busy ? t.quoteTasks.saving : t.quoteTasks.declare}
-                      </ThemedText>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            );
-            })}
-          </View>
-        );
-      })}
+      {tree.map((node) => renderNode(node, 0))}
 
       {!!error && <ThemedText type="small" style={{ color: theme.danger }}>{error}</ThemedText>}
     </View>
@@ -406,6 +458,16 @@ const styles = StyleSheet.create({
   /** One lot, closed: the devis is browsed by the part of the chantier it covers. */
   lotCard: { borderRadius: Spacing.three, paddingHorizontal: Spacing.three, paddingBottom: Spacing.one },
   lotHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.three },
+  /** A chapter or a sub-chapter: a panel inside the lot's card rather than a
+   *  card of its own, so three levels read as three levels and not as three
+   *  lists of equals. */
+  nestCard: {
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    paddingBottom: Spacing.one,
+    marginBottom: Spacing.one,
+  },
+  nestHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.two },
   form: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingBottom: Spacing.two },
   input: {
     flex: 1,

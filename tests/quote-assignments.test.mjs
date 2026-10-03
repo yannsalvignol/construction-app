@@ -261,6 +261,60 @@ test('handing out devis work', async t => {
     await db.query("update public.site_quotes set status = 'validated' where id = $1", [quote]);
   });
 
+  await t.test('a devis comes back at the depth it is printed', async () => {
+    // A second devis shaped like a real one: a lot, numbered chapters inside
+    // it, a sub-chapter inside one of those, and a second lot that reuses the
+    // same chapter numbers.
+    const deep = (await peek(`
+      insert into public.site_quotes (company_id, site_id, file_path, file_name, mime_type, status, uploaded_by, size_bytes)
+      values ($1, $2, 'q/2.pdf', '2.pdf', 'application/pdf', 'validated', $3, 1024) returning id`,
+      [ids.company, ids.site, ids.chef]))[0].id;
+    const rows = [
+      // The lot heading carries the bare marker; its name lives in lot, which
+      // is the shape the parser writes today.
+      ['A Courant fort', 'A', 'heading'],
+      ['A Courant fort', '1 Poste de transformation client', 'heading'],
+      ['A Courant fort', '1.1 Cellules MT étanches', 'heading'],
+      ['A Courant fort', '1.1.1 Cellule étanche interrupteur MT', 'work'],
+      ['A Courant fort', '1.2 Liaison moyenne tension', 'work'],
+      ['A Courant fort', '2 Circuits de terre', 'heading'],
+      ['A Courant fort', '2.1 Prise de terre informatique', 'work'],
+      ['B Courant faible', 'B', 'heading'],
+      ['B Courant faible', '1 Détection incendie', 'heading'],
+      ['B Courant faible', '1.1 Détecteurs', 'work'],
+    ];
+    for (const [lot, label, kind] of rows.map((r, i) => [...r, i])) {
+      await peek(`insert into public.quote_lines (quote_id, company_id, position, lot, label, kind, unit, quantity)
+                  values ($1, $2, $3, $4, $5, $6, 'unit', 1)`,
+        [deep, ids.company, 100 + rows.findIndex((r) => r[1] === label), lot, label, kind]);
+    }
+
+    const seen = Object.fromEntries(
+      (await linesFor(ids.worker)).map((r) => [r.label, r]));
+
+    const cellule = seen['1.1.1 Cellule étanche interrupteur MT'];
+    assert.equal(cellule.section, 'A Courant fort');
+    assert.equal(cellule.chapter, '1 Poste de transformation client');
+    assert.equal(cellule.sub_chapter, '1.1 Cellules MT étanches');
+
+    // Two levels deep: it sits under the chapter, beside the sub-chapter, as
+    // it is printed.
+    const liaison = seen['1.2 Liaison moyenne tension'];
+    assert.equal(liaison.chapter, '1 Poste de transformation client');
+    assert.equal(liaison.sub_chapter, null);
+
+    // The lot scopes the chapter: B has a chapter "1" of its own, and its
+    // lines must not be filed under A's.
+    assert.equal(seen['1.1 Détecteurs'].section, 'B Courant faible');
+    assert.equal(seen['1.1 Détecteurs'].chapter, '1 Détection incendie');
+
+    // The flat devis from the other quote has no such levels and is unchanged.
+    assert.equal(seen['Chemins de câbles'].chapter, null);
+    assert.equal(seen['Chemins de câbles'].sub_chapter, null);
+
+    await db.query('delete from public.site_quotes where id = $1', [deep]);
+  });
+
   await t.test('nobody reads another company\'s assignments', async () => {
     assert.equal((await as(ids.otherChef, 'select * from public.quote_assignments')).length, 0);
     assert.ok((await as(ids.chef, 'select * from public.quote_assignments')).length > 0);
