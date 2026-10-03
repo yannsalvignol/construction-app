@@ -43,7 +43,7 @@ export function SitePicker({ onChange }: {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
-  const [searchFailed, setSearchFailed] = useState(false);
+  const [searchFailed, setSearchFailed] = useState<string | null>(null);
   // Where the map is now, so suggestions are biased to the region he is looking at.
   const centre = useRef<{ latitude: number; longitude: number } | null>(null);
   const session = useRef(newSearchSession());
@@ -88,7 +88,7 @@ export function SitePicker({ onChange }: {
     const sequence = ++search.current;
     const timer = setTimeout(() => {
       if (text.length < 3) {
-        setSuggestions([]); setSearching(false); setSearchFailed(false);
+        setSuggestions([]); setSearching(false); setSearchFailed(null);
         return;
       }
       setSearching(true);
@@ -101,11 +101,20 @@ export function SitePicker({ onChange }: {
           });
           if (sequence !== search.current) return;
           setSuggestions(found);
-          setSearchFailed(false);
-        } catch {
+          setSearchFailed(null);
+        } catch (failure) {
           if (sequence !== search.current) return;
           setSuggestions([]);
-          setSearchFailed(true);
+          // The reason, not a generic sentence: a Supabase failure is a plain
+          // object, so the usual `instanceof Error` test throws away whatever
+          // the server said and leaves nobody able to tell why.
+          const reason = failure instanceof Error
+            ? failure.message
+            : typeof (failure as { message?: unknown })?.message === 'string'
+              ? (failure as { message: string }).message
+              : String(failure);
+          console.error('[site-picker] address search failed:', reason);
+          setSearchFailed(reason);
         } finally {
           if (sequence === search.current) setSearching(false);
         }
@@ -129,7 +138,7 @@ export function SitePicker({ onChange }: {
       setAddress(line);
       onChange({ latitude: place.latitude, longitude: place.longitude, address: line });
     } catch {
-      setSearchFailed(true);
+      setSearchFailed(copy.siteAddressSearchFailed);
       applying.current = false;
     } finally {
       setResolving(false);
@@ -210,9 +219,9 @@ export function SitePicker({ onChange }: {
         </ScrollView>
       )}
 
-      {searchFailed && (
+      {!!searchFailed && (
         <ThemedText type="small" themeColor="warning" style={{ marginTop: 6 }}>
-          {copy.siteAddressSearchFailed}
+          {searchFailed}
         </ThemedText>
       )}
     </View>
