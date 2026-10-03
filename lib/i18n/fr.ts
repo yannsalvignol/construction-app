@@ -496,6 +496,7 @@ const fr = {
     stepsSummary: (withSteps: number, total: number) => `${withSteps} ligne(s) sur ${total} ont des sous-tâches.`,
     stepsNone: 'Aucune sous-tâche sur ce devis.',
     stepsGenerate: 'Générer les sous-tâches',
+    stepsExplain: "Chaque ligne du devis est découpée en une à trois opérations, que vos équipes cochent sur le chantier.",
     stepsGenerating: 'Génération des sous-tâches…',
     stepsDone: (n: number, lines: number, seconds: string) =>
       `${n} sous-tâche(s) générées sur ${lines} ligne(s) en ${seconds} s.`,

@@ -500,6 +500,7 @@ const en = {
     stepsSummary: (withSteps: number, total: number) => `${withSteps} of ${total} lines have sub-tasks.`,
     stepsNone: 'No sub-tasks on this devis.',
     stepsGenerate: 'Generate the sub-tasks',
+    stepsExplain: 'Each line of the devis is broken into one to three operations, which your crews tick off on site.',
     stepsGenerating: 'Generating the sub-tasks…',
     stepsDone: (n: number, lines: number, seconds: string) =>
       `${n} sub-task(s) generated across ${lines} line(s) in ${seconds} s.`,
