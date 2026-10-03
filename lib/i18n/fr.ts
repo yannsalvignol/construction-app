@@ -449,6 +449,8 @@ const fr = {
   quoteTasks: {
     title: 'Objectifs du devis',
     hint: 'Cochez ce que vous avez terminé. Appuyez sur une ligne pour déclarer une partie.',
+    lotProgress: (done: number, total: number) => `${done} sur ${total} terminée${total > 1 ? 's' : ''}`,
+    lotAllDone: 'Lot terminé',
     noLot: 'Sans lot',
     partialTitle: 'Déclarer une partie',
     remaining: (value: string) => `Reste ${value}`,

@@ -453,6 +453,8 @@ const en = {
   quoteTasks: {
     title: 'Quote targets',
     hint: 'Tick what you have finished. Tap a line to declare part of it.',
+    lotProgress: (done: number, total: number) => `${done} of ${total} done`,
+    lotAllDone: 'Lot finished',
     noLot: 'No lot',
     partialTitle: 'Declare part of it',
     remaining: (value: string) => `${value} left`,

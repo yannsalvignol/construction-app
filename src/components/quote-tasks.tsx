@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { BrandSpinner } from '@/components/brand-spinner';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/work-ui';
-import { Spacing } from '@/constants/theme';
+import { cardShadow, Spacing } from '@/constants/theme';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
@@ -61,6 +61,10 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [stepBusy, setStepBusy] = useState<string | null>(null);
+  // Closed to begin with. A devis of three hundred lines is unreadable open,
+  // and a worker is in one lot at a time; several may be opened at once because
+  // a day that spans two of them is not unusual.
+  const [openLots, setOpenLots] = useState<ReadonlySet<string>>(new Set());
 
   const grouped = useMemo(() => {
     const byLot = new Map<string, Line[]>();
@@ -158,20 +162,60 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
   if (!lines.length) return null;
 
   return (
-    <Card>
-      <ThemedText style={styles.title}>{t.quoteTasks.title}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">{t.quoteTasks.hint}</ThemedText>
+    // Not one card around the lot: each lot is its own card, and a card inside
+    // a card reads as two objects where there is one.
+    <View style={styles.list}>
+      <View style={{ gap: 4 }}>
+        <ThemedText style={styles.title}>{t.quoteTasks.title}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">{t.quoteTasks.hint}</ThemedText>
+      </View>
 
-      {/* Grouped under the devis's own lot headings: a worker finds his work
-          by the part of the chantier it belongs to, which is how the quote is
-          written and how he was told about it. */}
-      {grouped.map(([lot, rows]) => (
-        <View key={lot} style={styles.lot}>
-          <ThemedText type="smallBold" themeColor="accentText" style={styles.lotTitle}>
-            {lot}
-          </ThemedText>
+      {/* One card per lot of the devis, closed. A worker opens the part of the
+          chantier he is on and reads twenty lines rather than three hundred;
+          each card says how far that lot has got without being opened. */}
+      {grouped.map(([lot, rows]) => {
+        const total = rows.length;
+        const finished = rows.filter((line) => remaining(line) === 0).length;
+        const allDone = finished === total;
+        const isOpen = openLots.has(lot);
+        return (
+          <View
+            key={lot}
+            style={[
+              styles.lotCard,
+              cardShadow(theme.isDark),
+              { backgroundColor: theme.backgroundElement },
+            ]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isOpen }}
+              accessibilityLabel={lot}
+              onPress={() => setOpenLots((current) => {
+                const next = new Set(current);
+                if (next.has(lot)) next.delete(lot); else next.add(lot);
+                return next;
+              })}
+              style={({ pressed }) => [styles.lotHead, pressed && styles.pressed]}>
+              <Ionicons
+                name={allDone ? 'checkmark-circle' : 'folder-outline'}
+                size={22}
+                color={allDone ? theme.success : theme.accentText}
+              />
+              <View style={{ flex: 1, gap: 2 }}>
+                <ThemedText type="smallBold">{lot}</ThemedText>
+                <ThemedText type="small" themeColor={allDone ? 'success' : 'textSecondary'}>
+                  {allDone ? t.quoteTasks.lotAllDone : t.quoteTasks.lotProgress(finished, total)}
+                </ThemedText>
+              </View>
+              <Ionicons
+                name={isOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={theme.textSecondary}
+              />
+            </Pressable>
 
-          {rows.map((line) => {
+            {isOpen && rows.map((line) => {
+
             const left = remaining(line);
             const complete = left === 0;
             const unit = line.unit ? unitShort(line.unit as never, copy) : '';
@@ -283,22 +327,25 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
                 )}
               </View>
             );
-          })}
-        </View>
-      ))}
+            })}
+          </View>
+        );
+      })}
 
       {!!error && <ThemedText type="small" style={{ color: theme.danger }}>{error}</ThemedText>}
-    </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700' },
+  list: { gap: Spacing.two },
   row: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.two },
   head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
   headText: { flex: 1, gap: 2 },
-  lot: { gap: 0 },
-  lotTitle: { textTransform: 'uppercase', letterSpacing: 0.6, paddingTop: Spacing.three },
+  /** One lot, closed: the devis is browsed by the part of the chantier it covers. */
+  lotCard: { borderRadius: Spacing.three, paddingHorizontal: Spacing.three, paddingBottom: Spacing.one },
+  lotHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.three },
   form: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingBottom: Spacing.two },
   input: {
     flex: 1,
