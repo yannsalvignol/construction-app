@@ -300,13 +300,33 @@ test('presence and productivity database contracts', async t => {
     row = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
     assert.ok(row.seconds_outside >= 178 && row.seconds_outside <= 185);
 
-    // A long silence is attributed to neither: we do not know where they were.
-    const before = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    // A silence goes to the zone of the last reading. iOS reports on distance,
+    // so a phone that stops reporting is a phone that stopped moving, and the
+    // man standing on the chantier used to score nothing for his afternoon.
+    let before = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
     await db.query("update public.work_days set last_sample_at = now() - interval '3 hours' where id=$1", [day.id]);
+    await as(ids.worker, 'select public.update_live_position(33.5731::float8, -7.5898::float8, 8::float8)');
+    row = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    assert.equal(row.seconds_inside, before.seconds_inside, 'he was last seen away, so the silence is away');
+    assert.ok(row.seconds_outside - before.seconds_outside >= 10795, 'the three hours are counted');
+
+    // Past a whole day it is discarded again: that is a phone that was off, not
+    // a man standing still, and no shift is that long.
+    before = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    await db.query("update public.work_days set last_sample_at = now() - interval '14 hours' where id=$1", [day.id]);
     await as(ids.worker, 'select public.update_live_position(33.5731::float8, -7.5898::float8, 8::float8)');
     row = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
     assert.equal(row.seconds_inside, before.seconds_inside);
     assert.equal(row.seconds_outside, before.seconds_outside);
+
+    // The worker's own screen counts the time since the last reading, so the
+    // figures move while he stands still instead of waiting for a position
+    // that distance-based reporting will never send.
+    await db.query("update public.work_days set last_sample_at = now() - interval '20 minutes', last_sample_inside = true where id=$1", [day.id]);
+    const banked = (await db.query('select * from public.work_days where id=$1', [day.id])).rows[0];
+    const seen = (await as(ids.worker, 'select public.employee_workspace() as w'))[0].w.day;
+    assert.ok(seen.seconds_inside - banked.seconds_inside >= 1195, 'the open tail is counted on screen');
+    assert.equal(seen.seconds_outside, banked.seconds_outside);
 
     // Counters exist, the positions behind them do not: still one row, no history.
     assert.equal(Number((await db.query('select count(*) from public.live_positions')).rows[0].count), 1);
