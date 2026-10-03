@@ -497,6 +497,8 @@ const en = {
     sectionUntitled: 'Start of the devis',
     showSteps: (n: number) => `Show the sub-tasks (${n})`,
     hideSteps: 'Hide the sub-tasks',
+    stepsSummary: (withSteps: number, total: number) => `${withSteps} of ${total} lines have sub-tasks.`,
+    stepsNone: 'No sub-tasks on this devis. Read it again to generate them.',
     supersedeTitle: 'A devis is already in force',
     supersedeBody: (name: string) => `"${name}" is already validated on this site. Does this one replace it, or add to it?`,
     supersedeReplace: 'It replaces the earlier one',

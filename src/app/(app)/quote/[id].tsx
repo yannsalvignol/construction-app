@@ -462,7 +462,16 @@ export default function QuoteReviewScreen() {
               {/* The devis parsed, but a page returned fewer lines than it
                   counted. Named here so the chef knows which page to check
                   rather than noticing a missing line on site. */}
-              {!!quote.parse_warning && (
+              {/* Whether the breakdown exists at all, said once at the top. A
+                button that only appears on lines that have sub-tasks cannot
+                tell "this line has none" from "none were generated". */}
+            <ThemedText type="small" themeColor={steps.size ? 'textSecondary' : 'warning'}>
+              {steps.size
+                ? t.quoteReview.stepsSummary(steps.size, lines.filter((l) => l.kind === 'work').length)
+                : t.quoteReview.stepsNone}
+            </ThemedText>
+
+            {!!quote.parse_warning && (
                 <ThemedText type="small" style={{ color: theme.warning }}>
                   {quote.parse_warning}
                 </ThemedText>

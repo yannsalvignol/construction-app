@@ -493,6 +493,8 @@ const fr = {
     sectionUntitled: 'Début du devis',
     showSteps: (n: number) => `Voir les sous-tâches (${n})`,
     hideSteps: 'Masquer les sous-tâches',
+    stepsSummary: (withSteps: number, total: number) => `${withSteps} ligne(s) sur ${total} ont des sous-tâches.`,
+    stepsNone: 'Aucune sous-tâche sur ce devis. Relancez la lecture pour les générer.',
     supersedeTitle: 'Un devis est déjà en vigueur',
     supersedeBody: (name: string) => `« ${name} » est déjà validé sur ce chantier. Celui-ci le remplace-t-il, ou s'ajoute-t-il ?`,
     supersedeReplace: 'Il remplace le précédent',
