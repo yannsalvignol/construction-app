@@ -135,8 +135,14 @@ export default function EmployeeHomeScreen() {
         </ThemedText>
         {data.location_mode === 'live' && <ThemedText type="small" themeColor={liveConsented ? 'accentText' : 'textSecondary'}>
           {liveConsented ? copy.liveOn : copy.liveOff}</ThemedText>}
-        {/* Only meaningful while sharing: without positions there is nothing to classify. */}
-        {liveSharing && <ZoneTime secondsInside={data.day.seconds_inside} secondsOutside={data.day.seconds_outside} />}
+        {/* Only meaningful while sharing: without positions there is nothing to
+            classify — and the day's own length is passed in so the part of it
+            no position accounts for is named rather than silently dropped. */}
+        {liveSharing && <ZoneTime
+          secondsInside={data.day.seconds_inside}
+          secondsOutside={data.day.seconds_outside}
+          secondsElapsed={Math.max(0, Math.round(
+            ((data.day.ended_at ? Date.parse(data.day.ended_at) : now) - Date.parse(data.day.started_at)) / 1000))} />}
         {!!missed && <ThemedText>{missed} · {copy.missed}</ThemedText>}
         {active && <ThemedText type="small" themeColor="textSecondary">{copy.cancelDayHint}</ThemedText>}
         </Card>
