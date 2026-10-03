@@ -132,6 +132,10 @@ export default function QuoteReviewScreen() {
   // Closed. Three hundred lines in one scroll is a document, not a form to
   // check; a chef verifies one part of the devis at a time.
   const [openSections, setOpenSections] = useState<ReadonlySet<string>>(new Set());
+  // The operations proposed for each line. The chef reads them here because
+  // this is the moment he can still say no: once the devis is validated they
+  // are what his crews are given.
+  const [steps, setSteps] = useState<Map<string, string[]>>(new Map());
 
   // Section cards, with the lines of the open ones between them. Flattened into
   // one list so the screen stays virtualised: a devis is three hundred rows and
@@ -163,7 +167,7 @@ export default function QuoteReviewScreen() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [{ data: q }, { data: rows }, { data: catalogue }, { data: schedule }] = await Promise.all([
+    const [{ data: q }, { data: rows }, { data: catalogue }, { data: schedule }, { data: stepRows }] = await Promise.all([
       supabase
         .from('site_quotes')
         .select('id, company_id, file_name, status, total_ht, currency, parse_error, parse_warning, site_id')
@@ -180,9 +184,23 @@ export default function QuoteReviewScreen() {
         .select('id, position, label, percent, amount_ht, is_retention, validated_at')
         .eq('quote_id', id)
         .order('position'),
+      // The operations, read through the lines they hang off, so the query says
+      // "this devis" rather than listing three hundred ids.
+      supabase
+        .from('quote_line_steps')
+        .select('quote_line_id, label, position, quote_lines!inner(quote_id)')
+        .eq('quote_lines.quote_id', id)
+        .order('position'),
     ]);
     setQuote((q as Quote) ?? null);
     setLines((rows as Line[]) ?? []);
+    const byLine = new Map<string, string[]>();
+    for (const row of (stepRows as { quote_line_id: string; label: string }[] | null) ?? []) {
+      const list = byLine.get(row.quote_line_id);
+      if (list) list.push(row.label);
+      else byLine.set(row.quote_line_id, [row.label]);
+    }
+    setSteps(byLine);
     setCodes((catalogue as Code[]) ?? []);
     setMilestones((schedule as Milestone[]) ?? []);
   }, [id]);
@@ -417,6 +435,7 @@ export default function QuoteReviewScreen() {
                     <LineRow
                       line={item.line}
                       currency={quote.currency}
+                      steps={steps.get(item.line.id) ?? []}
                       dense={dense}
                       onPickCode={() => setPicking(item.line)}
                       onQuantity={(value) => { void setQuantity(item.line, value); }}
@@ -427,6 +446,7 @@ export default function QuoteReviewScreen() {
                   <LineRow
                     line={item.line}
                     currency={quote.currency}
+                    steps={steps.get(item.line.id) ?? []}
                     dense={dense}
                     onPickCode={() => setPicking(item.line)}
                     onQuantity={(value) => { void setQuantity(item.line, value); }}
@@ -689,6 +709,7 @@ function ViewToggle({ dense, onChange }: { dense: boolean; onChange: (dense: boo
 function LineRow({
   line,
   currency,
+  steps,
   dense,
   onPickCode,
   onQuantity,
@@ -696,6 +717,8 @@ function LineRow({
 }: {
   line: Line;
   currency: string;
+  /** What a worker will be asked to tick off for this line. */
+  steps: string[];
   /** One line per row instead of a card. Editing still opens in place. */
   dense: boolean;
   onPickCode: () => void;
@@ -797,6 +820,21 @@ function LineRow({
         )}
       </View>
 
+      {/* What his crews will tick off, shown when he opens the line — the one
+          moment he can still say the breakdown is wrong, since validating hands
+          it to them. Read-only: correcting the wording is a different job from
+          checking the figures, and this screen is for the figures. */}
+      {editing && steps.length > 0 && (
+        <View style={styles.steps}>
+          {steps.map((label, index) => (
+            <View key={index} style={styles.step}>
+              <Ionicons name="square-outline" size={16} color={theme.textPlaceholder} />
+              <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>{label}</ThemedText>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* The code is shown either way: a line without one will not count, and
           that has to be visible without opening anything. */}
       {editing ? (
@@ -835,6 +873,8 @@ const styles = StyleSheet.create({
   /** Header and footer keep the page's rhythm; the rows no longer inherit it. */
   band: { gap: Spacing.two, paddingBottom: Spacing.two },
   cardSpacing: { marginBottom: Spacing.two },
+  steps: { gap: 2, paddingLeft: Spacing.two },
+  step: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   /** One part of the devis, closed: it is checked a section at a time. */
   section: {
     flexDirection: 'row',
