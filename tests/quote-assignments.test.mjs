@@ -275,7 +275,9 @@ test('handing out devis work', async t => {
       ['A Courant fort', 'A', 'heading'],
       ['A Courant fort', '1 Poste de transformation client', 'heading'],
       ['A Courant fort', '1.1 Cellules MT étanches', 'heading'],
-      ['A Courant fort', '1.1.1 Cellule étanche interrupteur MT', 'work'],
+      ['A Courant fort', '1.1.1 Interrupteur', 'heading'],
+      ['A Courant fort', "1.1.1.2 Borne de l'interrupteur", 'work'],
+      ['A Courant fort', '1.1.2 Cellule étanche de comptage', 'work'],
       ['A Courant fort', '1.2 Liaison moyenne tension', 'work'],
       ['A Courant fort', '2 Circuits de terre', 'heading'],
       ['A Courant fort', '2.1 Prise de terre informatique', 'work'],
@@ -292,25 +294,35 @@ test('handing out devis work', async t => {
     const seen = Object.fromEntries(
       (await linesFor(ids.worker)).map((r) => [r.label, r]));
 
-    const cellule = seen['1.1.1 Cellule étanche interrupteur MT'];
-    assert.equal(cellule.section, 'A Courant fort');
-    assert.equal(cellule.chapter, '1 Poste de transformation client');
-    assert.equal(cellule.sub_chapter, '1.1 Cellules MT étanches');
+    assert.deepEqual(seen['1.1.1.2 Borne de l\'interrupteur'].path, [
+      'A Courant fort', '1 Poste de transformation client',
+      '1.1 Cellules MT étanches', '1.1.1 Interrupteur',
+    ], 'four levels, because the devis has four');
 
-    // Two levels deep: it sits under the chapter, beside the sub-chapter, as
-    // it is printed.
-    const liaison = seen['1.2 Liaison moyenne tension'];
-    assert.equal(liaison.chapter, '1 Poste de transformation client');
-    assert.equal(liaison.sub_chapter, null);
+    assert.deepEqual(seen['1.1.2 Cellule étanche de comptage'].path, [
+      'A Courant fort', '1 Poste de transformation client', '1.1 Cellules MT étanches',
+    ]);
 
-    // The lot scopes the chapter: B has a chapter "1" of its own, and its
+    // Two deep: it sits under the chapter, beside the sub-chapters, as printed.
+    assert.deepEqual(seen['1.2 Liaison moyenne tension'].path,
+      ['A Courant fort', '1 Poste de transformation client']);
+
+    // The lot scopes the lookup: B has a chapter "1" of its own, and its
     // lines must not be filed under A's.
-    assert.equal(seen['1.1 Détecteurs'].section, 'B Courant faible');
-    assert.equal(seen['1.1 Détecteurs'].chapter, '1 Détection incendie');
+    assert.deepEqual(seen['1.1 Détecteurs'].path,
+      ['B Courant faible', '1 Détection incendie']);
 
-    // The flat devis from the other quote has no such levels and is unchanged.
-    assert.equal(seen['Chemins de câbles'].chapter, null);
-    assert.equal(seen['Chemins de câbles'].sub_chapter, null);
+    // A devis that numbers nothing and names no lot has no levels at all,
+    // exactly as before: one flat list.
+    assert.equal(seen['Chemins de câbles'].section, null);
+    assert.deepEqual(seen['Chemins de câbles'].path, []);
+
+    // And one with a lot but no numbering is a single level, not none.
+    await peek(`insert into public.quote_lines (quote_id, company_id, position, lot, label, kind, unit, quantity)
+                values ($1, $2, 200, 'LOT: PLOMBERIE', '3- POSE LAVABO', 'work', 'unit', 1)`,
+      [deep, ids.company]);
+    const flat = (await linesFor(ids.worker)).find((r) => r.label === '3- POSE LAVABO');
+    assert.deepEqual(flat.path, ['LOT: PLOMBERIE']);
 
     await db.query('delete from public.site_quotes where id = $1', [deep]);
   });

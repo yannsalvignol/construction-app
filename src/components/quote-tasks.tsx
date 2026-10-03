@@ -51,11 +51,10 @@ type Line = {
   lot: string | null;
   /** The heading the line is printed under — the devis's words, not its numbering. */
   section: string | null;
-  /** The two levels below the lot, where the devis has them: "1 Poste de
-   *  transformation client", then "1.1 Cellules MT étanches". Null on a devis
-   *  that does not divide itself that far, which is most small ones. */
-  chapter: string | null;
-  sub_chapter: string | null;
+  /** The headings this line sits under, outermost first: the lot, then every
+   *  level the devis divides itself into. One deep or five — the screen draws
+   *  whatever comes back rather than expecting a shape. */
+  path: string[] | null;
   label: string;
   unit: string | null;
   quoted: number | null;
@@ -107,11 +106,10 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
     const root: Node[] = [];
     const byKey = new Map<string, Group>();
     for (const line of showing) {
-      const path = [
-        line.section?.trim() || line.lot?.trim() || t.quoteTasks.noLot,
-        line.chapter?.trim(),
-        line.sub_chapter?.trim(),
-      ].filter((part): part is string => !!part);
+      const path = (line.path?.length ? line.path : [line.lot ?? ''])
+        .map((part) => part?.trim())
+        .filter((part): part is string => !!part);
+      if (!path.length) path.push(t.quoteTasks.noLot);
       let items = root;
       let key = '';
       for (const title of path) {
@@ -338,8 +336,10 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
     );
   }
 
-  /** A chapter sits a step away from its card, a sub-chapter a step further. */
-  const nestTone = (depth: number) => (depth === 1 ? theme.nest1 : theme.nest2);
+  /** Each level inside the card steps further from it, and anything past the
+   *  tones we have keeps the last one: a devis six deep is rare enough that
+   *  the indentation can carry it from there. */
+  const nestTone = (depth: number) => (depth <= 1 ? theme.nest1 : theme.nest2);
 
   function renderNode(node: Node, depth: number): React.ReactNode {
     if (node.kind === 'line') return renderLine(node.line);
