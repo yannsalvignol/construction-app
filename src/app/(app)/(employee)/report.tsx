@@ -7,7 +7,6 @@ import { TaskForm } from '@/components/task-form';
 import { Action, Feedback, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
 import { useWorkspace } from '@/hooks/use-workspace';
-import { useDayRequired } from '@/hooks/use-day-required';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { workCopy } from '@/lib/work-copy';
@@ -16,10 +15,8 @@ export default function TasksScreen() {
   const { t, locale } = useI18n();
   const theme = useTheme();
   const copy = workCopy(locale);
-  const { data, loading, error, refresh } = useWorkspace();
-  // The list is the declared day's; without one there is nothing to show and
-  // nothing to do here, so the tab sends him back to start one.
-  const active = useDayRequired();
+  const { data, loading, error, refresh, now } = useWorkspace();
+  const active = data?.day && !data.day.ended_at && Date.parse(data.day.planned_end_at) > now;
   // Closed by default: the devis is the work, and the catalogue is the
   // exception. Open it and it stays open for the rest of the visit.
   const [otherOpen, setOtherOpen] = useState(false);
@@ -28,7 +25,7 @@ export default function TasksScreen() {
     {loading && <ThemedText>{copy.loading}</ThemedText>}
     <Feedback message={error} />
     {error && <Action label={copy.retry} onPress={() => { void refresh(); }} />}
-    {data && active ? <>
+    {data && (active ? <>
       {/* The chantier's devis is the task list: the work that was actually
           sold, in the words the chef quoted. The catalogue is not another list
           of the same standing — it is for the job nobody quoted, so it waits
@@ -58,6 +55,6 @@ export default function TasksScreen() {
         />
       </Pressable>
       {otherOpen && <TaskForm data={data} onSaved={refresh} />}
-    </> : null}
+    </> : <ThemedText themeColor="textSecondary">{copy.startForTasks}</ThemedText>)}
   </WorkPage>;
 }
