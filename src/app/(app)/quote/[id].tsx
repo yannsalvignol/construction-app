@@ -56,97 +56,46 @@ type Quote = {
 type Code = { code: string; label_fr: string | null; unit: string };
 
 /**
- * The devis as a tree, cut exactly where it cuts itself.
+ * The devis as a tree, built from the path the server gives each line.
  *
- * The same rule the worker's screen runs on the server, so a chef checks the
- * devis in the parts his crews will be given it in: a heading opens a part and
- * the next heading of the same or shallower rank closes it, which is the rule
- * every printed document follows whatever it numbers its parts with.
- *
- * Numbering decides one thing only — rank. A dotted number is as deep as it
- * has parts, so "1.1" is rank 2; anything else is rank 1, a divider at the top
- * of its lot. A row goes inside every heading still open above it that is
- * shallower than its own rank, so "3- RESEAUX" stands beside "2- UNITE
- * INTERIEURE" rather than inside it, while "a- Pf 14 kw", which numbers
- * nothing, sits inside whatever is open. Assuming one numbering scheme would
- * be assuming one devis: this database holds two, and they disagree.
- *
- * Headings are consumed into the tree rather than listed. A title that is also
- * a row is the same thing said twice.
+ * The rule — a heading opens a part, the next heading of the same or shallower
+ * rank closes it — lives in SQL, where the worker's screen reads it too. It
+ * used to live here as well, in TypeScript, and two implementations of one
+ * rule is a divergence waiting for a devis odd enough to find it. It is also
+ * what a part is named by when a chef hands one over, so the two screens have
+ * to agree on it exactly.
  */
-type Group = { kind: 'group'; key: string; title: string; depth: number; lines: Line[]; items: Node[] };
+type Group = { kind: 'group'; key: string; title: string; path: string[]; depth: number; lines: Line[]; items: Node[] };
 type Node = Group | { kind: 'line'; line: Line };
 
-/** The first word of a row: its printed number, where it has one. */
-function markerOf(line: Line) {
-  return line.label.trim().split(/\s+/)[0] ?? '';
-}
-/** How deep that number goes. 1.1.1 is three; "7-" and "a-" are one. */
-function rankOf(label: string) {
-  const digits = (/^\d+(\.\d+)*/.exec(label.trim()) ?? [''])[0];
-  return digits ? digits.split('.').length : 1;
-}
-
-function treeOf(lines: Line[], untitled: string): Node[] {
-  // A lot's title, taken from the heading carrying its marker where the lot is
-  // one, and from the lot itself where the parser already kept the name.
-  const titleFor = new Map<string, string>();
-  for (const line of lines) {
-    if (line.kind !== 'heading') continue;
-    const marker = markerOf(line);
-    if (!titleFor.has(marker)) titleFor.set(marker, line.label.trim());
-  }
-
+function treeOf(lines: Line[], paths: Map<string, string[]>, untitled: string): Node[] {
   const root: Node[] = [];
   const byKey = new Map<string, Group>();
-  // One stack of open headings per lot, since a lot is a document of its own
-  // and lots A and B each start again at "1".
-  const stacks = new Map<string, { label: string; rank: number }[]>();
-
   for (const line of lines) {
-    const lot = (line.lot ?? '').trim();
-    const lotTitle = (titleFor.get(lot) !== lot ? titleFor.get(lot) : undefined) ?? lot ?? '';
-    const stack = stacks.get(lot) ?? [];
-    stacks.set(lot, stack);
-
-    // A heading that names the lot is the lot, not a part of it.
-    const isLotTitle = line.kind === 'heading'
-      && (line.label.trim() === lotTitle || markerOf(line) === lot || line.label.trim() === lot);
-
-    const rank = line.kind === 'heading' || /^\d/.test(line.label.trim())
-      ? rankOf(line.label)
-      : Number.MAX_SAFE_INTEGER;
-    if (!isLotTitle) {
-      while (stack.length && stack[stack.length - 1].rank >= rank) stack.pop();
-    }
-
-    const path = [lotTitle || untitled, ...stack.map((open) => open.label)];
-    if (line.kind === 'heading' && !isLotTitle) {
-      stack.push({ label: line.label.trim(), rank });
-      path.push(line.label.trim());
-    }
-
+    const path = (paths.get(line.id) ?? []).filter(Boolean);
+    if (!path.length) path.push(untitled);
     let items = root;
     let key = '';
-    let depth = 0;
+    const walked: string[] = [];
     for (const title of path) {
+      walked.push(title);
       key = key ? `${key} \u203a ${title}` : title;
       let group = byKey.get(key);
       if (!group) {
-        group = { kind: 'group', key, title, depth, lines: [], items: [] };
+        group = { kind: 'group', key, title, path: [...walked], depth: walked.length - 1, lines: [], items: [] };
         byKey.set(key, group);
         items.push(group);
       }
-      // A heading counts towards the group it opens, not towards itself: the
-      // count on a card is what is inside it.
-      if (line.kind !== 'heading') group.lines.push(line);
+      group.lines.push(line);
       items = group.items;
-      depth += 1;
     }
-    if (line.kind !== 'heading') items.push({ kind: 'line', line });
+    items.push({ kind: 'line', line });
   }
   return root;
 }
+
+/** How a part's path is folded into one key, and read back out of it. */
+const PART_SEPARATOR = '\u0000';
 
 /** A validated devis already on this chantier, and whether it can still go. */
 type InForce = { other_id: string; file_name: string; total_ht: number | null; replaceable: boolean };
@@ -203,10 +152,14 @@ export default function QuoteReviewScreen() {
   // this is the moment he can still say no: once the devis is validated they
   // are what his crews are given.
   const [steps, setSteps] = useState<Map<string, Step[]>>(new Map());
-  // Who may be given work, and who has been. The keys are "l:<line>" and
-  // "s:<step>" so a line and one of its operations never collide.
+  // Who may be given work, and who has been. Keyed "l:<line>", "s:<step>" and
+  // "p:<path joined>", so a line, one of its operations and the part it sits
+  // in never collide.
   const [team, setTeam] = useState<Person[]>([]);
   const [assigned, setAssigned] = useState<Map<string, string[]>>(new Map());
+  // Each line's path through the devis, as the server reads it: the parts a
+  // chef can hand over, named the way the worker's screen will read them.
+  const [paths, setPaths] = useState<Map<string, string[]>>(new Map());
   const [assigning, setAssigning] = useState<{ key: string; label: string } | null>(null);
   const [teamSearch, setTeamSearch] = useState('');
   // An operation the chef wants struck off, held until he confirms: the model
@@ -248,9 +201,9 @@ export default function QuoteReviewScreen() {
         if (open) walk(node.items, depth + 1);
       }
     };
-    walk(treeOf(lines, t.quoteReview.sectionUntitled), 0);
+    walk(treeOf(lines, paths, t.quoteReview.sectionUntitled), 0);
     return out;
-  }, [lines, openSections, t.quoteReview.sectionUntitled]);
+  }, [lines, paths, openSections, t.quoteReview.sectionUntitled]);
   // A hundred lines is a lot of scrolling in card form; the compact view is
   // for reading the devis against the paper, the cards for correcting it.
   const [dense, setDense] = useState(false);
@@ -260,7 +213,7 @@ export default function QuoteReviewScreen() {
     if (!id) return;
     const [
       { data: q }, { data: rows }, { data: catalogue }, { data: schedule },
-      { data: stepRows }, { data: assignmentRows }, { data: people },
+      { data: stepRows }, { data: assignmentRows }, { data: people }, { data: outline },
     ] = await Promise.all([
       supabase
         .from('site_quotes')
@@ -289,13 +242,15 @@ export default function QuoteReviewScreen() {
       // hundred lines and as many operations; naming them all in one query
       // builds a URL nothing will accept, and RLS already keeps this to the
       // chef's own company.
-      supabase.from('quote_assignments').select('quote_line_id, step_id, employee_id'),
+      supabase.from('quote_assignments').select('quote_line_id, step_id, quote_id, path, employee_id'),
       supabase
         .from('profiles')
         .select('id, first_name, last_name')
         .eq('role', 'employee')
         .eq('is_active', true)
         .order('first_name'),
+      // The parts of the devis, from the one place that decides what they are.
+      supabase.rpc('quote_outline_for', { quote: id }),
     ]);
     setQuote((q as Quote) ?? null);
     setLines((rows as Line[]) ?? []);
@@ -312,7 +267,16 @@ export default function QuoteReviewScreen() {
     const lineIds = new Set(((rows as Line[]) ?? []).map((line) => line.id));
     const byTask = new Map<string, string[]>();
     for (const row of (assignmentRows as
-      { quote_line_id: string | null; step_id: string | null; employee_id: string }[] | null) ?? []) {
+      { quote_line_id: string | null; step_id: string | null; quote_id: string | null;
+        path: string[] | null; employee_id: string }[] | null) ?? []) {
+      if (row.path) {
+        if (row.quote_id !== id) continue;
+        const key = `p:${row.path.join(PART_SEPARATOR)}`;
+        const list = byTask.get(key);
+        if (list) list.push(row.employee_id);
+        else byTask.set(key, [row.employee_id]);
+        continue;
+      }
       const key = row.quote_line_id ? `l:${row.quote_line_id}` : `s:${row.step_id}`;
       if (row.quote_line_id ? !lineIds.has(row.quote_line_id) : !stepIds.has(row.step_id!)) continue;
       const list = byTask.get(key);
@@ -321,6 +285,10 @@ export default function QuoteReviewScreen() {
     }
     setAssigned(byTask);
     setTeam((people as Person[]) ?? []);
+    setPaths(new Map(
+      ((outline as { line_id: string; path: string[] }[] | null) ?? [])
+        .map((row) => [row.line_id, row.path ?? []])
+    ));
     setCodes((catalogue as Code[]) ?? []);
     setMilestones((schedule as Milestone[]) ?? []);
   }, [id]);
@@ -486,7 +454,7 @@ export default function QuoteReviewScreen() {
    * round trip between each one is the difference between a list and a form.
    */
   async function toggleAssignment(key: string, employeeId: string) {
-    const [kind, taskId] = [key.slice(0, 1), key.slice(2)];
+    const [kind, target] = [key.slice(0, 1), key.slice(2)];
     const had = assigned.get(key)?.includes(employeeId) ?? false;
     setError(null);
     setAssigned((current) => {
@@ -496,8 +464,10 @@ export default function QuoteReviewScreen() {
       return next;
     });
     const { error: failure } = await supabase.rpc('set_quote_assignment', {
-      line: kind === 'l' ? taskId : null,
-      step: kind === 's' ? taskId : null,
+      line: kind === 'l' ? target : null,
+      step: kind === 's' ? target : null,
+      quote: kind === 'p' ? id : null,
+      part: kind === 'p' ? target.split(PART_SEPARATOR) : null,
       employee: employeeId,
       assigned: !had,
     });
@@ -633,17 +603,11 @@ export default function QuoteReviewScreen() {
             maxToRenderPerBatch={12}
             windowSize={7}
             renderItem={({ item }) => item.kind === 'group' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: item.open }}
-                accessibilityLabel={item.group.title}
-                onPress={() => setOpenSections((current) => {
-                  const next = new Set(current);
-                  if (next.has(item.group.key)) next.delete(item.group.key);
-                  else next.add(item.group.key);
-                  return next;
-                })}
-                style={({ pressed }) => [
+              // The part and who has it are two targets, side by side rather
+              // than one inside the other: a Pressable nested in a Pressable
+              // is a coin toss on iOS over which one the tap reached.
+              <View
+                style={[
                   styles.section,
                   // Depth by surface and by indent together: the tones run out
                   // after two steps, the indent does not, and a devis five
@@ -656,20 +620,62 @@ export default function QuoteReviewScreen() {
                   },
                   item.group.depth > 0 && styles.sectionNested,
                   item.open && styles.sectionOpen,
-                  pressed && styles.pressed,
                 ]}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <ThemedText type="smallBold" numberOfLines={2}>{item.group.title}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {t.quoteReview.sectionLines(item.count)} · {money(item.total, quote.currency)}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: item.open }}
+                  accessibilityLabel={item.group.title}
+                  onPress={() => setOpenSections((current) => {
+                    const next = new Set(current);
+                    if (next.has(item.group.key)) next.delete(item.group.key);
+                    else next.add(item.group.key);
+                    return next;
+                  })}
+                  style={({ pressed }) => [styles.sectionHead, pressed && styles.pressed]}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <ThemedText type="smallBold" numberOfLines={2}>{item.group.title}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t.quoteReview.sectionLines(item.count)} · {money(item.total, quote.currency)}
+                    </ThemedText>
+                  </View>
+                  <Ionicons
+                    name={item.open ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={theme.textSecondary}
+                  />
+                </Pressable>
+                {/* A whole part handed over at once. A chef gives out work by
+                    the part — "Youssef takes courant fort chambres" — and
+                    tapping its hundred and forty lines to say so is data
+                    entry, not handing out work. It carries down: every line
+                    under it is his, including the ones the next reading of
+                    the devis adds. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t.quoteReview.assignTo(item.group.title)}
+                  hitSlop={8}
+                  onPress={() => setAssigning({
+                    key: `p:${item.group.path.join(PART_SEPARATOR)}`,
+                    label: item.group.path.join(' \u203a '),
+                  })}
+                  style={({ pressed }) => [styles.who, pressed && styles.pressed]}>
+                  <Ionicons
+                    name={peopleOn(`p:${item.group.path.join(PART_SEPARATOR)}`).length
+                      ? 'people' : 'person-add-outline'}
+                    size={14}
+                    color={peopleOn(`p:${item.group.path.join(PART_SEPARATOR)}`).length
+                      ? theme.accentText : theme.textPlaceholder}
+                  />
+                  <ThemedText
+                    type="small"
+                    themeColor={peopleOn(`p:${item.group.path.join(PART_SEPARATOR)}`).length
+                      ? 'accentText' : 'textPlaceholder'}>
+                    {peopleOn(`p:${item.group.path.join(PART_SEPARATOR)}`).length
+                      ? peopleOn(`p:${item.group.path.join(PART_SEPARATOR)}`).map(shortName).join(', ')
+                      : t.quoteReview.assignPart}
                   </ThemedText>
-                </View>
-                <Ionicons
-                  name={item.open ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color={theme.textSecondary}
-                />
-              </Pressable>
+                </Pressable>
+              </View>
             ) : (
               <View style={[
                 dense ? undefined : styles.cardSpacing,
@@ -1394,9 +1400,7 @@ const styles = StyleSheet.create({
    *  lines inside it were the same object on the same surface, which is what
    *  made the screen hard to read. */
   section: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.one,
     borderRadius: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: Spacing.three,
@@ -1405,6 +1409,8 @@ const styles = StyleSheet.create({
   },
   /** Open, the folder sits against its lines instead of floating above them. */
   sectionOpen: { marginBottom: Spacing.one },
+  /** The title, the count and the chevron: one target, which opens the part. */
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   /** A chapter inside a lot: smaller than the lot's own card, so the levels
    *  are told apart by weight as well as by tone and indent. */
   sectionNested: { paddingVertical: Spacing.two, borderRadius: Spacing.two },

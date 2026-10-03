@@ -506,6 +506,7 @@ const en = {
     stepsRegenerate: 'Generate them again',
     assignTitle: 'Who does this task?',
     assignTo: (label: string) => `Assign: ${label}`,
+    assignPart: 'Assign this part',
     assignSearch: 'Search for an employee',
     assignNobody: 'Nobody',
     assignNoTeam: 'No active employee in your company.',

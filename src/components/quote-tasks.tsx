@@ -370,7 +370,15 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
           color={allDone ? theme.success : theme.accentText}
         />
         <View style={{ flex: 1, gap: 2 }}>
-          <ThemedText type="smallBold">{node.title}</ThemedText>
+          <View style={styles.labelRow}>
+            {/* The chef gave him this part, not these lines. Said on the card
+                so he does not have to open it and read every row to find out
+                the whole thing is his. */}
+            {node.lines.every((line) => line.mine) && (
+              <Ionicons name="person" size={13} color={theme.accentText} />
+            )}
+            <ThemedText type="smallBold" style={{ flex: 1 }}>{node.title}</ThemedText>
+          </View>
           <ThemedText type="small" themeColor={allDone ? 'success' : 'textSecondary'}>
             {allDone ? t.quoteTasks.lotAllDone : t.quoteTasks.lotProgress(finished, total)}
           </ThemedText>

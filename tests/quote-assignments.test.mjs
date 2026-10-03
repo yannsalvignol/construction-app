@@ -108,11 +108,11 @@ test('handing out devis work', async t => {
     // A line and an operation at once is not an assignment, it is two.
     await assert.rejects(
       as(ids.chef, 'select public.set_quote_assignment($1, $2, $3, true)', [poste, steps[0].id, ids.worker]),
-      /not both/
+      /not several/
     );
     await assert.rejects(
       as(ids.chef, 'select public.set_quote_assignment(null, null, $1, true)', [ids.worker]),
-      /not both/
+      /not several/
     );
     // Nobody writes the table directly.
     await assert.rejects(
@@ -346,6 +346,92 @@ test('handing out devis work', async t => {
     // headings, not a child of the last one.
     assert.deepEqual(clim['3- RESEAUX FRIGORIFIQUES'].path, ['LOT: CLIMATISATION'],
       'a line of the same rank as the heading above it stands beside it');
+
+    await db.query('delete from public.site_quotes where id = $1', [deep]);
+  });
+
+  await t.test('a whole part of the devis is handed over at once', async () => {
+    const deep = (await peek(`
+      insert into public.site_quotes (company_id, site_id, file_path, file_name, mime_type, status, uploaded_by, size_bytes)
+      values ($1, $2, 'q/3.pdf', '3.pdf', 'application/pdf', 'validated', $3, 1024) returning id`,
+      [ids.company, ids.site, ids.chef]))[0].id;
+    const rows = [
+      ['A Courant fort', 'A', 'heading'],
+      ['A Courant fort', '1 Poste de transformation', 'heading'],
+      ['A Courant fort', '1.1 Cellule étanche', 'work'],
+      ['A Courant fort', '1.2 Transformateur', 'work'],
+      ['A Courant fort', '2 Circuits de terre', 'heading'],
+      ['A Courant fort', '2.1 Piquets de terre', 'work'],
+      ['B Courant faible', 'B', 'heading'],
+      ['B Courant faible', '1.1 Détecteurs', 'work'],
+    ];
+    for (let i = 0; i < rows.length; i += 1) {
+      await peek(`insert into public.quote_lines (quote_id, company_id, position, lot, label, kind, unit, quantity)
+                  values ($1, $2, $3, $4, $5, $6, 'unit', 1)`,
+        [deep, ids.company, 300 + i * 10, rows[i][0], rows[i][1], rows[i][2]]);
+    }
+    const part = ['A Courant fort', '1 Poste de transformation'];
+
+    await assert.rejects(
+      as(ids.worker, 'select public.set_quote_assignment(null, null, $1, true, $2, $3)',
+        [ids.worker, deep, part]),
+      /Only a chef/
+    );
+    await assert.rejects(
+      as(ids.otherChef, 'select public.set_quote_assignment(null, null, $1, true, $2, $3)',
+        [ids.worker, deep, part]),
+      /not in your company/
+    );
+    // A part without the devis it belongs to names nothing.
+    await assert.rejects(
+      as(ids.chef, 'select public.set_quote_assignment(null, null, $1, true, null, $2)', [ids.worker, part]),
+      /needs the devis/
+    );
+    await assert.rejects(
+      as(ids.chef, 'select public.set_quote_assignment($1, null, $2, true, $3, $4)',
+        [chemins, ids.worker, deep, part]),
+      /not several/
+    );
+
+    await as(ids.chef, 'select public.set_quote_assignment(null, null, $1, true, $2, $3)',
+      [ids.worker, deep, part]);
+    // Twice is not an error.
+    await as(ids.chef, 'select public.set_quote_assignment(null, null, $1, true, $2, $3)',
+      [ids.worker, deep, part]);
+
+    const seen = Object.fromEntries((await linesFor(ids.worker)).map((r) => [r.label, r]));
+    assert.equal(seen['1.1 Cellule étanche'].mine, true, 'everything under the part is his');
+    assert.equal(seen['1.2 Transformateur'].mine, true);
+    assert.equal(seen['2.1 Piquets de terre'].mine, false, 'the next part is not');
+    assert.equal(seen['1.1 Détecteurs'].mine, false, 'and nor is lot B, which numbers the same way');
+    assert.equal(seen['2.1 Piquets de terre'].assigned, false);
+
+    // A line added inside that part afterwards is his too: the chef gave away
+    // the part of the chantier, not the lines it held that day.
+    await peek(`insert into public.quote_lines (quote_id, company_id, position, lot, label, kind, unit, quantity)
+                values ($1, $2, 335, 'A Courant fort', '1.3 Cellule de comptage', 'work', 'unit', 1)`,
+      [deep, ids.company]);
+    const after = (await linesFor(ids.worker)).find((r) => r.label === '1.3 Cellule de comptage');
+    assert.equal(after.mine, true);
+
+    // The lot itself hands over everything below it, including lines that sit
+    // under no heading.
+    await as(ids.chef, 'select public.set_quote_assignment(null, null, $1, true, $2, $3)',
+      [ids.mate, deep, ['A Courant fort']]);
+    const theirs = Object.fromEntries((await linesFor(ids.mate)).map((r) => [r.label, r]));
+    assert.equal(theirs['2.1 Piquets de terre'].mine, true);
+    assert.equal(theirs['1.1 Détecteurs'].mine, false);
+
+    // And it counts as the work it is, not as one task.
+    const site = (await as(ids.mate, 'select public.employee_workspace() as w'))[0].w
+      .sites.find((s) => s.id === ids.site);
+    assert.ok(Number(site.awaiting) >= 4, `a part is every line under it (got ${site.awaiting})`);
+
+    // Taken back.
+    await as(ids.chef, 'select public.set_quote_assignment(null, null, $1, false, $2, $3)',
+      [ids.mate, deep, ['A Courant fort']]);
+    assert.equal(
+      (await linesFor(ids.mate)).find((r) => r.label === '2.1 Piquets de terre').mine, false);
 
     await db.query('delete from public.site_quotes where id = $1', [deep]);
   });

@@ -502,6 +502,7 @@ const fr = {
     stepsRegenerate: 'Régénérer les sous-tâches',
     assignTitle: 'Qui fait cette tâche ?',
     assignTo: (label: string) => `Attribuer : ${label}`,
+    assignPart: 'Attribuer cette partie',
     assignSearch: 'Chercher un employé',
     assignNobody: 'Personne',
     assignNoTeam: "Aucun employé actif dans votre entreprise.",
