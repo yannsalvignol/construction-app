@@ -6,11 +6,15 @@
 -- transformation client" as heading rows, which this function filtered out
 -- because they are not work.
 --
--- Each work line now carries the heading it falls under. The top of the
--- numbering is preferred — "1 Poste de transformation client" over "1.1
--- Cellules MT étanches" — because a worker looks for the part of the chantier
--- he is on, and the deepest heading is often four lines long. Dropped rather
--- than replaced: the returned row gains a column.
+-- Each work line now carries the heading its own lot marker names: lot "A"
+-- finds the row printed "A Courant fort". That is the level the devis divides
+-- itself into and the level a worker asks for — "B Courant fort chambres et
+-- suites" rather than the sub-section he happens to be standing in, which tells
+-- him nothing about where on the chantier he is.
+--
+-- Computed from the rows already stored, so a devis imported before this groups
+-- correctly without being read again. Dropped rather than replaced: the
+-- returned row gains a column.
 drop function if exists public.day_quote_lines(uuid);
 
 create function public.day_quote_lines(day_id uuid)
@@ -33,16 +37,21 @@ as $$
   select
     l.id,
     l.lot,
-    -- The nearest heading above it whose number has no dot: the section, not
-    -- the sub-sub-section. Falls back to any heading above it, then to the lot,
-    -- so a devis written without headings still groups by something.
+    -- The heading row the lot is the marker of: lot "A" names the heading whose
+    -- own number is "A", which is the row printed "A Courant fort". That is the
+    -- level the devis is divided into, and the level a worker asks for — not
+    -- the nearest heading above, which would be the sub-section he is standing
+    -- in and tells him nothing about where on the chantier he is.
     coalesce(
+      (select h.label from public.quote_lines h
+        where h.quote_id = l.quote_id and h.kind = 'heading'
+          and btrim(split_part(btrim(h.label), ' ', 1)) = btrim(coalesce(l.lot, ''))
+        order by h.position limit 1),
+      -- No row carries that marker: fall back to the nearest top-level heading
+      -- above the line, then to the marker alone, so nothing loses its grouping.
       (select h.label from public.quote_lines h
         where h.quote_id = l.quote_id and h.kind = 'heading' and h.position < l.position
           and strpos(split_part(btrim(h.label), ' ', 1), '.') = 0
-        order by h.position desc limit 1),
-      (select h.label from public.quote_lines h
-        where h.quote_id = l.quote_id and h.kind = 'heading' and h.position < l.position
         order by h.position desc limit 1),
       l.lot
     ),
