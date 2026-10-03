@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { BrandSpinner } from '@/components/brand-spinner';
@@ -61,6 +61,18 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [stepBusy, setStepBusy] = useState<string | null>(null);
+
+  const grouped = useMemo(() => {
+    const byLot = new Map<string, Line[]>();
+    for (const line of lines ?? []) {
+      // Insertion order, so the lots follow the devis rather than the alphabet.
+      const lot = line.lot?.trim() || t.quoteTasks.noLot;
+      const rows = byLot.get(lot);
+      if (rows) rows.push(line);
+      else byLot.set(lot, [line]);
+    }
+    return [...byLot.entries()];
+  }, [lines, t.quoteTasks.noLot]);
 
   const load = useCallback(async () => {
     const { data, error: failure } = await supabase.rpc('day_quote_lines', { day_id: dayId });
@@ -150,100 +162,130 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
       <ThemedText style={styles.title}>{t.quoteTasks.title}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">{t.quoteTasks.hint}</ThemedText>
 
-      {lines.map((line) => {
-        const left = line.quoted == null ? null : Math.max(0, Number(line.quoted) - Number(line.declared_total));
-        const complete = left === 0;
-        const unit = line.unit ? unitShort(line.unit as never, copy) : '';
-        return (
-          <View key={line.line_id} style={[styles.row, { borderTopColor: theme.backgroundSelected }]}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => { setOpen(open === line.line_id ? null : line.line_id); setTyped(''); setSaved(null); }}
-              style={({ pressed }) => [styles.head, pressed && styles.pressed]}>
-              <Ionicons
-                name={complete ? 'checkmark-circle' : 'ellipse-outline'}
-                size={20}
-                color={complete ? theme.success : theme.textPlaceholder}
-              />
-              <View style={{ flex: 1, gap: 2 }}>
-                <ThemedText type="small">{line.label}</ThemedText>
-                <ThemedText type="small" themeColor={complete ? 'success' : 'textSecondary'}>
-                  {complete
-                    ? t.quoteTasks.done
-                    : left == null
-                      ? ''
-                      : t.quoteTasks.remaining(`${left} ${unit}`)}
-                  {Number(line.declared_today) > 0
-                    ? ` · ${t.quoteTasks.todayLabel(`${line.declared_today} ${unit}`)}`
-                    : ''}
-                </ThemedText>
-              </View>
-              {saved === line.line_id && <Ionicons name="checkmark" size={18} color={theme.success} />}
-            </Pressable>
+      {/* Grouped under the devis's own lot headings: a worker finds his work
+          by the part of the chantier it belongs to, which is how the quote is
+          written and how he was told about it. */}
+      {grouped.map(([lot, rows]) => (
+        <View key={lot} style={styles.lot}>
+          <ThemedText type="smallBold" themeColor="accentText" style={styles.lotTitle}>
+            {lot}
+          </ThemedText>
 
-            {line.steps.length > 0 && (
-              <View style={styles.steps}>
-                {line.steps.map((step) => (
+          {rows.map((line) => {
+            const left = remaining(line);
+            const complete = left === 0;
+            const unit = line.unit ? unitShort(line.unit as never, copy) : '';
+            const today = Number(line.declared_today);
+            return (
+              <View key={line.line_id} style={[styles.row, { borderTopColor: theme.separator }]}>
+                <View style={styles.head}>
+                  {/* The tick is its own target, so finishing a line is one tap
+                      and does not go through a number anybody has to type. */}
                   <Pressable
-                    key={step.step_id}
                     accessibilityRole="checkbox"
-                    accessibilityState={{ checked: step.done, busy: stepBusy === step.step_id }}
-                    accessibilityLabel={step.label}
-                    disabled={!!stepBusy}
-                    onPress={() => { void toggle(step); }}
-                    style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
+                    accessibilityState={{ checked: complete, disabled: left === null }}
+                    accessibilityLabel={line.label}
+                    disabled={left === null || busy}
+                    hitSlop={10}
+                    onPress={() => { void toggleLine(line); }}
+                    style={({ pressed }) => pressed && styles.pressed}>
                     <Ionicons
-                      name={step.done ? 'checkbox' : 'square-outline'}
-                      size={20}
-                      color={step.done ? theme.success : theme.textPlaceholder}
+                      name={complete ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={26}
+                      color={complete ? theme.success : left === null ? theme.textPlaceholder : theme.accent}
                     />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <ThemedText
-                        type="small"
-                        themeColor={step.done ? 'textSecondary' : 'text'}
-                        style={step.done ? styles.struck : undefined}>
-                        {step.label}
-                      </ThemedText>
-                      {/* Whose work it was, when it was not his. */}
-                      {!!step.done_by_name && (
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {t.quoteTasks.doneBy(step.done_by_name)}
-                        </ThemedText>
-                      )}
-                    </View>
                   </Pressable>
-                ))}
-              </View>
-            )}
 
-            {open === line.line_id && (
-              <View style={styles.form}>
-                <TextInput
-                  value={typed}
-                  onChangeText={setTyped}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                  accessibilityLabel={t.quoteTasks.quantityFor(line.label)}
-                  placeholder={unit}
-                  placeholderTextColor={theme.textPlaceholder}
-                  style={[styles.input, { backgroundColor: theme.backgroundInput, color: theme.text }]}
-                />
-                <Pressable
-                  disabled={busy}
-                  onPress={() => { void declare(line); }}
-                  style={({ pressed }) => [
-                    styles.declare,
-                    { backgroundColor: theme.accent, opacity: pressed || busy ? 0.7 : 1 },
-                  ]}>
-                  <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
-                    {busy ? t.quoteTasks.saving : t.quoteTasks.declare}
-                  </ThemedText>
-                </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t.quoteTasks.quantityFor(line.label)}
+                    disabled={left === null}
+                    onPress={() => { setOpen(open === line.line_id ? null : line.line_id); setTyped(''); setSaved(null); }}
+                    style={({ pressed }) => [styles.headText, pressed && styles.pressed]}>
+                    <ThemedText
+                      type="small"
+                      style={complete ? styles.struck : undefined}
+                      themeColor={complete ? 'textSecondary' : 'text'}>
+                      {line.label}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor={complete ? 'success' : 'textSecondary'}>
+                      {complete
+                        ? t.quoteTasks.done
+                        : left == null
+                          ? ''
+                          : t.quoteTasks.remaining(`${left} ${unit}`)}
+                      {today > 0 ? ` · ${t.quoteTasks.todayLabel(`${today} ${unit}`)}` : ''}
+                    </ThemedText>
+                  </Pressable>
+
+                  {saved === line.line_id && <Ionicons name="checkmark" size={18} color={theme.success} />}
+                </View>
+
+                {line.steps.length > 0 && (
+                  <View style={styles.steps}>
+                    {line.steps.map((step) => (
+                      <Pressable
+                        key={step.step_id}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: step.done, busy: stepBusy === step.step_id }}
+                        accessibilityLabel={step.label}
+                        disabled={!!stepBusy}
+                        onPress={() => { void toggle(step); }}
+                        style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
+                        <Ionicons
+                          name={step.done ? 'checkbox' : 'square-outline'}
+                          size={20}
+                          color={step.done ? theme.success : theme.textPlaceholder}
+                        />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <ThemedText
+                            type="small"
+                            themeColor={step.done ? 'textSecondary' : 'text'}
+                            style={step.done ? styles.struck : undefined}>
+                            {step.label}
+                          </ThemedText>
+                          {/* Whose work it was, when it was not his. */}
+                          {!!step.done_by_name && (
+                            <ThemedText type="small" themeColor="textSecondary">
+                              {t.quoteTasks.doneBy(step.done_by_name)}
+                            </ThemedText>
+                          )}
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+
+                {open === line.line_id && (
+                  <View style={styles.form}>
+                    <TextInput
+                      value={typed}
+                      onChangeText={setTyped}
+                      keyboardType="decimal-pad"
+                      autoFocus
+                      accessibilityLabel={t.quoteTasks.quantityFor(line.label)}
+                      placeholder={unit}
+                      placeholderTextColor={theme.textPlaceholder}
+                      style={[styles.input, { backgroundColor: theme.backgroundInput, color: theme.text }]}
+                    />
+                    <Pressable
+                      disabled={busy}
+                      onPress={() => { void declare(line); }}
+                      style={({ pressed }) => [
+                        styles.declare,
+                        { backgroundColor: theme.accent, opacity: pressed || busy ? 0.7 : 1 },
+                      ]}>
+                      <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
+                        {busy ? t.quoteTasks.saving : t.quoteTasks.declare}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-        );
-      })}
+            );
+          })}
+        </View>
+      ))}
 
       {!!error && <ThemedText type="small" style={{ color: theme.danger }}>{error}</ThemedText>}
     </Card>
@@ -254,6 +296,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700' },
   row: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.two },
   head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
+  headText: { flex: 1, gap: 2 },
+  lot: { gap: 0 },
+  lotTitle: { textTransform: 'uppercase', letterSpacing: 0.6, paddingTop: Spacing.three },
   form: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingBottom: Spacing.two },
   input: {
     flex: 1,

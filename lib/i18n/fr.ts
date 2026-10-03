@@ -448,7 +448,9 @@ const fr = {
 
   quoteTasks: {
     title: 'Objectifs du devis',
-    hint: 'Ce qui est prévu sur ce chantier. Déclarez ce que vous avez fait.',
+    hint: 'Cochez ce que vous avez terminé. Appuyez sur une ligne pour déclarer une partie.',
+    noLot: 'Sans lot',
+    partialTitle: 'Déclarer une partie',
     remaining: (value: string) => `Reste ${value}`,
     done: 'Terminé',
     todayLabel: (value: string) => `Déjà déclaré aujourd’hui : ${value}`,
@@ -458,6 +460,8 @@ const fr = {
     saved: 'Enregistré',
     none: 'Aucun devis validé sur ce chantier pour le moment.',
     quantityFor: (label: string) => `Quantité réalisée · ${label}`,
+    otherWork: 'Autre tâche, hors devis',
+    otherWorkHint: 'Pour un travail que le devis ne couvre pas.',
   },
 
   quoteStatus: {

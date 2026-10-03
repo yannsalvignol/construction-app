@@ -452,7 +452,9 @@ const en = {
 
   quoteTasks: {
     title: 'Quote targets',
-    hint: 'What is planned on this site. Declare what you have done.',
+    hint: 'Tick what you have finished. Tap a line to declare part of it.',
+    noLot: 'No lot',
+    partialTitle: 'Declare part of it',
     remaining: (value: string) => `${value} left`,
     done: 'Done',
     todayLabel: (value: string) => `Already declared today: ${value}`,
@@ -462,6 +464,8 @@ const en = {
     saved: 'Saved',
     none: 'No validated quote on this site yet.',
     quantityFor: (label: string) => `Quantity done · ${label}`,
+    otherWork: 'Other work, outside the quote',
+    otherWorkHint: 'For work the quote does not cover.',
   },
 
   quoteStatus: {
