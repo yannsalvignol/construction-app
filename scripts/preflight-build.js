@@ -273,6 +273,31 @@ function checkNativeIosConfigSync() {
   if (anyMissing) {
     console.log('    Fix: npx expo prebuild --platform ios   (safe -- ios/ is git-ignored)');
   }
+  // The maps key is not a permission string, so the loop above never looked
+  // for it — and a local ios/ generated before the key was configured builds
+  // happily, links no Google Maps SDK, and renders a map that loads for ever.
+  // No error, no crash, just a grey rectangle.
+  // react-native-maps is configured in app.config.js, not app.json, so there
+  // is no plugin entry here to look for — the key being set is the signal.
+  {
+    // Unconditional: app.config.js always hands react-native-maps an iOS key,
+    // so Info.plist must always carry it. Gating this on the environment
+    // variable made the check skip itself, since this script does not load
+    // .env the way the Expo CLI does — a check that quietly does nothing is
+    // worse than no check, because it reads as a pass.
+    const hasKey = plistContent.includes('GMSApiKey');
+    if (!hasKey) {
+      fail(
+        'app.json configures Google Maps for iOS, but local ios/Info.plist has no GMSApiKey.\n' +
+          '    The app will build and its maps will load for ever, with no error.\n' +
+          '    Fix: npx expo prebuild --platform ios   (safe -- ios/ is git-ignored)'
+      );
+      anyMissing = true;
+    } else if (hasKey) {
+      pass('Local ios/ project carries the Google Maps key.');
+    }
+  }
+
   if (!anyMissing && pluginNames.some((n) => PLUGIN_PERMISSION_KEYS[n])) {
     pass('Local ios/ project is in sync with app.json plugin config.');
   }
