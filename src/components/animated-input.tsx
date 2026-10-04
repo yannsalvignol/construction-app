@@ -98,6 +98,7 @@ export function AnimatedInput({
           </AnimatedText>
         </Animated.View>
         <TextInput
+          allowFontScaling={false}
           ref={ref}
           {...props}
           value={value}

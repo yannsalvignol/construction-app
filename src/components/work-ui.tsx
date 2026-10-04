@@ -125,7 +125,7 @@ export function ShiftSpan({ startLabel, endLabel, start, end, middle }: {
 }
 export function Field(props: TextInputProps) {
   const theme = useTheme();
-  return <TextInput placeholderTextColor={theme.textSecondary} keyboardAppearance={theme.isDark ? 'dark' : 'light'} {...props}
+  return <TextInput allowFontScaling={false} placeholderTextColor={theme.textSecondary} keyboardAppearance={theme.isDark ? 'dark' : 'light'} {...props}
     style={[styles.field, { color: theme.text, backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }, props.style]} />;
 }
 export function Feedback({ message, success = false }: { message?: string | null; success?: boolean }) {

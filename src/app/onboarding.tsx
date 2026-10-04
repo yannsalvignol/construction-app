@@ -193,6 +193,7 @@ function EmployeeOnboarding({
           </ThemedText>
         )}
         <TextInput
+          allowFontScaling={false}
           style={[inputStyle(theme), { backgroundColor: palette.field }]}
           placeholder={t.onboarding.employee.firstNamePlaceholder}
           placeholderTextColor={palette.fieldText}
@@ -201,6 +202,7 @@ function EmployeeOnboarding({
           onChangeText={setFirstName}
         />
         <TextInput
+          allowFontScaling={false}
           style={[inputStyle(theme), { backgroundColor: palette.field }]}
           placeholder={t.onboarding.employee.lastNamePlaceholder}
           placeholderTextColor={palette.fieldText}
@@ -209,6 +211,7 @@ function EmployeeOnboarding({
           onChangeText={setLastName}
         />
         <TextInput
+          allowFontScaling={false}
           style={[inputStyle(theme), { backgroundColor: palette.field }]}
           placeholder={t.onboarding.employee.phonePlaceholder}
           placeholderTextColor={palette.fieldText}

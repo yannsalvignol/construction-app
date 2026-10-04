@@ -16,8 +16,8 @@ export function BrandName({ dot = true }: { dot?: boolean }) {
   const theme = useTheme();
   return (
     <>
-      <Text style={styles.name}>CASPROD</Text>
-      {dot && <Text style={[styles.name, { color: theme.accent }]}>.</Text>}
+      <Text allowFontScaling={false} style={styles.name}>CASPROD</Text>
+      {dot && <Text allowFontScaling={false} style={[styles.name, { color: theme.accent }]}>.</Text>}
     </>
   );
 }

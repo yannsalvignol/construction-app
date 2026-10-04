@@ -64,6 +64,7 @@ export function OtpInput({
       ))}
 
       <TextInput
+        allowFontScaling={false}
         ref={input}
         value={value}
         onChangeText={(next) => onChange(next.replace(/\D/g, '').slice(0, CELL_COUNT))}

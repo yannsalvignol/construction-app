@@ -16,6 +16,7 @@ export function PasswordInput({ style, ref, ...props }: TextInputProps & { ref?:
   const [visible, setVisible] = useState(false);
   return <View>
     <TextInput
+      allowFontScaling={false}
       ref={ref}
       {...props}
       secureTextEntry={!visible}

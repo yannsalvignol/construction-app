@@ -175,6 +175,7 @@ export function SitePicker({ onChange }: {
       }}>
         <Ionicons name="search" size={18} color={theme.textSecondary} />
         <TextInput
+          allowFontScaling={false}
           value={query}
           onChangeText={setQuery}
           placeholder={copy.siteAddressSearch}

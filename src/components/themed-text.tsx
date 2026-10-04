@@ -21,6 +21,12 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
   return (
     <Text
+      // The app's own sizes, not the phone's. Every size here is chosen
+      // against a layout — a devis line beside its quantity, an hour beside a
+      // duration — and iOS's larger-text settings reflow those into columns
+      // that no longer line up. A caller that genuinely wants a figure to
+      // follow the phone can still pass allowFontScaling, since `rest` wins.
+      allowFontScaling={false}
       style={[
         { color: theme[themeColor ?? (type === 'linkPrimary' ? 'accentText' : 'text')] },
         type === 'default' && styles.default,

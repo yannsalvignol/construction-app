@@ -310,6 +310,7 @@ export function QuoteTasks({ dayId, onSaved }: { dayId: string; onSaved: () => P
         {open === line.line_id && (
           <View style={styles.form}>
             <TextInput
+              allowFontScaling={false}
               value={typed}
               onChangeText={setTyped}
               keyboardType="decimal-pad"
