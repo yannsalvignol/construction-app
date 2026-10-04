@@ -562,6 +562,7 @@ const en = {
 
   settings: {
     title: 'Settings',
+    consent: 'Information and agreement',
     accountSection: 'Account',
     appearance: {
       title: 'Appearance',

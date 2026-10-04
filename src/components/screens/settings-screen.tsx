@@ -191,6 +191,17 @@ export function SettingsScreen() {
                 }
               />
             )}
+            {/* What he agreed to, and how to take it back. A page of its own,
+                reached from here, because it used to be a button at the foot
+                of the day screen that opened its text at the top — so pressing
+                it looked like nothing had happened. */}
+            {profile.role === 'employee' && (
+              <Row
+                label={t.settings.consent}
+                chevron
+                onPress={() => router.push('/consent')}
+              />
+            )}
             <Row
               label={t.common.signOut}
               icon="log-out-outline"

@@ -558,6 +558,7 @@ const fr = {
 
   settings: {
     title: 'Réglages',
+    consent: 'Information et accord',
     accountSection: 'Compte',
     appearance: {
       title: 'Apparence',

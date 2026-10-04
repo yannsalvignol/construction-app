@@ -132,3 +132,20 @@ export function translateServerError(message: string, locale: Locale): string {
   }
   return message;
 }
+
+/**
+ * The reason the server gave, in the person's language, or a last resort.
+ *
+ * Supabase rejects with a plain object rather than an Error, so testing for
+ * `instanceof Error` throws away every reason the server gave — which is how
+ * an action that failed for a nameable cause came to say "impossible de
+ * charger les données".
+ */
+export function serverMessage(failure: unknown, fallback: string, locale: Locale) {
+  const raw = failure instanceof Error
+    ? failure.message
+    : typeof (failure as { message?: unknown })?.message === 'string'
+      ? (failure as { message: string }).message
+      : '';
+  return raw ? translateServerError(raw, locale) : fallback;
+}

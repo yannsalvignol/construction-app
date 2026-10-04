@@ -5,10 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { Action, Card, Feedback, NumberWheel, Select, ShiftSpan, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
-import { translateServerError } from '@/lib/i18n/server-errors';
-import type { Locale } from '@/lib/i18n/locale';
-import { PresenceNotice } from '@/components/presence-notice';
-import { LiveNotice } from '@/components/live-notice';
+import { serverMessage } from '@/lib/i18n/server-errors';
 import { EmployeeLiveMap } from '@/components/employee-live-map';
 import { DeclaredTasks } from '@/components/declared-tasks';
 import { PresenceHistory } from '@/components/screens/presence-history';
@@ -18,22 +15,10 @@ import { DayHistory, PastDayView, formatDay, useDayHistory } from '@/components/
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useWorkspace } from '@/hooks/use-workspace';
-import { captureDayProof, capturePresence, NOTICE_VERSION } from '@/lib/presence';
-import { LIVE_NOTICE_VERSION } from '@/lib/live-location';
+import { captureDayProof, capturePresence } from '@/lib/presence';
 import { enablePresenceNotifications } from '@/lib/presence-notifications';
 import { supabase } from '@/lib/supabase';
 import { formatElapsed, workCopy } from '@/lib/work-copy';
-
-/** The app's language, not the device's: they differ whenever Réglages says so. */
-/** The reason the server gave, in the worker's language, or a last resort. */
-function serverMessage(failure: unknown, fallback: string, locale: Locale) {
-  const raw = failure instanceof Error
-    ? failure.message
-    : typeof (failure as { message?: unknown })?.message === 'string'
-      ? (failure as { message: string }).message
-      : '';
-  return raw ? translateServerError(raw, locale) : fallback;
-}
 
 const clock = (ms: number, locale: string) =>
   new Date(ms).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
@@ -61,7 +46,6 @@ export default function EmployeeHomeScreen() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pushWarning, setPushWarning] = useState(false);
-  const [showNotice, setShowNotice] = useState(false);
   const history = useDayHistory();
   // null means today; a date shows that day in place of the live screen.
   const [picked, setPicked] = useState<string | null>(null);
@@ -76,16 +60,6 @@ export default function EmployeeHomeScreen() {
     // data" instead — for an action, where nothing was being loaded.
     catch (e) { setActionError(serverMessage(e, copy.failed, locale)); }
     finally { lock.current = false; setBusy(false); }
-  }
-  async function consent(accepted: boolean) {
-    const { error: failure } = await supabase.rpc('set_presence_consent', { accepted, version: NOTICE_VERSION });
-    if (failure) throw failure;
-    if (accepted) setPushWarning(!await enablePresenceNotifications(locale));
-    setShowNotice(false);
-  }
-  async function liveConsent(accepted: boolean) {
-    const { error: failure } = await supabase.rpc('set_live_location_consent', { accepted, version: LIVE_NOTICE_VERSION });
-    if (failure) throw failure;
   }
   const active = !!data?.day && !data.day.ended_at && Date.parse(data.day.planned_end_at) > now;
   const pending = active ? data.requests.find(r => Date.parse(r.expires_at) > now && !data.checks.some(c => c.request_id === r.id)) : undefined;
@@ -117,7 +91,6 @@ export default function EmployeeHomeScreen() {
     <Feedback message={error || actionError} />
     {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
     {profile && !profile.is_active ? <Card><ThemedText>{copy.inactive}</ThemedText></Card> : data && <>
-      {(!consented || showNotice) && <PresenceNotice accepted={consented} busy={busy} onAccept={() => { void act(() => consent(true)); }} onWithdraw={() => { void act(() => consent(false)); }} />}
       {/* Only while the day is running. A finished day is a record, and a
           record belongs in the history behind the arrow by the title, not at
           the top of the screen where the next day is started: a worker about
@@ -255,9 +228,6 @@ export default function EmployeeHomeScreen() {
           }} />
         </> : <ThemedText>{copy.noSites}</ThemedText>}
       </Card>}
-      {showNotice && liveConsented && data.location_mode === 'live' && <LiveNotice accepted busy={busy}
-        onAccept={() => { void act(() => liveConsent(true)); }}
-        onWithdraw={() => { void act(() => liveConsent(false)); }} />}
       {/* The proofs already given, under the day they belong to: a tab of its
           own pushed the employee's six tabs into iOS's "More" list. Folded,
           because he has no reason to read them unless something is disputed,
@@ -290,7 +260,6 @@ export default function EmployeeHomeScreen() {
         watchOn={watchEnabled}
         asked={!!data.lone_worker_asked}
         onChanged={() => { void refresh(); }} />}
-      {consented && <Action secondary label={showNotice ? copy.close : copy.info} onPress={() => setShowNotice(!showNotice)} />}
     </>}
     </>}
   </WorkPage>;
