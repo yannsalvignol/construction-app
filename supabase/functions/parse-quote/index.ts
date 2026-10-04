@@ -357,6 +357,8 @@ Deno.serve(async (req) => {
     const run = (async () => {
       const report = await generateSteps(admin, new OpenAI({ apiKey: openaiKey }), quote.id, quote.company_id);
       const note = stepsNote(report);
+      const { data: spent } = await admin
+        .from('site_quotes').select('input_tokens, output_tokens').eq('id', quote.id).maybeSingle();
       // What the reading said is kept — "331 lignes sur 333" is still true and
       // still the chef's business — but what a previous operations pass said
       // is not: it is about this pass, and this pass has just answered. Left
@@ -369,7 +371,11 @@ Deno.serve(async (req) => {
         .join(' ; ');
       await admin
         .from('site_quotes')
-        .update({ parse_warning: [kept, note].filter(Boolean).join(' ; ') || null })
+        .update({
+          parse_warning: [kept, note].filter(Boolean).join(' ; ') || null,
+          input_tokens: Number(spent?.input_tokens ?? 0) + report.inputTokens,
+          output_tokens: Number(spent?.output_tokens ?? 0) + report.outputTokens,
+        })
         .eq('id', quote.id);
       console.log(`[parse-quote] steps ${quote.id}: ${JSON.stringify(report)}`);
       return { report, note };
@@ -637,6 +643,10 @@ async function pooled<T>(tasks: (() => Promise<T>)[], width: number): Promise<T[
 
 type StepsReport = {
   workLines: number;
+  /** What this pass spent, so a devis records what it cost in full rather
+   *  than only what reading it cost. */
+  inputTokens: number;
+  outputTokens: number;
   batches: number;
   answered: number;
   attached: number;
@@ -668,7 +678,8 @@ async function generateSteps(
   companyId: string
 ): Promise<StepsReport> {
   const report: StepsReport = {
-    workLines: 0, batches: 0, answered: 0, attached: 0, inserted: 0, failures: [], sample: [],
+    workLines: 0, batches: 0, answered: 0, attached: 0, inserted: 0,
+    inputTokens: 0, outputTokens: 0, failures: [], sample: [],
   };
   // Named so the caller can see the two rounds apart, and so a devis where the
   // second round changes nothing is recognisable from the log alone.
@@ -733,6 +744,8 @@ async function generateSteps(
   for (const { batch, response, error } of answers) {
     if (error) { report.failures.push(error.slice(0, 200)); continue; }
     if (!response) continue;
+    report.inputTokens += response.usage?.prompt_tokens ?? 0;
+    report.outputTokens += response.usage?.completion_tokens ?? 0;
     const body = response.choices[0]?.message?.content;
     if (!body || response.choices[0]?.finish_reason === 'length') {
       report.failures.push(`réponse vide ou tronquée (${response.choices[0]?.finish_reason ?? 'sans contenu'})`);
