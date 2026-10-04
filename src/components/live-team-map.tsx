@@ -9,6 +9,7 @@ import { BrandSpinner } from './brand-spinner';
 import { OnSiteBadge } from './on-site-badge';
 import { SiteRow } from './site-row';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMapDiagnostics } from '@/hooks/use-map-diagnostics';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchLiveTeam, type LivePosition } from '@/lib/live-location';
 import { supabase } from '@/lib/supabase';
@@ -29,6 +30,7 @@ type Tab = 'people' | 'sites' | null;
  * at the top, and the employee / chantier lists scroll underneath. */
 export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   const { locale } = useI18n();
+  const diagnostics = useMapDiagnostics('équipe');
   const copy = workCopy(locale);
   const theme = useTheme();
   const [team, setTeam] = useState<LivePosition[] | null>(null);
@@ -127,8 +129,10 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
     <View style={{ height: 380, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
       {/* Panning and zooming belong to the map; the page is scrolled from the lists
           below it, which is why the map is pinned rather than scrolling away. */}
-      <MapView provider={PROVIDER_GOOGLE} ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}
-        onMapReady={() => setMapReady(true)}>
+      <MapView provider={PROVIDER_GOOGLE}
+        onMapLoaded={diagnostics.onMapLoaded}
+        ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}
+        onMapReady={() => { diagnostics.onMapReady(); setMapReady(true); }}>
         {showSites && sites.map(site => site.latitude != null && site.longitude != null
           ? <Marker key={'site-' + site.id} coordinate={{ latitude: site.latitude, longitude: site.longitude }}
               title={site.name} description={site.address ?? undefined} pinColor={theme.accent} />

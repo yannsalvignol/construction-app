@@ -6,6 +6,7 @@ import { BrandSpinner } from './brand-spinner';
 import { Action, Card } from './work-ui';
 import { ThemedText } from './themed-text';
 import { useI18n } from '@/hooks/use-i18n';
+import { useMapDiagnostics } from '@/hooks/use-map-diagnostics';
 import { useTheme } from '@/hooks/use-theme';
 import { hasBackgroundLocation, pushCurrentPosition } from '@/lib/live-location';
 import { supabase } from '@/lib/supabase';
@@ -18,6 +19,7 @@ import { positionAge, workCopy } from '@/lib/work-copy';
  */
 export function EmployeeLiveMap() {
   const { locale } = useI18n();
+  const diagnostics = useMapDiagnostics('employé');
   const copy = workCopy(locale);
   const theme = useTheme();
   const [shared, setShared] = useState<
@@ -75,6 +77,7 @@ export function EmployeeLiveMap() {
       <MapView
         // Google on both platforms, deliberately: see app.config.js.
         provider={PROVIDER_GOOGLE}
+        onMapLoaded={diagnostics.onMapLoaded}
         ref={map}
         style={{ flex: 1 }}
         showsUserLocation
@@ -88,7 +91,7 @@ export function EmployeeLiveMap() {
               }
             : undefined
         }
-        onMapReady={() => setMapReady(true)}>
+        onMapReady={() => { diagnostics.onMapReady(); setMapReady(true); }}>
         {shared && (
           <>
             {/* The pin is the position the chef can see, which is the point of
