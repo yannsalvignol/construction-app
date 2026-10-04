@@ -76,4 +76,4 @@ if (cmd === 'list') await list();
 else if (cmd === 'expire') await expire(arg, process.argv[4] ?? 1);
 else if (cmd === 'restore') await restore(arg);
 else if (cmd === 'unsee') await unsee(arg);
-else console.log('usage: trial.mjs list | expire <company> [minutes] | restore <company> | unsee <company>');
+else console.log('usage: trial-access.mjs list | expire <company> [minutes] | restore <company> | unsee <company>');
