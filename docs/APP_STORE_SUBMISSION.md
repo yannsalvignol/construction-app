@@ -46,9 +46,24 @@ CAMERA / PHOTOS
   checks are deleted after 30 days.
 
 ACCOUNT DELETION
-- Account → "Delete my account" → confirm. Works for both roles. A chef
-  deleting their account deletes the company and its employees' accounts,
-  which the confirmation text states.
+- Account → "Delete my account" → confirm → a five-second countdown the user
+  can still cancel. Works for both roles. A chef deleting their account
+  deletes the company and its employees' accounts, which the confirmation
+  text states.
+
+BUSINESS MODEL — NO IN-APP PURCHASE
+- CASPROD is sold to construction companies, not to individuals. A company is
+  invoiced directly by us, outside the app, like any B2B service.
+- Nothing can be bought in the app. There is no store, no plan selection, no
+  price and no link to a pricing page anywhere in the binary.
+- A new company gets 15 days of access. The chef sees a one-time welcome
+  screen stating the number of days. After that, if we have not activated the
+  company's access, the chef sees a screen asking him to write to us so we can
+  reactivate it. Employees are never gated by this.
+- The e-mail address on those screens is for account activation and support.
+  It is the only outbound link in the app.
+- The demo chef account above has an active access, so the reviewer never
+  meets that screen.
 
 PUSH NOTIFICATIONS
 - Used only to tell an employee that a presence check is due. Permission is
@@ -56,6 +71,9 @@ PUSH NOTIFICATIONS
 
 The app is in French with an English switch on the account screen.
 ```
+
+If the reviewer should also see the access screen, say so explicitly and give
+a second chef account that is locked — never leave it to chance.
 
 Fill in the four credential placeholders before submitting. The demo
 employee must already have accepted the presence notice OR the notes must say
@@ -106,7 +124,25 @@ part of app functionality).
 - [ ] Age rating questionnaire (all "None"), category "Business", price Free.
 - [ ] Export compliance is already declared (`ITSAppUsesNonExemptEncryption: false`).
 
-## 4. Known non-blockers
+## 4. Guideline 3.1 — why no in-app purchase
+
+Worth knowing before anyone adds a "see our pricing" button back.
+
+A free app that is a companion to a paid service billed elsewhere is exempt
+from in-app purchase under **3.1.3(f)**, but only "provided there is no
+purchasing inside the app, or calls to action for purchase outside of the
+app." The second half is what gets apps rejected: a link to a pricing page,
+a plan name, a price, or a button that says "subscribe" is read as steering
+under **3.1.1**, and Morocco's storefront gets neither the US link-entitlement
+from the Epic injunction nor the EU DMA carve-out.
+
+So the app says what access a company has and where to write to change it,
+and says nothing at all about money. `SALES_EMAIL` in
+`src/components/access-gate.tsx` is the only outbound link; the comment above
+it says why. The pricing page lives on the website, which is where a chef who
+wants prices will look anyway.
+
+## 5. Known non-blockers
 
 - Console warning "Can't perform a React state update on a component that
   hasn't mounted yet" from `expo-router/useLinking.native.js` on Android

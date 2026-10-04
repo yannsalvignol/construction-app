@@ -493,15 +493,13 @@ const en = {
       'Sites, crews and presence, no limits',
       'What you create stays yours',
     ],
-    reachUsNow:
-      'At the end we pick your plan together. You can talk to us about it today.',
+    reachUsNow: 'A question, or need your access extended? Write to us.',
     start: 'Get started',
-    seePricing: 'See pricing',
-    lockedTitle: 'Your trial has ended',
+    lockedTitle: 'Your access is no longer active',
     lockedBody:
-      'To keep using CASPROD, write to us so we can pick your plan and unlock your account. Your sites, your devis and your crews are waiting, untouched.',
+      'Write to us to have your company’s access reactivated. Your sites, your devis and your crews are waiting, untouched.',
     writeToUs: 'Write to us',
-    mailSubject: 'Unlock my CASPROD account',
+    mailSubject: 'Activate my company’s access',
   },
   quoteReview: {
     milestones: 'Payment schedule',

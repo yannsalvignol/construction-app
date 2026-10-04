@@ -10,11 +10,17 @@ import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { supabase } from '@/lib/supabase';
 
-/** Where a locked chef is told to write. */
+/**
+ * Where a chef writes to have his access opened.
+ *
+ * The one address in the binary, and the only thing in it that points outside
+ * the app. No pricing page, no plan names, no prices: App Review reads a link
+ * to a tariff page as a call to action for a purchase made outside the app,
+ * which costs a free B2B companion app its exemption from in-app purchase
+ * (guideline 3.1.3(f)). CASPROD is invoiced to the company, never to the
+ * phone, and the app says nothing about what it costs.
+ */
 export const SALES_EMAIL = 'melanie@casprod.app';
-const PRICING_URL = 'https://casprod.app/pricing';
-/** The address as it is read on the page, without the scheme nobody says out loud. */
-const PRICING_LABEL = 'casprod.app/pricing';
 
 type Access = {
   active: boolean;
@@ -69,7 +75,6 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
               );
             }}
           />
-          <Action secondary label={t.trial.seePricing} onPress={() => { void Linking.openURL(PRICING_URL); }} />
         </Card>
       </WorkPage>
     );
@@ -116,32 +121,26 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
 
           <View style={[styles.rule, { backgroundColor: theme.separator }]} />
 
-          {/* Below the button, so the two addresses never compete with it. */}
+          {/* Below the button, so the address never competes with it. */}
           <ThemedText type="small" themeColor="textSecondary">{t.trial.reachUsNow}</ThemedText>
-          {/* Bordered rows rather than coloured links: they read as pressable
+          {/* A bordered row rather than a coloured link: it reads as pressable
               without borrowing the accent the button is holding. */}
-          <View style={styles.links}>
-            {([
-              ['mail-outline', SALES_EMAIL, () => Linking.openURL(
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              void Linking.openURL(
                 `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(t.trial.mailSubject)}`
-              )],
-              ['pricetag-outline', PRICING_LABEL, () => Linking.openURL(PRICING_URL)],
-            ] as const).map(([icon, label, open]) => (
-              <Pressable
-                key={label}
-                accessibilityRole="button"
-                onPress={() => { void open(); }}
-                style={({ pressed }) => [
-                  styles.linkRow,
-                  { borderColor: theme.separator },
-                  pressed && styles.pressed,
-                ]}>
-                <Ionicons name={icon} size={18} color={theme.textSecondary} />
-                <ThemedText type="smallBold" style={styles.linkLabel}>{label}</ThemedText>
-                <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
-              </Pressable>
-            ))}
-          </View>
+              );
+            }}
+            style={({ pressed }) => [
+              styles.linkRow,
+              { borderColor: theme.separator },
+              pressed && styles.pressed,
+            ]}>
+            <Ionicons name="mail-outline" size={18} color={theme.textSecondary} />
+            <ThemedText type="smallBold" style={styles.linkLabel}>{SALES_EMAIL}</ThemedText>
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+          </Pressable>
         </Card>
       </WorkPage>
     );
@@ -159,7 +158,6 @@ const styles = StyleSheet.create({
   includedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   includedText: { flex: 1 },
   rule: { height: StyleSheet.hairlineWidth, marginTop: 2 },
-  links: { gap: 8 },
   linkRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderWidth: 1, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 14,

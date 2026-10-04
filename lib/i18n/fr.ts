@@ -489,15 +489,13 @@ const fr = {
       'Chantiers, équipes et présence sans limite',
       'Ce que vous créez reste à vous',
     ],
-    reachUsNow:
-      "À la fin, nous choisirons ensemble votre formule. Vous pouvez nous en parler dès maintenant.",
+    reachUsNow: 'Une question, ou besoin de prolonger votre accès ? Écrivez-nous.',
     start: 'Commencer',
-    seePricing: 'Voir les tarifs',
-    lockedTitle: 'Votre période d’essai est terminée',
+    lockedTitle: 'Votre accès n’est plus actif',
     lockedBody:
-      "Pour continuer à utiliser CASPROD, écrivez-nous afin de choisir votre formule et débloquer votre compte. Vos chantiers, vos devis et vos équipes vous attendent intacts.",
+      'Écrivez-nous pour faire réactiver l’accès de votre entreprise. Vos chantiers, vos devis et vos équipes vous attendent intacts.',
     writeToUs: 'Nous écrire',
-    mailSubject: 'Débloquer mon compte CASPROD',
+    mailSubject: 'Activer l’accès de mon entreprise',
   },
   quoteReview: {
     milestones: 'Échéancier',
