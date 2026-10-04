@@ -278,11 +278,84 @@ function checkNativeIosConfigSync() {
   }
 }
 
+
+/**
+ * 4. A native dependency was added, or a config plugin changed, without
+ *    `version` being bumped in app.json.
+ *
+ *    The runtimeVersion policy is "appVersion": every build and every OTA
+ *    update of version 1.0.0 are declared compatible. That is what makes the
+ *    update reliable -- the runtime version is a literal string both sides
+ *    read from the same file, where the "fingerprint" policy would hash the
+ *    git-ignored ios/ and android/ directories, which EAS regenerates in the
+ *    cloud and this machine generated at some other time. A one-byte
+ *    difference there means a different runtime version and an update that
+ *    silently never arrives.
+ *
+ *    The price of that reliability is this rule: native changes MUST come
+ *    with a new `version`. Break it and `eas update` will happily publish JS
+ *    that calls into a native module the installed binary does not have,
+ *    which is a crash on launch for every user who takes the update -- with
+ *    no review process in the way to catch it.
+ *
+ *    So the native dependency list is recorded beside the version it shipped
+ *    with, and this compares the two.
+ */
+function checkRuntimeVersionBump() {
+  heading('Runtime version vs native dependencies');
+  const appJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8'));
+  const version = appJson.expo?.version;
+  const policy = appJson.expo?.runtimeVersion?.policy;
+  if (policy !== 'appVersion') {
+    warn(`runtimeVersion policy is "${policy}", not "appVersion" -- this check assumes appVersion.`);
+    return;
+  }
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  // Anything that can carry native code: an expo-* module, react-native-*, or
+  // a config plugin named in app.json.
+  const native = Object.keys(pkg.dependencies || {})
+    .filter((name) => /^(expo$|expo-|react-native-|@react-native)/.test(name))
+    .sort()
+    .map((name) => `${name}@${pkg.dependencies[name]}`);
+  const plugins = (appJson.expo?.plugins || [])
+    .map((p) => (Array.isArray(p) ? p[0] : p))
+    .sort();
+  const fingerprint = JSON.stringify({ native, plugins });
+
+  const recordPath = path.join(ROOT, 'scripts', '.native-at-version.json');
+  let record = null;
+  try { record = JSON.parse(fs.readFileSync(recordPath, 'utf8')); } catch { /* first run */ }
+
+  if (!record) {
+    fs.writeFileSync(recordPath, JSON.stringify({ version, fingerprint }, null, 2) + '\n');
+    pass(`Recorded the native dependencies shipping with version ${version}.`);
+    return;
+  }
+
+  if (record.fingerprint === fingerprint) {
+    pass(`No native change since version ${record.version}; OTA updates stay compatible.`);
+    return;
+  }
+  if (record.version !== version) {
+    fs.writeFileSync(recordPath, JSON.stringify({ version, fingerprint }, null, 2) + '\n');
+    pass(`Native dependencies changed and version was bumped to ${version}.`);
+    return;
+  }
+  fail(
+    `Native dependencies or config plugins changed, but app.json "version" is still ${version}.\n` +
+      `    Every build and OTA update of ${version} are declared compatible, so an update\n` +
+      `    published now would reach binaries that lack the new native code.\n` +
+      `    Fix: bump "version" in app.json, then build. Updating the record alone is not enough.`
+  );
+}
+
 // ---------------------------------------------------------------------------
 
 checkLockfileSync();
 checkEasEnvVars();
 checkNativeIosConfigSync();
+checkRuntimeVersionBump();
 
 console.log(
   `\nNot automated (needs a human decision, and applies live changes): ` +
