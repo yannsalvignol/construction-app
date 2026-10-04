@@ -24,6 +24,8 @@ export default function AppLayout() {
         <Stack.Screen name="settings" />
         {/* Pushed from Réglages; confirmed by a code emailed to the account. */}
         <Stack.Screen name="change-password" />
+        {/* What the worker agreed to, pushed from Réglages. */}
+        <Stack.Screen name="consent" />
       </Stack>
   );
 }

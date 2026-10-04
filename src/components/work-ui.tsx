@@ -70,14 +70,20 @@ export function Action({ label, onPress, disabled, busy, secondary = false, larg
   /** For the one action a screen exists for, pressed with a glove on a chantier. */
   large?: boolean;
   /**
-   * "finish" closes something that was running. It takes the success tone, not
-   * the danger one: ending a day is the day going well, and red would read as a
-   * warning about an ordinary act.
+   * The two ends of a work day, coloured the way a machine is: green starts
+   * it, red stops it. The pair is what carries the meaning — on a chantier,
+   * in gloves, the colour is read before the words — so neither is the
+   * accent, which is simply "the button on this screen".
+   *
+   * Red is not a warning here. It is the stop end of start/stop, which is
+   * what a worker reaches for at the end of his day without reading.
    */
-  tone?: 'finish';
+  tone?: 'start' | 'finish';
 }) {
   const theme = useTheme();
-  const fill = tone === 'finish' ? theme.successFill : theme.accent;
+  const fill = tone === 'finish' ? theme.dangerFill
+    : tone === 'start' ? theme.successFill
+    : theme.accent;
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
     // Secondary is an outlined oval, as on the chef's screens, rather than a
     // second purple surface competing with the real action.

@@ -1,10 +1,15 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import { useRef, useState } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { LiveNotice } from '@/components/live-notice';
 import { PresenceNotice } from '@/components/presence-notice';
 import { ThemedText } from '@/components/themed-text';
 import { Feedback, WorkPage } from '@/components/work-ui';
+import { Spacing } from '@/constants/theme';
 import { useI18n } from '@/hooks/use-i18n';
+import { useTheme } from '@/hooks/use-theme';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { LIVE_NOTICE_VERSION } from '@/lib/live-location';
 import { NOTICE_VERSION } from '@/lib/presence';
@@ -22,8 +27,9 @@ import { workCopy } from '@/lib/work-copy';
  * they want to read it rather than when they are trying to start a day.
  */
 export function ConsentScreen() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const copy = workCopy(locale);
+  const theme = useTheme();
   const { data, loading, error, refresh, consented, liveConsented } = useWorkspace({ manageSharing: false });
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -37,7 +43,20 @@ export function ConsentScreen() {
     finally { lock.current = false; setBusy(false); }
   }
 
-  return <WorkPage title={copy.info}>
+  // Pushed over the tabs, so nothing above it holds the heading clear of the
+  // status bar — which is where it had ended up.
+  return <WorkPage topInset title={copy.info} titleAccessory={
+    // Pushed over the tabs with no header of its own, so the way back has to
+    // be on the page: a swipe is not a way out an ouvrier will look for.
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t.common.back}
+      hitSlop={10}
+      onPress={() => (router.canGoBack() ? router.back() : router.replace('/settings'))}
+      style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}>
+      <Ionicons name="close" size={26} color={theme.textSecondary} />
+    </Pressable>
+  }>
     {loading && !data && <ThemedText>{copy.loading}</ThemedText>}
     <Feedback message={error || failure} />
     {data && <>
@@ -74,3 +93,7 @@ export function ConsentScreen() {
     </>}
   </WorkPage>;
 }
+
+const styles = StyleSheet.create({
+  back: { padding: Spacing.one },
+});

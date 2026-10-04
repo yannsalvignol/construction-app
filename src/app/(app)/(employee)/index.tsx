@@ -186,7 +186,7 @@ export default function EmployeeHomeScreen() {
           {/* Pressable even with no chantier chosen: a button that does nothing
               when pressed cannot say why, and "nothing happened" is the worst
               answer a screen can give. It points at what is missing instead. */}
-          <Action large label={copy.start} busy={busy} onPress={() => {
+          <Action large tone="start" label={copy.start} busy={busy} onPress={() => {
             if (!site) {
               setRefusals(n => n + 1);
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
