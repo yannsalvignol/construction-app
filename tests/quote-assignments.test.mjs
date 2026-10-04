@@ -436,6 +436,32 @@ test('handing out devis work', async t => {
     await db.query('delete from public.site_quotes where id = $1', [deep]);
   });
 
+  await t.test('a devis is deleted until it has been worked on', async () => {
+    const spare = (await peek(`
+      insert into public.site_quotes (company_id, site_id, file_path, file_name, mime_type, status, uploaded_by, size_bytes)
+      values ($1, $2, 'q/9.pdf', '9.pdf', 'application/pdf', 'stored', $3, 10) returning id`,
+      [ids.company, ids.site, ids.chef]))[0].id;
+
+    await assert.rejects(
+      as(ids.worker, 'select public.delete_site_quote($1)', [spare]), /Only a chef/);
+    await assert.rejects(
+      as(ids.otherChef, 'select public.delete_site_quote($1)', [spare]), /Quote not found/);
+
+    // Nothing declared against it: it goes.
+    await as(ids.chef, 'select public.delete_site_quote($1)', [spare]);
+    assert.equal(Number((await peek('select count(*) from public.site_quotes where id = $1', [spare]))[0].count), 0);
+
+    // The one that has been worked on stays. Its declarations point at its
+    // lines and at no catalogue code, so deleting it would leave somebody's
+    // day pointing at nothing — which is what the database was refusing with
+    // a constraint violation the screen could not explain.
+    await assert.rejects(
+      as(ids.chef, 'select public.delete_site_quote($1)', [quote]),
+      /already been declared/
+    );
+    assert.equal(Number((await peek('select count(*) from public.site_quotes where id = $1', [quote]))[0].count), 1);
+  });
+
   await t.test('nobody reads another company\'s assignments', async () => {
     assert.equal((await as(ids.otherChef, 'select * from public.quote_assignments')).length, 0);
     assert.ok((await as(ids.chef, 'select * from public.quote_assignments')).length > 0);

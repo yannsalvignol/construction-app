@@ -180,7 +180,11 @@ export async function deleteSiteQuote(quote: SiteQuote) {
     .from('quote_pages')
     .select('file_path')
     .eq('quote_id', quote.id);
-  const { error } = await supabase.from('site_quotes').delete().eq('id', quote.id);
+  // Through the guard rather than straight at the table: a devis with work
+  // declared against it cannot go, and the database was refusing it with a
+  // constraint violation that the screen turned into "impossible de charger
+  // les données". The rule has a reason, and the chef should hear it.
+  const { error } = await supabase.rpc('delete_site_quote', { quote: quote.id });
   if (error) throw error;
   const paths = (pages ?? []).map((page) => page.file_path);
   await supabase.storage

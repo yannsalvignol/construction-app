@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
+import { translateServerError } from '@/lib/i18n/server-errors';
 import { useTheme } from '@/hooks/use-theme';
 import {
   deleteSiteQuote,
@@ -124,7 +125,15 @@ export function SiteQuotes({ siteId, onChange }: { siteId: string; onChange?: ()
     setPendingDelete(null);
     setStage('uploading');
     try { await deleteSiteQuote(quote); await reload(); onChange?.(); }
-    catch { setError(copy.failed); }
+    catch (failure) {
+      // What the server refused and why, not "impossible de charger les
+      // données": a devis is refused for one reason, and it is a reason the
+      // chef can act on.
+      const message = failure && typeof failure === 'object' && 'message' in failure
+        ? String((failure as { message: unknown }).message)
+        : '';
+      setError(message ? translateServerError(message, locale) : copy.failed);
+    }
     finally { setStage('idle'); }
   }
 

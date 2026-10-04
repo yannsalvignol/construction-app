@@ -41,6 +41,10 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'That operation is already done; it cannot be deleted':
     'Cette opération est déjà faite : elle ne peut pas être supprimée.',
   'Only a chef can delete a line': 'Seul un chef peut supprimer une ligne.',
+  'Only a chef can delete a devis': 'Seul un chef peut supprimer un devis.',
+  'Work has already been declared against that devis':
+    'Du travail a déjà été déclaré sur ce devis : il ne peut plus être supprimé. Importez le devis qui le remplace, ce qui garde ce qui a été déclaré.',
+  'Quote not found': 'Ce devis est introuvable dans votre entreprise.',
   'That line does not exist': "Cette ligne n'existe pas.",
   'Work has already been declared on that line':
     'Du travail a déjà été déclaré sur cette ligne : mettez sa quantité à zéro plutôt que de la supprimer.',
