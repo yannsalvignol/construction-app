@@ -60,8 +60,8 @@ BUSINESS MODEL — NO IN-APP PURCHASE
   screen stating the number of days. After that, if we have not activated the
   company's access, the chef sees a screen asking him to write to us so we can
   reactivate it. Employees are never gated by this.
-- The e-mail address on those screens is for account activation and support.
-  It is the only outbound link in the app.
+- The phone number and e-mail address on those screens are for account
+  activation and support. They are the only outbound links in the app.
 - The demo chef account above has an active access, so the reviewer never
   meets that screen.
 
@@ -138,8 +138,8 @@ from the Epic injunction nor the EU DMA carve-out.
 
 So the app says what access a company has and where to write to change it,
 and says nothing at all about money. `SALES_EMAIL` in
-`src/components/access-gate.tsx` is the only outbound link; the comment above
-it says why. The pricing page lives on the website, which is where a chef who
+`SALES_PHONE` and `SALES_EMAIL` in `src/components/access-gate.tsx` are the
+only outbound links; the comment above them says why. The pricing page lives on the website, which is where a chef who
 wants prices will look anyway.
 
 ## 5. Known non-blockers

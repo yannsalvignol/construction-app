@@ -21,6 +21,11 @@ import { supabase } from '@/lib/supabase';
  * phone, and the app says nothing about what it costs.
  */
 export const SALES_EMAIL = 'melanie@casprod.app';
+/** Read as a Moroccan chef reads it; `tel:` wants it without the spaces. */
+const SALES_PHONE_LABEL = '+33 7 83 79 22 84';
+const SALES_PHONE = '+33783792284';
+/** Mirrors `trial_days()` in the database, which is the one that decides. */
+const TRIAL_DAYS = 15;
 
 type Access = {
   active: boolean;
@@ -63,18 +68,54 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
 
   if (access.locked) {
     return (
-      <WorkPage topInset title={t.trial.lockedTitle}>
+      <WorkPage topInset title={t.trial.lockedTitle(TRIAL_DAYS)}>
         <Card>
+          {/* Said before anything else, because it is the fear: the work is
+              still there. A chef who thinks his devis are gone will not be in
+              a mood to talk about anything. */}
+          <View style={[styles.hero, { backgroundColor: theme.backgroundGroup }]}>
+            <Ionicons name="time-outline" size={38} color={theme.textSecondary} />
+            <View style={styles.heroWords}>
+              <ThemedText style={styles.heroUnit}>{t.trial.lockedHead}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">{t.trial.lockedKept}</ThemedText>
+            </View>
+          </View>
+
           <ThemedText type="small" themeColor="textSecondary">{t.trial.lockedBody}</ThemedText>
-          <ThemedText type="smallBold">{SALES_EMAIL}</ThemedText>
-          <Action
-            label={t.trial.writeToUs}
+
+          {/* The phone carries the accent: at this point a call settles in two
+              minutes what e-mail takes two days to. */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => { void Linking.openURL(`tel:${SALES_PHONE}`); }}
+            style={({ pressed }) => [
+              styles.linkRow,
+              { backgroundColor: theme.accent, borderColor: theme.accent },
+              pressed && styles.pressed,
+            ]}>
+            <Ionicons name="call-outline" size={18} color={theme.buttonText} />
+            <ThemedText type="smallBold" style={[styles.linkLabel, { color: theme.buttonText }]}>
+              {SALES_PHONE_LABEL}
+            </ThemedText>
+            <Ionicons name="chevron-forward" size={16} color={theme.buttonText} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
             onPress={() => {
               void Linking.openURL(
                 `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(t.trial.mailSubject)}`
               );
             }}
-          />
+            style={({ pressed }) => [
+              styles.linkRow,
+              { borderColor: theme.separator },
+              pressed && styles.pressed,
+            ]}>
+            <Ionicons name="mail-outline" size={18} color={theme.textSecondary} />
+            <ThemedText type="smallBold" style={styles.linkLabel}>{SALES_EMAIL}</ThemedText>
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+          </Pressable>
         </Card>
       </WorkPage>
     );
@@ -123,24 +164,29 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
 
           {/* Below the button, so the address never competes with it. */}
           <ThemedText type="small" themeColor="textSecondary">{t.trial.reachUsNow}</ThemedText>
-          {/* A bordered row rather than a coloured link: it reads as pressable
-              without borrowing the accent the button is holding. */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              void Linking.openURL(
-                `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(t.trial.mailSubject)}`
-              );
-            }}
-            style={({ pressed }) => [
-              styles.linkRow,
-              { borderColor: theme.separator },
-              pressed && styles.pressed,
-            ]}>
-            <Ionicons name="mail-outline" size={18} color={theme.textSecondary} />
-            <ThemedText type="smallBold" style={styles.linkLabel}>{SALES_EMAIL}</ThemedText>
-            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
-          </Pressable>
+          {/* Bordered rows rather than coloured links: they read as pressable
+              without borrowing the accent Commencer is holding. */}
+          <View style={styles.links}>
+            {([
+              ['call-outline', SALES_PHONE_LABEL, `tel:${SALES_PHONE}`],
+              ['mail-outline', SALES_EMAIL,
+                `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(t.trial.mailSubject)}`],
+            ] as const).map(([icon, label, url]) => (
+              <Pressable
+                key={label}
+                accessibilityRole="button"
+                onPress={() => { void Linking.openURL(url); }}
+                style={({ pressed }) => [
+                  styles.linkRow,
+                  { borderColor: theme.separator },
+                  pressed && styles.pressed,
+                ]}>
+                <Ionicons name={icon} size={18} color={theme.textSecondary} />
+                <ThemedText type="smallBold" style={styles.linkLabel}>{label}</ThemedText>
+                <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+              </Pressable>
+            ))}
+          </View>
         </Card>
       </WorkPage>
     );
@@ -154,6 +200,7 @@ const styles = StyleSheet.create({
   heroCount: { fontSize: 54, lineHeight: 58, fontWeight: '700', letterSpacing: -1.5 },
   heroWords: { flex: 1, gap: 4 },
   heroUnit: { fontSize: 18, lineHeight: 22, fontWeight: '700' },
+  links: { gap: 8 },
   included: { gap: 8 },
   includedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   includedText: { flex: 1 },

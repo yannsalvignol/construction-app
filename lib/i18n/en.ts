@@ -495,10 +495,11 @@ const en = {
     ],
     reachUsNow: 'A question, or need your access extended? Write to us.',
     start: 'Get started',
-    lockedTitle: 'Your access is no longer active',
+    lockedTitle: (n: number): string => `Your ${n} days are up`,
+    lockedHead: 'Your access is paused',
+    lockedKept: 'Nothing was deleted: your sites, your devis and your crews are waiting.',
     lockedBody:
-      'Write to us to have your company’s access reactivated. Your sites, your devis and your crews are waiting, untouched.',
-    writeToUs: 'Write to us',
+      'We hope CASPROD earned its keep. Call or write to us to talk about what comes next — we reopen your access right away.',
     mailSubject: 'Activate my company’s access',
   },
   quoteReview: {

@@ -491,10 +491,12 @@ const fr = {
     ],
     reachUsNow: 'Une question, ou besoin de prolonger votre accès ? Écrivez-nous.',
     start: 'Commencer',
-    lockedTitle: 'Votre accès n’est plus actif',
+    lockedTitle: (n: number) => `Vos ${n} jours sont écoulés`,
+    lockedHead: 'Votre accès est en pause',
+    lockedKept:
+      'Rien n’a été supprimé : vos chantiers, vos devis et vos équipes vous attendent.',
     lockedBody:
-      'Écrivez-nous pour faire réactiver l’accès de votre entreprise. Vos chantiers, vos devis et vos équipes vous attendent intacts.',
-    writeToUs: 'Nous écrire',
+      'Nous espérons que CASPROD vous a rendu service. Appelez-nous ou écrivez-nous pour parler de la suite — nous rouvrons votre accès dans la foulée.',
     mailSubject: 'Activer l’accès de mon entreprise',
   },
   quoteReview: {
