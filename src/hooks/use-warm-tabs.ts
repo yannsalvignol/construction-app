@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { useAuth } from '@/hooks/use-auth';
 import { prefetch } from '@/hooks/use-cached';
 import { fetchLiveTeam } from '@/lib/live-location';
+import { supabase } from '@/lib/supabase';
 import {
   companyKey, dashboardKey, employeesKey, liveTeamKey, loadCompany, loadDashboard,
   loadEmployees, loadPlanning, loadSites, planningKey, sitesKey,
@@ -68,6 +69,14 @@ export function useWarmTabs() {
     void prefetch(planningKey(companyId, from), () => loadPlanning(companyId, from, to));
     // The chantier and employee lists are the chef's tabs; an employee has
     // neither, and their own day is owned by useWorkspace.
+    if (role === 'employee') {
+      // The Consignes tab: one read, and it is the only thing on that screen.
+      void prefetch('site-notes', async () => {
+        const { data, error } = await supabase.rpc('my_site_notes');
+        if (error) throw error;
+        return data ?? [];
+      });
+    }
     if (role === 'chef') {
       void prefetch(sitesKey(companyId), () => loadSites(companyId));
       void prefetch(companyKey(companyId), () => loadCompany(companyId));

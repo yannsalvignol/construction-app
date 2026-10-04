@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { invalidate, useCached } from '@/hooks/use-cached';
 import { loadSites, sitesKey } from '@/lib/tab-data';
 import { SitePicker } from '@/components/site-picker';
+import { SiteNotesCard } from '@/components/site-notes-card';
 import { SiteRow } from '@/components/site-row';
 import { workCopy } from '@/lib/work-copy';
 
@@ -48,7 +49,11 @@ export default function SitesScreen() {
   }
   return <WorkPage title={copy.sitesTitle}>
     <Feedback message={error ?? loadError} />
-    {sites.map(site => <SiteRow key={site.id} site={site} onRemoved={refresh} />)}
+    {/* The message card stands against each chantier and owns the row, so the
+        note is written where the chantier is read. */}
+    {sites.map(site => <SiteNotesCard key={site.id} siteId={site.id}>
+      <SiteRow site={site} onRemoved={refresh} />
+    </SiteNotesCard>)}
     {!!sites.length && <ThemedText type="small" themeColor="textSecondary">{copy.removeSiteHint}</ThemedText>}
     {adding ? <Card>
       {/* Labelled rather than placeheld: a placeholder is gone the moment you
