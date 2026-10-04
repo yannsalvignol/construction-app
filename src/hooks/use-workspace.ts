@@ -57,7 +57,11 @@ export function useWorkspace({ manageSharing = true }: { manageSharing?: boolean
   // not turned the watch off; live sharing, when it applies, rides the same fixes.
   // Either way it is torn down the moment the day closes.
   // The server decides whether he is still; the phone only has to keep reporting.
-  const watchEnabled = data?.lone_worker_watch !== false;
+  // His own switch, under the company's. A company that has turned the watch
+  // off reports nothing for it — which is battery on a chantier, spent
+  // feeding a watch nobody reads.
+  const watchAvailable = data?.lone_worker_available !== false;
+  const watchEnabled = watchAvailable && data?.lone_worker_watch !== false;
   const watching = dayOpen && (watchEnabled || liveEligible);
   useEffect(() => {
     if (!manageSharing) return;
@@ -72,5 +76,5 @@ export function useWorkspace({ manageSharing = true }: { manageSharing?: boolean
     }, 120_000);
     return () => clearInterval(beat);
   }, [watching, manageSharing]);
-  return { data, error, loading, refresh, now, consented, liveConsented, liveEligible, watchEnabled, watching };
+  return { data, error, loading, refresh, now, consented, liveConsented, liveEligible, watchAvailable, watchEnabled, watching };
 }

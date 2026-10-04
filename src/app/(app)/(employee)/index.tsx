@@ -50,7 +50,7 @@ export default function EmployeeHomeScreen() {
   const { locale } = useI18n();
   const theme = useTheme();
   const copy = workCopy(locale);
-  const { data, loading, error, refresh, now, consented, liveConsented, watchEnabled } = useWorkspace();
+  const { data, loading, error, refresh, now, consented, liveConsented, watchAvailable, watchEnabled } = useWorkspace();
   const [site, setSite] = useState('');
   const [duration, setDuration] = useState('8');
   // Counts refusals rather than recording one: the field lights again on every
@@ -285,6 +285,7 @@ export default function EmployeeHomeScreen() {
         dayOpen={!!active}
         employeeId={profile.id}
         watchOn={watchEnabled}
+        watchAvailable={watchAvailable}
         asked={!!data.lone_worker_asked}
         onChanged={() => { void refresh(); }} />}
       {consented && <Action secondary label={showNotice ? copy.close : copy.info} onPress={() => setShowNotice(!showNotice)} />}

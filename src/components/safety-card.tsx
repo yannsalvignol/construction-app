@@ -24,9 +24,14 @@ import { hasBackgroundLocation } from '@/lib/live-location';
  * to reach somebody if he is hurt and cannot get to his phone, which is why
  * the watch has to keep running with the screen off.
  */
-export function SafetyCard({ dayOpen, employeeId, watchOn, asked, onChanged }: {
+export function SafetyCard({ dayOpen, employeeId, watchOn, watchAvailable = true, asked, onChanged }: {
   dayOpen: boolean;
   employeeId: string;
+  /** Whether the company runs the automatic watch at all. When it does not,
+   *  the switch and the "je vous surveille" line go: a card that claims to
+   *  watch over a man it is not watching is worse than no card. The SOS stays
+   *  — that is him asking for help, and it cannot misfire. */
+  watchAvailable?: boolean;
   /** His own choice, as the server holds it. */
   watchOn: boolean;
   /** The server is waiting for him to say he is alright. Only ever true of an
@@ -140,21 +145,25 @@ export function SafetyCard({ dayOpen, employeeId, watchOn, asked, onChanged }: {
         </View>
       ) : (
         <ThemedText type="small" themeColor="textSecondary">
-          {!watchOn ? t.safety.off : dayOpen ? t.safety.watching : t.safety.idle}
+          {!watchAvailable
+            ? t.safety.unavailable
+            : !watchOn ? t.safety.off : dayOpen ? t.safety.watching : t.safety.idle}
         </ThemedText>
       )}
 
-      {watchOn && dayOpen && !backgroundGranted && (
+      {watchAvailable && watchOn && dayOpen && !backgroundGranted && (
         <ThemedText type="small" style={{ color: theme.danger }}>{t.safety.permissionNeeded}</ThemedText>
       )}
 
-      {/* His phone, his choice. The watch is on until he says otherwise. */}
-      <View style={styles.row}>
+      {/* His phone, his choice. The watch is on until he says otherwise —
+          unless his company does not run it, in which case there is nothing
+          for him to choose. */}
+      {watchAvailable && <View style={styles.row}>
         <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
           {t.safety.watchToggle}
         </ThemedText>
         <Switch value={watchOn} disabled={busy} onValueChange={enabled => { void setWatch(enabled); }} />
-      </View>
+      </View>}
 
       <Pressable
         accessibilityRole="button"

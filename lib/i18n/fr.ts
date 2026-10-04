@@ -422,6 +422,7 @@ const fr = {
     watching: 'Surveillance active pendant votre journée',
     watchingHint: (minutes: number) =>
       `Si votre téléphone ne bouge plus pendant ${minutes} minutes, l’application vous demande si tout va bien. Sans réponse de votre part, votre chef est alerté avec votre position.`,
+    unavailable: "La surveillance automatique n'est pas activée dans votre entreprise. Le bouton d'alerte reste disponible.",
     idle: 'La surveillance démarre quand vous déclarez votre journée.',
     off: 'Surveillance désactivée. Vous restez seul juge.',
     watchToggle: 'Protection du travailleur isolé',

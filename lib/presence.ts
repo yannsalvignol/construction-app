@@ -25,6 +25,10 @@ export type Workspace = {
    *  currently waiting for him to say he is alright. */
   lone_worker_watch: boolean;
   lone_worker_asked: boolean;
+  /** Whether the company runs the automatic watch at all. False and the
+   *  worker's own switch decides nothing: the phone stops reporting for it
+   *  and the card stops claiming to watch over him. */
+  lone_worker_available?: boolean;
   /** What the chef requires before this man may start a day. */
   equipment_photo_required?: boolean;
   clock_in_photo_required?: boolean;

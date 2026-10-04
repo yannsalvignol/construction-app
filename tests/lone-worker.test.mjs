@@ -197,6 +197,34 @@ test('lone worker protection', async t => {
     await as(ids.chef, 'select public.resolve_safety_alert($1)', [jobs[0].alert_id]);
   });
 
+  await t.test('a company can switch the watch off without an app release', async () => {
+    const dayId = (await peek('select id from public.work_days'))[0].id;
+    await db.query('update public.lone_worker_watches set asked_at = null, last_moved_at = now() where work_day_id = $1', [dayId]);
+    await db.query('update public.companies set lone_worker_enabled = false where id = $1', [ids.company]);
+
+    // The phone is told, so it stops reporting for a watch nobody reads.
+    const ws = (await as(ids.worker, 'select public.employee_workspace() as w'))[0].w;
+    assert.equal(ws.lone_worker_available, false);
+
+    // The heartbeat keeps no watch, and the sweeps ask and raise nothing.
+    const reply = (await as(ids.worker, 'select public.safety_heartbeat($1, $2, 10) as r', here))[0].r;
+    assert.equal(reply.watching, false);
+    await rewind(30);
+    assert.equal((await cron('select * from public.claim_lone_worker_questions()')).length, 0);
+    assert.equal(await cron('select public.raise_due_lone_worker_alerts() as n').then(r => r[0].n), 0);
+
+    // But a man asking for help is still heard: that cannot misfire, and
+    // taking it from him is not what "turn off the false alarms" means.
+    await as(ids.worker, "select public.raise_safety_alert('sos', 33.5731, -7.5898, 10)");
+    const open = await peek("select id from public.safety_alerts where kind = 'sos' and resolved_at is null");
+    assert.equal(open.length, 1);
+    await as(ids.chef, 'select public.resolve_safety_alert($1)', [open[0].id]);
+
+    // Back on, and the watch runs again.
+    await db.query('update public.companies set lone_worker_enabled = true where id = $1', [ids.company]);
+    assert.equal((await as(ids.worker, 'select public.employee_workspace() as w'))[0].w.lone_worker_available, true);
+  });
+
   await t.test('the day ending stands the watch down', async () => {
     const dayId = (await peek('select id from public.work_days'))[0].id;
     // Put the question to him, then let him go home without answering it.

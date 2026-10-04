@@ -426,6 +426,7 @@ const en = {
     watching: 'Watching over you during your work day',
     watchingHint: (minutes: number) =>
       `If your phone stops moving for ${minutes} minutes, the app asks whether you are alright. Without an answer, your chef is alerted with your position.`,
+    unavailable: 'Automatic monitoring is not switched on in your company. The alert button still works.',
     idle: 'Watching starts when you declare your work day.',
     off: 'Watching is off. The choice stays yours.',
     watchToggle: 'Lone worker protection',
