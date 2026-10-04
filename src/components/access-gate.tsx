@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
+import { BrandSpinner } from '@/components/brand-spinner';
 import { ThemedText } from '@/components/themed-text';
 import { Action, Card, WorkPage } from '@/components/work-ui';
 import { useAuth } from '@/hooks/use-auth';
@@ -80,6 +81,13 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
         {/* The card is the page here, not an item on it: fifteen days is the
             only thing this screen has to say, and it should look like it. */}
         <Card accent style={styles.fill}>
+          {/* The mark, rocking slowly, is what holds the top of the card: a
+              welcome has room for the logo where a working screen does not,
+              and it fills the space with something rather than with nothing. */}
+          <View style={styles.mark}>
+            <BrandSpinner size={132} tile alternate cycleMs={3200} />
+          </View>
+
           <ThemedText type="title">{t.trial.freeDays(access.days_left)}</ThemedText>
           <ThemedText themeColor="textSecondary">{t.trial.welcomeBody}</ThemedText>
 
@@ -99,8 +107,6 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
             </Pressable>
           </View>
 
-          {/* Holds the button at the bottom of the card however tall it ends up. */}
-          <View style={styles.spacer} />
           <Action
             label={t.trial.start}
             onPress={() => {
@@ -118,6 +124,8 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1, gap: 18 },
+  /** Takes the slack, so a tall screen gives the mark more air and a short one
+   *  gives it less — rather than leaving a gap above the button. */
+  mark: { flex: 1, minHeight: 150, alignItems: 'center', justifyContent: 'center' },
   links: { gap: 8 },
-  spacer: { flex: 1, minHeight: 12 },
 });

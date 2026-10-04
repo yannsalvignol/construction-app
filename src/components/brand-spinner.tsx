@@ -36,6 +36,7 @@ export function BrandSpinner({
   color,
   tile = false,
   alternate = false,
+  cycleMs = CYCLE_MS,
 }: {
   size?: number;
   /** Defaults to the accent; pass the surface colour on a filled button. */
@@ -44,6 +45,9 @@ export function BrandSpinner({
   /** Swaps the level's colour at each end of the travel, for a wait long
    *  enough that a purely repeating motion starts to look stuck. */
   alternate?: boolean;
+  /** Slower than the default where the mark is decoration rather than a wait:
+   *  the loader's pace reads as impatience when nothing is actually loading. */
+  cycleMs?: number;
 }) {
   const theme = useTheme();
 
@@ -57,7 +61,7 @@ export function BrandSpinner({
   useFrameCallback((frame) => {
     'worklet';
     const elapsed = frame.timeSincePreviousFrame ?? 16;
-    clock.value = (clock.value + elapsed / CYCLE_MS) % 1;
+    clock.value = (clock.value + elapsed / cycleMs) % 1;
   });
 
   // A sine eases at each end for free and never pauses in the middle.
