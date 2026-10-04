@@ -239,6 +239,8 @@ const fr = {
       shareMessage: (companyName: string, code: string) =>
         `Rejoignez ${companyName} sur Casprod : téléchargez l'application, appuyez sur « Rejoindre votre équipe avec un code », puis entrez ${code}.`,
     },
+    search: 'Rechercher un employé',
+    searchEmpty: (q: string) => `Aucun employé pour « ${q} »`,
     noEmployees: 'Aucun employé pour le moment.',
     manualAddNote: 'Ou ajoutez un employé à la fois et remettez-lui ses identifiants vous-même.',
     addManually: 'Ajouter un employé manuellement',

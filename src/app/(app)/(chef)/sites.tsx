@@ -8,6 +8,7 @@ import { useI18n } from '@/hooks/use-i18n';
 import { supabase } from '@/lib/supabase';
 import { invalidate, useCached } from '@/hooks/use-cached';
 import { loadSites, sitesKey } from '@/lib/tab-data';
+import { hits, SearchField, terms } from '@/components/search-field';
 import { SitePicker } from '@/components/site-picker';
 import { SiteRow } from '@/components/site-row';
 import { workCopy } from '@/lib/work-copy';
@@ -18,6 +19,7 @@ export default function SitesScreen() {
   const copy = workCopy(locale);
   const [name, setName] = useState('');
   const [located, setLocated] = useState<{ latitude: number; longitude: number; address: string } | null>(null);
+  const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,13 @@ export default function SitesScreen() {
   const loader = useCallback(() => loadSites(companyId ?? ''), [companyId]);
   const cached = useCached(sitesKey(companyId ?? ''), loader);
   const refresh = cached.refresh;
-  const sites = cached.data ?? [];
+  const all = cached.data ?? [];
+  // Name or address: a chef remembers "Anfa" as often as he remembers what the
+  // chantier was called.
+  const words = terms(query);
+  const sites = words.length
+    ? all.filter(site => hits(`${site.name} ${site.address ?? ''}`, words))
+    : all;
   const loadError = cached.error ? workCopy(locale).failed : null;
   async function save() {
     Keyboard.dismiss();
@@ -48,7 +56,12 @@ export default function SitesScreen() {
   }
   return <WorkPage title={copy.sitesTitle}>
     <Feedback message={error ?? loadError} />
+    {/* Above the list, where a chef starts reading, and gone when there is no
+        list to narrow. */}
+    {all.length > 0 && <SearchField value={query} onChange={setQuery} placeholder={copy.searchSite} />}
     {sites.map(site => <SiteRow key={site.id} site={site} onRemoved={refresh} />)}
+    {all.length > 0 && !sites.length &&
+      <ThemedText type="small" themeColor="textSecondary">{copy.searchEmpty(query.trim())}</ThemedText>}
     {!!sites.length && <ThemedText type="small" themeColor="textSecondary">{copy.removeSiteHint}</ThemedText>}
     {adding ? <Card>
       {/* Labelled rather than placeheld: a placeholder is gone the moment you

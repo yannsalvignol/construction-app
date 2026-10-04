@@ -244,6 +244,8 @@ const en = {
       shareMessage: (companyName: string, code: string) =>
         `Join ${companyName} on Casprod: download the app, tap "Join your team with a code", and enter ${code}.`,
     },
+    search: 'Search for an employee',
+    searchEmpty: (q: string): string => `No employee matching “${q}”`,
     noEmployees: 'No employees yet.',
     manualAddNote: 'Or add one employee at a time and hand them their login yourself.',
     addManually: 'Add employee manually',

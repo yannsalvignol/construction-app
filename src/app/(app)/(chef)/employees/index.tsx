@@ -10,6 +10,7 @@ import { AnimatedInput } from '@/components/animated-input';
 import { AppModal, ModalButton } from '@/components/app-modal';
 import { PhoneInput } from '@/components/phone-input';
 import { RuleChecklist } from '@/components/rule-checklist';
+import { hits, SearchField, terms } from '@/components/search-field';
 import { SwipeToDelete } from '@/components/swipe-to-delete';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -175,6 +176,10 @@ function RowGap() {
 
 const keyOf = (employee: Employee) => employee.id;
 
+/** A row matches on either name or on the username the employee signs in with. */
+const haystackOf = (employee: Employee) =>
+  `${employee.first_name} ${employee.last_name} ${employee.username ?? ''}`;
+
 /**
  * One employee.
  *
@@ -250,6 +255,7 @@ export default function EmployeesScreen() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
+  const [query, setQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -266,7 +272,9 @@ export default function EmployeesScreen() {
   const companyId = profile?.company_id ?? '';
   const loader = useCallback(() => loadEmployees(companyId), [companyId]);
   const cached = useCached(employeesKey(companyId), loader);
-  const employees = cached.data ?? [];
+  const all = cached.data ?? [];
+  const words = terms(query);
+  const employees = words.length ? all.filter((e) => hits(haystackOf(e), words)) : all;
   const loading = cached.loading;
   const fetchEmployees = useCallback(async () => {
     invalidate(employeesKey(companyId));
@@ -397,9 +405,22 @@ export default function EmployeesScreen() {
                 </ThemedText>
               )}
 
-              {!loading && employees.length === 0 && !showAddForm && (
+              {/* Under the code, because that is the top of this page and a
+                  chef looking for one man among fifty-eight should not have to
+                  scroll to start. Hidden when there is nobody to look for. */}
+              {all.length > 0 && (
+                <SearchField value={query} onChange={setQuery} placeholder={t.employees.search} />
+              )}
+
+              {!loading && all.length === 0 && !showAddForm && (
                 <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
                   {t.employees.noEmployees}
+                </ThemedText>
+              )}
+
+              {all.length > 0 && employees.length === 0 && (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+                  {t.employees.searchEmpty(query.trim())}
                 </ThemedText>
               )}
             </ThemedView>
@@ -580,6 +601,7 @@ const styles = StyleSheet.create({
   rowGap: {
     height: Spacing.two,
   },
+
   title: {
     textAlign: 'center',
     marginBottom: Spacing.two,
