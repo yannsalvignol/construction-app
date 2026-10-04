@@ -358,7 +358,18 @@ function checkRuntimeVersionBump() {
       .trim()
       .split('\n')
       .pop();
-    resolved = JSON.stringify(JSON.parse(resolved).plugins ?? []);
+    // Argument NAMES, never their values. Handing react-native-maps an
+    // `iosGoogleMapsApiKey` at all is a native change — Info.plist gains a
+    // key. Changing what that key's value is, or which environment variable
+    // it comes from, is not: the binary has the same shape and an OTA update
+    // is as safe as it was. Hashing the values made this fire on any machine
+    // whose environment differed, which is every machine, and a check that
+    // cries wolf gets bumped past.
+    resolved = JSON.stringify(
+      (JSON.parse(resolved).plugins ?? []).map((p) =>
+        Array.isArray(p) ? [p[0], Object.keys(p[1] ?? {}).sort()] : p
+      )
+    );
   } catch {
     warn('Could not resolve app config; comparing the plugin list as written.');
   }
