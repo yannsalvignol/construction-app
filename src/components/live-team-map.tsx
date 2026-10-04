@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Action, Card, Feedback, pageStyles } from './work-ui';
 import { ThemedText } from './themed-text';
 import { BrandSpinner } from './brand-spinner';
 import { OnSiteBadge } from './on-site-badge';
-import { hits, SearchField, terms } from './search-field';
 import { SiteRow } from './site-row';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
@@ -58,16 +56,9 @@ function regionFor(points: { latitude: number; longitude: number }[]) {
 /** Which pins and list are shown; null shows both. */
 type Tab = 'people' | 'sites' | null;
 
-/**
- * Owns the page scroll: the search, the map and the filter stay pinned at the
- * top, and the employee / chantier lists scroll underneath.
- *
- * There is no heading. The word "Carte" over a map is a label on a thing that
- * is already unmistakable, and the three hundred and eighty points below it
- * are the whole screen — the search field earns that row, and the chevron
- * beside it keeps the explanation a tap away.
- */
-export function LiveTeamMap({ hint }: { hint?: string }) {
+/** Owns the page scroll: `header` scrolls away, the map and filter stay pinned
+ * at the top, and the employee / chantier lists scroll underneath. */
+export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   const { locale } = useI18n();
   const { profile } = useAuth();
   const diagnostics = useMapDiagnostics('équipe');
@@ -89,10 +80,6 @@ export function LiveTeamMap({ hint }: { hint?: string }) {
   // crew is, and the chantiers are pins that do not move. The web map has
   // always opened this way; the native one was the odd one out. Tapping it
   // again still clears the filter and brings the chantiers back.
-  const [query, setQuery] = useState('');
-  // Read once and then known, so it is folded away rather than standing above
-  // the map every time the chef comes back to it.
-  const [explained, setExplained] = useState(false);
   const [tab, setTab] = useState<Tab>('people');
   const tabRef = useRef<Tab>('people');
   const [error, setError] = useState<string | null>(null);
@@ -186,65 +173,14 @@ export function LiveTeamMap({ hint }: { hint?: string }) {
   const locatable = new Set((team ?? []).map(member => member.employee_id));
   // A position kept for the whole day can be old; say how old rather than drop it.
   const isStale = (recordedAt: string) => now - Date.parse(recordedAt) > STALE_AFTER_MS;
-  // A search looks for a person or a chantier without being told which, so it
-  // reaches past the filter: the two buttons are for browsing, and a chef who
-  // types a name should not have to know which of them it belongs to.
-  const words = terms(query);
-  const searching = words.length > 0;
-  const foundTeam = (team ?? []).filter(member => hits(member.employee_name, words));
-  const foundSites = sites.filter(site => hits(`${site.name} ${site.address ?? ''}`, words));
-
-  const shownTeam = searching ? foundTeam : (tab === 'sites' ? [] : team ?? []);
-  const shownSites = searching ? foundSites : (tab === 'people' ? [] : sites);
-  const showPeople = searching ? foundTeam.length > 0 : tab !== 'sites';
-  const showSites = searching ? foundSites.length > 0 : tab !== 'people';
-
-  // The camera follows the search, the way it follows a tap on a row: a
-  // deliberate act, so it overrides the framing until the next one.
-  useEffect(() => {
-    if (!searching) return;
-    const points = [
-      ...foundTeam.map(m => ({ latitude: m.latitude, longitude: m.longitude })),
-      ...foundSites.flatMap(p => p.latitude != null && p.longitude != null
-        ? [{ latitude: p.latitude, longitude: p.longitude }] : []),
-    ];
-    if (!points.length) return;
-    if (points.length === 1) { map.current?.animateToRegion({ ...points[0], ...CLOSE_UP }, 500); return; }
-    map.current?.fitToCoordinates(points,
-      { edgePadding: { top: 80, right: 80, bottom: 80, left: 80 }, animated: true });
-    // Re-running on every refresh would yank the camera back mid-pan; the
-    // query is the only thing that should move it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  const showPeople = tab !== 'sites';
+  const showSites = tab !== 'people';
 
   return <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: theme.background }}>
-   <ScrollView contentContainerStyle={pageStyles.page} stickyHeaderIndices={[0]}>
+   <ScrollView contentContainerStyle={pageStyles.page} stickyHeaderIndices={[1]}>
+    {header}
     {/* Pinned block: opaque so the lists disappear behind it as they scroll up. */}
     <View style={{ gap: 16, paddingBottom: 4, backgroundColor: theme.background }}>
-    {/* Where the heading was. */}
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View style={{ flex: 1 }}>
-        <SearchField value={query} onChange={setQuery} placeholder={copy.searchMap} />
-      </View>
-      {!!hint && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={hint}
-          accessibilityState={{ expanded: explained }}
-          onPress={() => setExplained(!explained)}
-          hitSlop={12}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
-          <Ionicons
-            name={explained ? 'chevron-up-outline' : 'chevron-down-outline'}
-            size={22}
-            color={theme.textSecondary}
-          />
-        </Pressable>
-      )}
-    </View>
-    {explained && !!hint && (
-      <ThemedText type="small" themeColor="textSecondary">{hint}</ThemedText>
-    )}
     {/* The map is always mounted, empty team or not: an empty map on Morocco reads
         as "nobody is sharing", where no map at all just looks broken. */}
     <View style={{ height: 380, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
@@ -254,18 +190,18 @@ export function LiveTeamMap({ hint }: { hint?: string }) {
         onMapLoaded={diagnostics.onMapLoaded}
         ref={map} style={{ flex: 1 }} initialRegion={initialRegion} rotateEnabled={false} pitchEnabled={false}
         onMapReady={() => { diagnostics.onMapReady(); mapHasDrawn = true; setMapReady(true); }}>
-        {showSites && shownSites.map(site => site.latitude != null && site.longitude != null
+        {showSites && sites.map(site => site.latitude != null && site.longitude != null
           ? <Marker key={'site-' + site.id} coordinate={{ latitude: site.latitude, longitude: site.longitude }}
               title={site.name} description={site.address ?? undefined} pinColor={theme.accent} />
           : null)}
-        {showPeople && shownTeam.map(member => <Marker key={member.employee_id}
+        {showPeople && team?.map(member => <Marker key={member.employee_id}
           coordinate={{ latitude: member.latitude, longitude: member.longitude }}
           opacity={isStale(member.recorded_at) ? 0.5 : 1}
           pinColor={member.on_site === false ? theme.danger : theme.success}
           title={member.employee_name}
           description={`${member.site_name} · ${positionAge(member.recorded_at, copy, now)}`} />)}
         {/* The reported accuracy is drawn, so a coarse fix is never read as an exact spot. */}
-        {showPeople && shownTeam.map(member => <Circle key={member.employee_id + '-accuracy'}
+        {showPeople && team?.map(member => <Circle key={member.employee_id + '-accuracy'}
           center={{ latitude: member.latitude, longitude: member.longitude }}
           radius={member.accuracy_meters} strokeColor={theme.accent} fillColor={theme.accentSoft} />)}
       </MapView>
@@ -298,15 +234,11 @@ export function LiveTeamMap({ hint }: { hint?: string }) {
     <Feedback message={error} />
     {error && <Action secondary label={copy.retry} onPress={() => { void refresh(); }} />}
 
-    {/* One line for both kinds, since a search does not know which it was. */}
-    {searching && !foundTeam.length && !foundSites.length &&
-      <Card><ThemedText type="small" themeColor="textSecondary">{copy.searchEmpty(query.trim())}</ThemedText></Card>}
-
     {showPeople && <>
-      {!searching && !team && !error && <ThemedText>{copy.loading}</ThemedText>}
-      {!searching && team && !team.length && <Card><ThemedText>{copy.noLive}</ThemedText>
+      {!team && !error && <ThemedText>{copy.loading}</ThemedText>}
+      {team && !team.length && <Card><ThemedText>{copy.noLive}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">{copy.noLiveHint}</ThemedText></Card>}
-      {shownTeam.map(member => <Pressable key={member.employee_id} accessibilityRole="button"
+      {team?.map(member => <Pressable key={member.employee_id} accessibilityRole="button"
         accessibilityLabel={member.employee_name}
         onPress={() => centreOn(member.latitude, member.longitude)}
         style={({ pressed }) => pressed && { opacity: 0.6 }}>
@@ -325,10 +257,10 @@ export function LiveTeamMap({ hint }: { hint?: string }) {
       </Pressable>)}
     </>}
     {showSites && <>
-      {!searching && !sites.length && <Card><ThemedText>{copy.noSitesLocated}</ThemedText></Card>}
+      {!sites.length && <Card><ThemedText>{copy.noSitesLocated}</ThemedText></Card>}
       {/* The same expanding row as the Sites tab, plus map behaviour: opening a site
           also centres on it, and a member who is sharing can be pointed at. */}
-      {shownSites.map(site => <SiteRow key={site.id} site={site}
+      {sites.map(site => <SiteRow key={site.id} site={site}
         onPressSite={() => { if (site.latitude != null && site.longitude != null) centreOn(site.latitude, site.longitude); }}
         locatable={locatable}
         onLocate={employeeId => {

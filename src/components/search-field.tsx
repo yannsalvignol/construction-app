@@ -18,26 +18,20 @@ export const fold = (text: string) =>
  *  words and O'Brien is two: a chef typing "manar" means the second one. */
 export const wordsOf = (text: string) => fold(text).split(/[^a-z0-9]+/).filter(Boolean);
 
-/** Whether some word of `text` begins with `word`. */
+/**
+ * Whether some word of `text` begins with `word`.
+ *
+ * From the start of a word, never from the middle of one: typing "a" should
+ * offer the people whose name begins with an A, not every name that happens
+ * to contain one — which on the first keystroke is almost all of them, and
+ * makes the field look as though it is not working.
+ */
 export const begins = (text: string, word: string) =>
   wordsOf(text).some((part) => part.startsWith(word));
 
 /** The query as words, in any order: "alaoui karim" and "kar ala" both find
  *  Karim Alaoui. */
 export const terms = (query: string) => wordsOf(query);
-
-/**
- * Matches from the start of a word, not anywhere inside one.
- *
- * Typing "a" should offer the people whose name begins with an A, not every
- * name that happens to contain one — which on the first keystroke is almost
- * all of them, and makes the field look as though it is not working. Every
- * word of the query must begin some word of the row.
- */
-export function hits(haystack: string, words: string[]) {
-  const parts = wordsOf(haystack);
-  return words.every((word) => parts.some((part) => part.startsWith(word)));
-}
 
 /**
  * One search field, used by the lists long enough to need one.
