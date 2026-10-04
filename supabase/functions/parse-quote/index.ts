@@ -76,6 +76,11 @@ const SCHEMA = {
       items: {
         type: 'object',
         properties: {
+          number: {
+            type: ['string', 'null'],
+            description:
+              "Le repère imprimé de la ligne, tel quel et sans rien d'autre: \"A\", \"1\", \"1.1\", \"1.1.1\", \"4.12\", \"3-\", \"a-\". La plupart des devis le portent dans une colonne N° à gauche; sur d'autres il ouvre le libellé. C'est lui qui dit à quel niveau la ligne se trouve, donc recopie-le exactement, sans le compléter ni le corriger. Null seulement si la ligne n'en porte aucun.",
+          },
           lot: {
             type: ['string', 'null'],
             description:
@@ -111,7 +116,7 @@ const SCHEMA = {
               'A code from the catalogue provided, when the line plainly matches one. Null when unsure — a wrong code is worse than none, because it makes a false progress figure.',
           },
         },
-        required: ['lot', 'label', 'kind', 'source_unit', 'unit', 'quantity', 'unit_price', 'amount_ht', 'task_code'],
+        required: ['number', 'lot', 'label', 'kind', 'source_unit', 'unit', 'quantity', 'unit_price', 'amount_ht', 'task_code'],
         additionalProperties: false,
       },
     },
@@ -127,6 +132,8 @@ Règles:
 - Garde le libellé d'origine mot pour mot, numéro ou lettre compris ("3- RESEAUX FRIGORIFIQUES", "a- Ø250").
 - Une ligne qui ne porte aucune quantité et qui chapeaute des sous-lignes est un "heading". Restitue-la comme ligne, à sa place dans le document.
 - "lot" ne porte QUE la section de plus haut niveau — celle en laquelle le devis entier se divise: "LOT: CLIMATISATION - VENTILATION", "A Courant fort". Jamais un titre intermédiaire comme "1- UNITE EXTERIEURE DRV", même si la ligne est imprimée dessous: les niveaux intermédiaires se lisent à la position des headings, et un "lot" qui change à chaque chapitre ne divise plus rien.
+- Un titre imprimé à l'identique en haut de CHAQUE page — "LOT N° 10 : COURANT FORT COURANT FAIBLE", "BORDEREAUX DE PRIX INITIAUX", le nom du projet — est le titre du document, PAS une section: il ne distingue rien, puisqu'il est partout. La section est ce qui change en descendant le devis. Quand un devis numérote ses sections par lettres (A, B, C...), ce sont elles les sections, et "lot" porte la lettre et son intitulé: "A Courant fort".
+- Si la page que tu lis ne montre aucun titre de section, mets "lot" à null plutôt que de reprendre l'en-tête de page: une section manquante se retrouve, une fausse section ne se corrige pas.
 - "lot" porte l'intitulé entier, pas seulement le repère: "A Courant fort", jamais "A". Toutes les lignes d'une même section portent exactement la même chaîne.
 - Un devis a souvent une colonne de référence ou de code article ("Produit", "P_022920", "REF 1245"). Elle n'est pas le libellé: ne la colle jamais devant la désignation.
 - Une remise, un rabais ou toute ligne négative est un "discount", jamais du travail.
@@ -548,6 +555,7 @@ async function recover(
       // that is plainly "found afterwards".
       position: nextPosition + index,
       lot: line.lot ?? null,
+      marker: String(line.number ?? '').trim().replace(/[\s.:)\-]+$/, '') || null,
       label,
       candidate_label: label,
       kind: line.kind ?? 'work',
@@ -1083,6 +1091,9 @@ async function parse(
         company_id: quote.company_id,
         position: index,
         lot: line.lot ?? null,
+        // Trimmed of the punctuation devis decorate it with ("3-", "4.12 :"),
+        // so a prefix test means what it says.
+        marker: String(line.number ?? '').trim().replace(/[\s.:)\-]+$/, '') || null,
         label,
         candidate_label: isChild && heading ? heading : label,
         kind: line.kind ?? 'work',
