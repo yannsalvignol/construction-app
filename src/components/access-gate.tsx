@@ -81,21 +81,16 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
     return (
       <WorkPage topInset title={t.trial.welcomeTitle}>
         <Card>
-          {/* The number is the message, so it is set like one: an accent panel
-              at the head of the card with the count at display size. A chef who
-              has just signed up should see what he was given before he reads a
-              word about it. */}
-          <View style={[styles.hero, { backgroundColor: theme.accent }]}>
-            <ThemedText style={[styles.heroCount, { color: theme.buttonText }]}>
-              {access.days_left}
-            </ThemedText>
+          {/* The number is the message, so it is set like one: at display size
+              on a plain grey panel. Deliberately not the accent — this screen
+              keeps its one purple for the one thing to press. */}
+          <View style={[styles.hero, { backgroundColor: theme.backgroundGroup }]}>
+            <ThemedText style={styles.heroCount}>{access.days_left}</ThemedText>
             <View style={styles.heroWords}>
-              <ThemedText style={[styles.heroUnit, { color: theme.buttonText }]}>
+              <ThemedText style={styles.heroUnit}>
                 {t.trial.freeDaysUnit(access.days_left)}
               </ThemedText>
-              <ThemedText type="small" style={[styles.heroNote, { color: theme.buttonText }]}>
-                {t.trial.noCard}
-              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">{t.trial.noCard}</ThemedText>
             </View>
           </View>
 
@@ -104,7 +99,7 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
           <View style={styles.included}>
             {t.trial.included.map((line) => (
               <View key={line} style={styles.includedRow}>
-                <Ionicons name="checkmark-circle" size={20} color={theme.accentText} />
+                <Ionicons name="checkmark" size={18} color={theme.textSecondary} />
                 <ThemedText type="small" style={styles.includedText}>{line}</ThemedText>
               </View>
             ))}
@@ -126,23 +121,29 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
           {/* Not "later, when the trial ends" — both doors are open today, and
               they sit below the button so they never compete with it. */}
           <ThemedText type="small" themeColor="textSecondary">{t.trial.reachUsNow}</ThemedText>
+          {/* Bordered rows rather than coloured links: they read as pressable
+              without borrowing the accent the button is holding. */}
           <View style={styles.links}>
-            <Pressable
-              style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
-              onPress={() => {
-                void Linking.openURL(
-                  `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(t.trial.mailSubject)}`
-                );
-              }}>
-              <Ionicons name="mail-outline" size={18} color={theme.accentText} />
-              <ThemedText type="linkPrimary">{SALES_EMAIL}</ThemedText>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
-              onPress={() => { void Linking.openURL(PRICING_URL); }}>
-              <Ionicons name="pricetag-outline" size={18} color={theme.accentText} />
-              <ThemedText type="linkPrimary">{PRICING_LABEL}</ThemedText>
-            </Pressable>
+            {([
+              ['mail-outline', SALES_EMAIL, () => Linking.openURL(
+                `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(t.trial.mailSubject)}`
+              )],
+              ['pricetag-outline', PRICING_LABEL, () => Linking.openURL(PRICING_URL)],
+            ] as const).map(([icon, label, open]) => (
+              <Pressable
+                key={label}
+                accessibilityRole="button"
+                onPress={() => { void open(); }}
+                style={({ pressed }) => [
+                  styles.linkRow,
+                  { borderColor: theme.separator },
+                  pressed && styles.pressed,
+                ]}>
+                <Ionicons name={icon} size={18} color={theme.textSecondary} />
+                <ThemedText type="smallBold" style={styles.linkLabel}>{label}</ThemedText>
+                <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+              </Pressable>
+            ))}
           </View>
         </Card>
       </WorkPage>
@@ -157,13 +158,15 @@ const styles = StyleSheet.create({
   heroCount: { fontSize: 64, lineHeight: 68, fontWeight: '700', letterSpacing: -2 },
   heroWords: { flex: 1, gap: 4 },
   heroUnit: { fontSize: 19, lineHeight: 24, fontWeight: '700' },
-  /** White on the accent, dimmed rather than greyed: a grey would muddy it. */
-  heroNote: { opacity: 0.85 },
   included: { gap: 10 },
   includedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   includedText: { flex: 1 },
   rule: { height: StyleSheet.hairlineWidth, marginTop: 2 },
   links: { gap: 10 },
-  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  linkRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 16,
+  },
+  linkLabel: { flex: 1 },
   pressed: { opacity: 0.6 },
 });
