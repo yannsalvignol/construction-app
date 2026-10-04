@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +25,9 @@ const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 // the app has to link to it; until one is configured the in-app notice shows.
 const PRIVACY_POLICY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
 const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL;
+
+/** Seconds a tap on « Supprimer définitivement » can still be taken back. */
+const DELETE_COUNTDOWN = 5;
 
 const THEME_CHOICES: ThemeChoice[] = ['light', 'dark', 'system'];
 const LOCALES: Locale[] = ['fr', 'en'];
@@ -131,6 +134,42 @@ export function SettingsScreen() {
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
+  // Seconds left before the account goes. Null when no deletion is pending.
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeletionError(null);
+    const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+    if (error) {
+      const message = await resolveFunctionError('delete-account', error);
+      setDeletionError(message ? translateServerError(message, locale) : t.account.deletion.failed);
+      setDeleting(false);
+      setCountdown(null);
+      return;
+    }
+    // The auth user no longer exists, so the server-side sign-out is expected to
+    // fail; the local session still has to go.
+    await signOut().catch(() => supabase.auth.signOut({ scope: 'local' }));
+  }
+
+  // Five seconds between the last tap and a deletion that cannot be undone.
+  // The one thing in this app that destroys a company's record is also the one
+  // thing a thumb can reach by accident on a scrolling page, and "are you
+  // sure?" is a question people answer yes to without reading.
+  useEffect(() => {
+    if (countdown === null || deleting) return;
+    // The last tick is the one that deletes, so the sheet shows five whole
+    // seconds rather than four and a flash of zero.
+    const timer = setTimeout(() => {
+      if (countdown > 1) { setCountdown(countdown - 1); return; }
+      setCountdown(0);
+      void handleDeleteAccount();
+    }, 1000);
+    return () => clearTimeout(timer);
+    // handleDeleteAccount is redeclared each render but never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown, deleting]);
 
   if (!profile) return null;
 
@@ -146,21 +185,6 @@ export function SettingsScreen() {
       return;
     }
     setOpenLegalNote((current) => (current === kind ? null : kind));
-  }
-
-  async function handleDeleteAccount() {
-    setDeleting(true);
-    setDeletionError(null);
-    const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
-    if (error) {
-      const message = await resolveFunctionError('delete-account', error);
-      setDeletionError(message ? translateServerError(message, locale) : t.account.deletion.failed);
-      setDeleting(false);
-      return;
-    }
-    // The auth user no longer exists, so the server-side sign-out is expected to
-    // fail; the local session still has to go.
-    await signOut().catch(() => supabase.auth.signOut({ scope: 'local' }));
   }
 
   return (
@@ -232,7 +256,7 @@ export function SettingsScreen() {
                   { backgroundColor: theme.danger, opacity: pressed || deleting ? 0.7 : 1 },
                 ]}
                 disabled={deleting}
-                onPress={handleDeleteAccount}>
+                onPress={() => setCountdown(DELETE_COUNTDOWN)}>
                 <ThemedText type="smallBold" style={{ color: theme.buttonText }}>
                   {deleting ? t.account.deletion.deleting : t.account.deletion.confirm}
                 </ThemedText>
@@ -285,6 +309,27 @@ export function SettingsScreen() {
           </Section>
         </ScrollView>
 
+        {/* The last chance: a running number, and one button to stop it. The
+            sheet cannot be dismissed once the request has left. */}
+        <AppModal
+          visible={countdown !== null}
+          onClose={() => { if (!deleting) setCountdown(null); }}
+          title={t.account.deletion.countdownTitle}
+          icon="alert-circle-outline"
+          iconColor={theme.danger}
+          actions={
+            deleting ? null : (
+              <ModalButton label={t.account.deletion.keep} onPress={() => setCountdown(null)} />
+            )
+          }>
+          <ThemedText style={[styles.countdown, { color: theme.danger }]}>
+            {deleting ? t.account.deletion.deleting : countdown}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+            {t.account.deletion.countdownBody}
+          </ThemedText>
+        </AppModal>
+
         <AppModal
           visible={socialNoticeOpen}
           onClose={() => setSocialNoticeOpen(false)}
@@ -319,6 +364,12 @@ export function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  countdown: {
+    fontSize: 56,
+    lineHeight: 64,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   container: {
     flex: 1,
   },

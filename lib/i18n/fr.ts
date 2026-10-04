@@ -641,6 +641,10 @@ const fr = {
         'Vous êtes le seul chef de cette entreprise. Supprimer votre compte supprime l’entreprise : ses chantiers, toutes les déclarations et vérifications de présence, et les comptes de tous les employés. Cette action est irréversible.',
       confirm: 'Supprimer définitivement',
       deleting: 'Suppression…',
+      countdownTitle: 'Suppression dans…',
+      countdownBody:
+        'Votre compte sera supprimé à la fin du décompte. Touchez « Garder mon compte » pour tout annuler.',
+      keep: 'Garder mon compte',
       failed: 'La suppression a échoué. Vérifiez votre connexion et réessayez.',
     },
     signedInAs: (role: string) => `Connecté en tant que ${role}`,

@@ -645,6 +645,10 @@ const en = {
         'You are the only manager of this company. Deleting your account deletes the company: its sites, all declared work and presence records, and the accounts of every employee. This cannot be undone.',
       confirm: 'Delete for good',
       deleting: 'Deleting…',
+      countdownTitle: 'Deleting in…',
+      countdownBody:
+        'Your account is deleted when the count reaches zero. Tap “Keep my account” to call it off.',
+      keep: 'Keep my account',
       failed: 'Deletion failed. Check your connection and try again.',
     },
     signedInAs: (role: string) => `Signed in as ${role}`,
