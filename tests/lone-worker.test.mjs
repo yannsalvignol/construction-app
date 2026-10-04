@@ -72,7 +72,9 @@ test('lone worker protection', async t => {
   }
   await db.exec(`
     insert into auth.users values ('${ids.chef}', 'chef@example.test'), ('${ids.worker}', 'worker@employee.local');
-    insert into public.companies(id,name) values ('${ids.company}', 'Company A');
+    -- The watch is off until a company asks for it, and this company is
+    -- asking: everything below tests the feature running.
+    insert into public.companies(id,name,lone_worker_enabled) values ('${ids.company}', 'Company A', true);
     insert into public.profiles(id, company_id, first_name, last_name, role) values
       ('${ids.chef}', '${ids.company}', 'Chef', 'A', 'chef'),
       ('${ids.worker}', '${ids.company}', 'Worker', 'A', 'employee');
@@ -213,12 +215,23 @@ test('lone worker protection', async t => {
     assert.equal((await cron('select * from public.claim_lone_worker_questions()')).length, 0);
     assert.equal(await cron('select public.raise_due_lone_worker_alerts() as n').then(r => r[0].n), 0);
 
-    // But a man asking for help is still heard: that cannot misfire, and
-    // taking it from him is not what "turn off the false alarms" means.
-    await as(ids.worker, "select public.raise_safety_alert('sos', 33.5731, -7.5898, 10)");
-    const open = await peek("select id from public.safety_alerts where kind = 'sos' and resolved_at is null");
-    assert.equal(open.length, 1);
-    await as(ids.chef, 'select public.resolve_safety_alert($1)', [open[0].id]);
+    // Off means gone, button included — and refused on the server, because a
+    // copy of the app that predates the switch still has the button drawn.
+    await assert.rejects(
+      as(ids.worker, "select public.raise_safety_alert('sos', 33.5731, -7.5898, 10)"),
+      /not enabled for your company/
+    );
+
+    // An alert raised before the switch was thrown is a man who asked for
+    // help; stranding it unresolvable would be worse than any false alarm.
+    await db.query('update public.companies set lone_worker_enabled = true where id = $1', [ids.company]);
+    const raised = (await as(ids.worker, "select public.raise_safety_alert('sos', 33.5731, -7.5898, 10) as id"))[0].id;
+    await db.query('update public.companies set lone_worker_enabled = false where id = $1', [ids.company]);
+    await as(ids.chef, 'select public.resolve_safety_alert($1)', [raised]);
+    assert.notEqual(
+      (await peek('select resolved_at from public.safety_alerts where id = $1', [raised]))[0].resolved_at,
+      null
+    );
 
     // Back on, and the watch runs again.
     await db.query('update public.companies set lone_worker_enabled = true where id = $1', [ids.company]);

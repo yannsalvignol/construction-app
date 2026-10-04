@@ -281,11 +281,13 @@ export default function EmployeeHomeScreen() {
       {/* Protection du travailleur isolé, last on the screen at the chef's
           request. It is the one thing here somebody reaches for hurt, so it
           stays a full card rather than a line in a list. */}
-      {consented && profile && <SafetyCard
+      {/* Gone entirely when the company has the feature off — card, switch
+          and alert button. Half a safety feature on a screen is worse than
+          none: a man who can see a shield reads it as somebody watching. */}
+      {consented && profile && watchAvailable && <SafetyCard
         dayOpen={!!active}
         employeeId={profile.id}
         watchOn={watchEnabled}
-        watchAvailable={watchAvailable}
         asked={!!data.lone_worker_asked}
         onChanged={() => { void refresh(); }} />}
       {consented && <Action secondary label={showNotice ? copy.close : copy.info} onPress={() => setShowNotice(!showNotice)} />}

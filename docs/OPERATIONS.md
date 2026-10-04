@@ -15,37 +15,48 @@ you need on a Tuesday afternoon when a customer phones.
 
 ## Protection du travailleur isolé
 
-The one feature that acts on its own: nobody presses anything, the server
-notices a man has stopped moving, asks him, and tells his chef when he does not
-answer. Which is why it needs an off switch that does not wait a week — a watch
-that misfires on a crew in a basement wakes a chef at midnight for nothing,
-twice, and then nobody believes the third one.
+**Off by default.** A company gets the watch when it asks for it.
 
 ```sql
--- one company
+-- give it to one company
+update public.companies set lone_worker_enabled = true where name = '...';
+
+-- take it back
 update public.companies set lone_worker_enabled = false where name = '...';
 
--- everywhere
+-- everywhere, either way
 update public.companies set lone_worker_enabled = false;
-
--- back on
-update public.companies set lone_worker_enabled = true;
 ```
 
-**What it stops:** the stillness question, the alert that follows silence, and
-the position the phone reports to feed them — which gives the battery back on a
-chantier.
+**Off means gone.** The card, the switch and the alert button disappear from
+the worker's screen, the stillness question and the alert that follows silence
+stop, and the phone stops reporting its position to feed them — which gives the
+battery back on a chantier.
 
-**What it does not stop: the SOS button.** That is a man deciding he needs
-help. It cannot misfire, and taking it from him is not what anybody means by
-"turn off the false alarms". His card says so rather than going quiet:
+Refused on the server too, not only hidden: a copy of the app installed before
+this still has the button drawn, and a feature switched off that still works
+for whoever has not updated is not switched off.
 
-> « La surveillance automatique n'est pas activée dans votre entreprise. Le
-> bouton d'alerte reste disponible. »
+**Alerts already open are left alone.** They are a man who asked for help
+before the switch was thrown; stranding them unresolvable would be the one
+outcome worse than a false alarm. Resolving keeps working, no new ones can be
+raised.
 
-**Old apps:** one that predates the switch keeps reporting its position. That
-costs battery and is never unsafe, because the sweeps that would act on those
-reports are gated server-side.
+> ### This was the justification for background location
+>
+> Apple rejected the app under guideline 2.5.4 because background location
+> served only employee tracking. Protection du travailleur isolé was built as
+> the independent justification, and the review notes say so.
+>
+> With it off everywhere, the app still asks for background location — for live
+> position sharing, which is the use Apple rejected. That is not a problem
+> today, because the permission is only requested when a worker turns live
+> sharing on. It becomes one at the next review if the submission still claims
+> PTI as the reason.
+>
+> Before the next submission: either switch it on for the companies that use
+> it and say so, or rewrite that part of the review notes to describe what the
+> app actually does.
 
 ### Its timings
 
