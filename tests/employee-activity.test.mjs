@@ -102,6 +102,46 @@ test('employee activity', async t => {
     assert.ok(Number(a.days[0].hours) < 1, 'hours counted from started_at, not planned_end_at');
   });
 
+  await t.test('a day carries the proofs the chef asked for', async () => {
+    // The two switches on the employee's card: the day is refused without
+    // them, which is the whole point of their existing.
+    await db.query('update public.profiles set equipment_photo_required = true where id = $1', [ids.mate]);
+    await as(ids.mate, "select public.set_presence_consent(true, '2026-09-07')");
+    await assert.rejects(
+      as(ids.mate, 'select public.start_work_day($1, 8)', [ids.site]),
+      /safety equipment is required/
+    );
+
+    // With the photo, the day starts and the proof is stored with it.
+    await as(ids.mate, `select public.start_work_day($1, 8, '${ids.mate}/gear.jpg', null, 33.57, -7.58, 9)`, [ids.site]);
+    const proof = (await peek('select kind, photo_path, accuracy_meters from public.work_day_photos'))[0];
+    assert.equal(proof.kind, 'equipment');
+    assert.equal(proof.photo_path, `${ids.mate}/gear.jpg`);
+    assert.equal(Number(proof.accuracy_meters), 9);
+
+    // His chef sees it on the day; he sees his own.
+    const seen = await activity(ids.chef, ids.mate);
+    assert.equal(seen.days[0].photos.length, 1);
+    assert.equal(seen.days[0].photos[0].kind, 'equipment');
+    assert.equal((await activity(ids.mate, ids.mate)).days[0].photos.length, 1);
+
+    // Nobody writes the table directly.
+    await assert.rejects(
+      as(ids.mate, `insert into public.work_day_photos(work_day_id, employee_id, company_id, kind, photo_path)
+                    values ($1, $2, $3, 'clock_in', 'x')`,
+        [(await peek('select id from public.work_days where employee_id = $1', [ids.mate]))[0].id, ids.mate, ids.company]),
+      /permission denied/
+    );
+
+    // A worker the chef asked nothing of starts his day as he always did —
+    // and the day this test opened is closed again, so the fixture is left as
+    // it was found.
+    await db.query('update public.profiles set equipment_photo_required = false where id = $1', [ids.mate]);
+    await as(ids.mate, 'select public.end_work_day($1)',
+      [(await peek('select id from public.work_days where employee_id = $1', [ids.mate]))[0].id]);
+    await db.query('delete from public.work_days where employee_id = $1', [ids.mate]);
+  });
+
   await t.test('a worker reads himself; nobody reads a person they do not employ', async () => {
     const mine = await activity(ids.worker, ids.worker);
     assert.equal(mine.day_count, 1);

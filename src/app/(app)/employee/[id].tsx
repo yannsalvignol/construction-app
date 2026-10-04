@@ -3,6 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -30,12 +31,15 @@ type Person = { id: string; first_name: string; last_name: string; username: str
 type Task = { label_fr: string | null; label_en: string | null; unit: string | null; quantity: number };
 /** `on_site` is null when it cannot be answered: position redacted, or a site without coordinates. */
 type Check = { captured_at: string; on_site: boolean | null };
+/** A photo the chef required before the day could start. */
+type Proof = { kind: 'equipment' | 'clock_in'; path: string; captured_at: string };
 type Day = {
   work_date: string;
   site_name: string | null;
   hours: number;
   open: boolean;
   tasks: Task[];
+  photos?: Proof[];
   checks: Check[];
 };
 type Activity = {
@@ -57,6 +61,12 @@ export default function EmployeeActivityScreen() {
 
   const [activity, setActivity] = useState<Activity | null>(null);
   const [failed, setFailed] = useState(false);
+
+  /** The bucket is private, so the photo is reached by a link that expires. */
+  async function openProof(path: string) {
+    const { data } = await supabase.storage.from('day-proofs').createSignedUrl(path, 60);
+    if (data?.signedUrl) await WebBrowser.openBrowserAsync(data.signedUrl);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -176,6 +186,28 @@ export default function EmployeeActivityScreen() {
                     {t.employeeActivity.dayOn(day.site_name ?? '—')}
                   </ThemedText>
                 </View>
+
+                {/* What he was asked to show before the day could start. The
+                    chef set the requirement; this is the only place the
+                    answer reaches him. */}
+                {(day.photos ?? []).map((photo, index) => (
+                  <Pressable
+                    key={`p${index}`}
+                    accessibilityRole="button"
+                    onPress={() => { void openProof(photo.path); }}
+                    style={({ pressed }) => [styles.entry, pressed && { opacity: 0.6 }]}>
+                    <View style={[styles.rail, { backgroundColor: theme.backgroundSelected }]} />
+                    <Ionicons name="camera-outline" size={16} color={theme.textSecondary} />
+                    <ThemedText type="small" style={{ flex: 1 }} numberOfLines={1}>
+                      {photo.kind === 'equipment'
+                        ? t.employeeActivity.equipmentProof
+                        : t.employeeActivity.clockInProof}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="accentText">
+                      {t.employeeActivity.seeProof}
+                    </ThemedText>
+                  </Pressable>
+                ))}
 
                 {day.tasks.map((task, index) => (
                   <View key={`t${index}`} style={styles.entry}>

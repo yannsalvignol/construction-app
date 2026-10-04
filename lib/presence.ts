@@ -25,6 +25,9 @@ export type Workspace = {
    *  currently waiting for him to say he is alright. */
   lone_worker_watch: boolean;
   lone_worker_asked: boolean;
+  /** What the chef requires before this man may start a day. */
+  equipment_photo_required?: boolean;
+  clock_in_photo_required?: boolean;
   sites: Site[]; requests: PresenceRequest[]; checks: CheckIn[]; declarations: Declaration[];
   categories: { code: string; label_fr: string; label_en: string }[]; codes: TaskCode[];
 };
@@ -37,6 +40,60 @@ export type Dashboard = {
   flags: { employee_id: string; employee_name: string; label_fr: string; label_en: string; quantity: number; unit: TaskUnit; site_name: string }[];
 };
 export const NOTICE_VERSION = '2026-09-07';
+
+/**
+ * A photo the chef requires before a day may start.
+ *
+ * Taken before the day exists, so there is nothing to attach it to yet: it is
+ * uploaded, and start_work_day stores the path in the same transaction as the
+ * day it conditions. A start that fails leaves the upload orphaned, which the
+ * worker may delete and nobody else can read.
+ *
+ * Returns null when he backs out of the camera — that is a decision not to
+ * start the day, not a failure.
+ */
+export async function captureDayProof(
+  kind: 'equipment' | 'clock_in',
+  employeeId: string,
+  locale: Locale
+): Promise<{ path: string; latitude: number; longitude: number; accuracy: number } | null> {
+  const copy = workCopy(locale);
+  if (Platform.OS === 'web') throw new Error(copy.nativeOnly);
+  const camera = await ImagePicker.requestCameraPermissionsAsync();
+  if (!camera.granted) throw new Error(copy.cameraDenied);
+  const photo = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'], quality: 0.5, base64: true, allowsEditing: false, exif: false,
+  });
+  if (photo.canceled) return null;
+  const asset = photo.assets[0];
+  if (!asset.base64) throw new Error(copy.proofFailed);
+
+  // Where it was taken, when the phone will say. A refused permission does not
+  // block the day: the photo is the proof the chef asked for, the position is
+  // a bonus, and trading one for the other would mean no proof at all.
+  let where: { latitude: number; longitude: number; accuracy: number } | null = null;
+  try {
+    const permission = await Location.getForegroundPermissionsAsync();
+    if (permission.granted) {
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      if (position.coords.accuracy != null) {
+        where = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        };
+      }
+    }
+  } catch { /* the photo stands on its own */ }
+
+  const isPng = asset.mimeType === 'image/png';
+  const path = `${employeeId}/${kind}-${Date.now()}.${isPng ? 'png' : 'jpg'}`;
+  const { error } = await supabase.storage
+    .from('day-proofs')
+    .upload(path, decode(asset.base64), { contentType: isPng ? 'image/png' : 'image/jpeg', upsert: false });
+  if (error) throw new Error(copy.proofFailed);
+  return { path, latitude: where?.latitude ?? 0, longitude: where?.longitude ?? 0, accuracy: where?.accuracy ?? 0 };
+}
 
 /** Called only by an explicit check-in button. No watchers, last-known fixes or background permissions. */
 export async function capturePresence(requestId: string, employeeId: string, locale: Locale) {

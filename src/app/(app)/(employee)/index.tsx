@@ -18,7 +18,7 @@ import { DayHistory, PastDayView, formatDay, useDayHistory } from '@/components/
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useWorkspace } from '@/hooks/use-workspace';
-import { capturePresence, NOTICE_VERSION } from '@/lib/presence';
+import { captureDayProof, capturePresence, NOTICE_VERSION } from '@/lib/presence';
 import { LIVE_NOTICE_VERSION } from '@/lib/live-location';
 import { enablePresenceNotifications } from '@/lib/presence-notifications';
 import { supabase } from '@/lib/supabase';
@@ -221,7 +221,30 @@ export default function EmployeeHomeScreen() {
             }
             void act(async () => {
               setPushWarning(!await enablePresenceNotifications(locale));
-              const { error: failure } = await supabase.rpc('start_work_day', { declared_site_id: site, duration_hours: Number(duration) });
+              // What his chef requires before the day may start. One step, a
+              // shot for each thing asked for, in the order they are listed
+              // on his card. Backing out of the camera is a decision not to
+              // start the day, so it stops here rather than failing.
+              let equipment: Awaited<ReturnType<typeof captureDayProof>> = null;
+              let clockIn: Awaited<ReturnType<typeof captureDayProof>> = null;
+              if (data.equipment_photo_required) {
+                equipment = await captureDayProof('equipment', profile!.id, locale);
+                if (!equipment) return;
+              }
+              if (data.clock_in_photo_required) {
+                clockIn = await captureDayProof('clock_in', profile!.id, locale);
+                if (!clockIn) return;
+              }
+              const where = equipment ?? clockIn;
+              const { error: failure } = await supabase.rpc('start_work_day', {
+                declared_site_id: site,
+                duration_hours: Number(duration),
+                equipment_photo: equipment?.path ?? null,
+                clock_in_photo: clockIn?.path ?? null,
+                lat: where?.accuracy ? where.latitude : null,
+                lng: where?.accuracy ? where.longitude : null,
+                accuracy: where?.accuracy || null,
+              });
               if (failure) throw failure;
             });
           }} />

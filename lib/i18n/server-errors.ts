@@ -23,6 +23,10 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'Only a chef can regenerate the join code': "Seul un chef peut régénérer le code d'invitation.",
   'Could not generate a unique join code': "Impossible de générer un code d'invitation unique.",
   'Invalid work duration': 'Durée de journée invalide.',
+  'A photo of your safety equipment is required to start the day':
+    "Votre chef demande une photo de votre équipement de sécurité avant de commencer la journée.",
+  'A clock-in photo is required to start the day':
+    'Votre chef demande une photo de pointage avant de commencer la journée.',
   'Only a chef can validate a devis': 'Seul un chef peut valider un devis.',
   'This devis has not been read yet': "Ce devis n'a pas encore été lu.",
   'That devis does not belong to this chantier': 'Ce devis n’appartient pas à ce chantier.',
