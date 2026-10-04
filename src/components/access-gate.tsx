@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Linking } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,7 +10,9 @@ import { supabase } from '@/lib/supabase';
 
 /** Where a locked chef is told to write. */
 export const SALES_EMAIL = 'melanie@casprod.app';
-const PRICING_URL = 'https://casprod.app/#tarifs';
+const PRICING_URL = 'https://casprod.app/pricing';
+/** The address as it is read on the page, without the scheme nobody says out loud. */
+const PRICING_LABEL = 'casprod.app/pricing';
 
 type Access = {
   active: boolean;
@@ -74,10 +76,31 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
   // appears: a screen closed by a crash was never read.
   if (!access.active && !access.notice_seen && !dismissed) {
     return (
-      <WorkPage topInset title={t.trial.welcomeTitle}>
-        <Card accent>
-          <ThemedText type="smallBold">{t.trial.freeDays(access.days_left)}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">{t.trial.welcomeBody}</ThemedText>
+      <WorkPage topInset fill title={t.trial.welcomeTitle}>
+        {/* The card is the page here, not an item on it: fifteen days is the
+            only thing this screen has to say, and it should look like it. */}
+        <Card accent style={styles.fill}>
+          <ThemedText type="title">{t.trial.freeDays(access.days_left)}</ThemedText>
+          <ThemedText themeColor="textSecondary">{t.trial.welcomeBody}</ThemedText>
+
+          {/* Not "later, when the trial ends" — both doors are open today. */}
+          <ThemedText type="small" themeColor="textSecondary">{t.trial.reachUsNow}</ThemedText>
+          <View style={styles.links}>
+            <Pressable
+              onPress={() => {
+                void Linking.openURL(
+                  `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(t.trial.mailSubject)}`
+                );
+              }}>
+              <ThemedText type="linkPrimary">{SALES_EMAIL}</ThemedText>
+            </Pressable>
+            <Pressable onPress={() => { void Linking.openURL(PRICING_URL); }}>
+              <ThemedText type="linkPrimary">{PRICING_LABEL}</ThemedText>
+            </Pressable>
+          </View>
+
+          {/* Holds the button at the bottom of the card however tall it ends up. */}
+          <View style={styles.spacer} />
           <Action
             label={t.trial.start}
             onPress={() => {
@@ -85,7 +108,6 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
               void supabase.rpc('mark_trial_notice_seen');
             }}
           />
-          <Action secondary label={t.trial.seePricing} onPress={() => { void Linking.openURL(PRICING_URL); }} />
         </Card>
       </WorkPage>
     );
@@ -93,3 +115,9 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+
+const styles = StyleSheet.create({
+  fill: { flex: 1, gap: 18 },
+  links: { gap: 8 },
+  spacer: { flex: 1, minHeight: 12 },
+});

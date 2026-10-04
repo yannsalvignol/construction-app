@@ -488,7 +488,9 @@ const en = {
     welcomeTitle: 'Welcome to CASPROD',
     freeDays: (n: number) => `${n} days free`,
     welcomeBody:
-      'You have everything, with no limits, for fifteen days. At the end of it we will set up a call to pick the plan that suits you — our pricing is already on our website. Until then, use it as much as you like.',
+      'You have everything, with no limits, for fifteen days. At the end of it we will set up a call to pick the plan that suits you. Until then, use it as much as you like.',
+    reachUsNow:
+      'You do not have to wait for the trial to end: write to us today to talk it through, and see our pricing online.',
     start: 'Get started',
     seePricing: 'See pricing',
     lockedTitle: 'Your trial has ended',

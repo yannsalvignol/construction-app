@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrandSpinner } from '@/components/brand-spinner';
 import { Host, Picker } from '@expo/ui';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withTiming,
@@ -14,7 +14,7 @@ import { workCopy } from '@/lib/work-copy';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function WorkPage({ title, subtitle, titleAccessory, topInset = false, children }: {
+export function WorkPage({ title, subtitle, titleAccessory, topInset = false, fill = false, children }: {
   title: string; subtitle?: string;
   /** Sits to the right of the heading, for a control that acts on the whole page. */
   titleAccessory?: React.ReactNode;
@@ -24,6 +24,11 @@ export function WorkPage({ title, subtitle, titleAccessory, topInset = false, ch
    * already does, and asking for it twice would push the page down.
    */
   topInset?: boolean;
+  /**
+   * Lets the content stretch to the bottom of the screen instead of ending
+   * where its text does — for a page that is one card and nothing else.
+   */
+  fill?: boolean;
   children: React.ReactNode;
 }) {
   const theme = useTheme();
@@ -32,7 +37,8 @@ export function WorkPage({ title, subtitle, titleAccessory, topInset = false, ch
   return <SafeAreaView
     edges={topInset ? ['top', 'left', 'right'] : ['left', 'right']}
     style={{ flex: 1, backgroundColor: theme.background }}>
-    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.page}>
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+      contentContainerStyle={[styles.page, fill && styles.pageFill]}>
       <View style={{ gap: 8, marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <ThemedText style={[styles.heading, { flex: 1 }]}>{title}</ThemedText>
@@ -49,7 +55,12 @@ export function WorkPage({ title, subtitle, titleAccessory, topInset = false, ch
  * the one that matters right now with a thin accent edge, which is enough
  * without repainting the whole thing.
  */
-export function Card({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
+export function Card({ children, accent = false, style }: {
+  children: React.ReactNode;
+  accent?: boolean;
+  /** For the rare card that is the whole page rather than one item on it. */
+  style?: StyleProp<ViewStyle>;
+}) {
   const theme = useTheme();
   return (
     <View
@@ -60,6 +71,7 @@ export function Card({ children, accent = false }: { children: React.ReactNode; 
           backgroundColor: theme.backgroundElement,
           borderColor: accent ? theme.accent : 'transparent',
         },
+        style,
       ]}>
       {children}
     </View>
@@ -258,6 +270,7 @@ export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, 
 
 const styles = StyleSheet.create({
   page: { padding: 20, paddingBottom: 100, gap: 20, width: '100%', maxWidth: 800, alignSelf: 'center' },
+  pageFill: { flexGrow: 1, paddingBottom: 20 },
   heading: { fontSize: 30, lineHeight: 38, fontWeight: '700', letterSpacing: -0.8 },
   card: { borderRadius: 20, borderWidth: 1, padding: 22, gap: 16 },
   action: { minHeight: 52, borderRadius: 999, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },

@@ -484,7 +484,9 @@ const fr = {
     welcomeTitle: 'Bienvenue sur CASPROD',
     freeDays: (n: number) => `${n} jours d'essai gratuit`,
     welcomeBody:
-      "Vous avez accès à tout, sans limite, pendant quinze jours. À la fin de cette période, nous prendrons rendez-vous ensemble pour choisir la formule qui vous convient — nos tarifs sont déjà consultables sur notre site. D'ici là, servez-vous autant que vous le voulez.",
+      "Vous avez accès à tout, sans limite, pendant quinze jours. À la fin de cette période, nous prendrons rendez-vous ensemble pour choisir la formule qui vous convient. D'ici là, servez-vous autant que vous le voulez.",
+    reachUsNow:
+      "Vous n'avez pas à attendre la fin de l'essai : écrivez-nous dès maintenant pour en parler, et consultez nos tarifs en ligne.",
     start: 'Commencer',
     seePricing: 'Voir les tarifs',
     lockedTitle: 'Votre période d’essai est terminée',
