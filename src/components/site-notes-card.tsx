@@ -119,8 +119,6 @@ export function SiteNotesCard({ siteId, children }: { siteId: string; children: 
     </View>
 
     {open && <Card>
-      <ThemedText type="small" themeColor="textSecondary">{copy.noteHint}</ThemedText>
-
       {!notes && !error && <BrandSpinner color={theme.accent} />}
       {error && <ThemedText type="small" themeColor="danger">{error}</ThemedText>}
 
@@ -163,7 +161,7 @@ export function SiteNotesCard({ siteId, children }: { siteId: string; children: 
         maxLength={MAX}
         value={draft}
         onChangeText={setDraft}
-        placeholder={copy.notePlaceholder}
+        placeholder={copy.noteTitle}
         placeholderTextColor={theme.textPlaceholder}
       />
       <Action label={copy.noteSend} busy={busy} disabled={!draft.trim()} onPress={() => { void send(); }} />
