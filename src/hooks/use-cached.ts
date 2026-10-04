@@ -92,13 +92,20 @@ async function load<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return promise;
 }
 
-/** Warms a key without rendering anything. Failures are the caller's business
- *  to surface later; a warm-up that could not run is simply a cold tab. */
-export function prefetch<T>(key: string, loader: () => Promise<T>) {
+/**
+ * Warms a key without rendering anything. Failures are the caller's business
+ * to surface later; a warm-up that could not run is simply a cold tab.
+ *
+ * Resolves with what was loaded, so a caller can warm what the rows point at
+ * in turn — avatars, say — and `undefined` when the load failed, because a
+ * warm-up that rejects is not an error anybody is waiting on.
+ */
+export function prefetch<T>(key: string, loader: () => Promise<T>): Promise<T | undefined> {
   // A value on disk is shown at once but is still yesterday's, so the warm-up
-  // runs anyway; only a load already in flight is skipped.
-  if (pending.has(key)) return;
-  void load(key, loader).catch(() => {});
+  // runs anyway; only a load already in flight is joined rather than repeated.
+  const existing = pending.get(key) as Promise<T> | undefined;
+  if (existing) return existing.catch(() => undefined);
+  return load(key, loader).catch(() => undefined);
 }
 
 /** Drops a key so the next read goes to the network — after a write that makes
