@@ -76,8 +76,12 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   const [sites, setSites] = useState<Site[]>(
     () => (readCache<Site[]>(sitesKey(companyId)) ?? []).filter((site) => site.latitude != null)
   );
-  const [tab, setTab] = useState<Tab>(null);
-  const tabRef = useRef<Tab>(null);
+  // Employés, not both: the question this tab is opened with is where the
+  // crew is, and the chantiers are pins that do not move. The web map has
+  // always opened this way; the native one was the odd one out. Tapping it
+  // again still clears the filter and brings the chantiers back.
+  const [tab, setTab] = useState<Tab>('people');
+  const tabRef = useRef<Tab>('people');
   const [error, setError] = useState<string | null>(null);
   // Ticked with each refresh: reading the clock during render is not pure.
   const [now, setNow] = useState(() => Date.now());
@@ -95,11 +99,11 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   const [mapReady, setMapReady] = useState(mapHasDrawn);
   // Fixed at mount: a region that moved under the camera would fight the
   // framing and the chef's own panning.
-  const [initialRegion] = useState(() => regionFor([
-    ...(team ?? []).map((m) => ({ latitude: m.latitude, longitude: m.longitude })),
-    ...sites.flatMap((p) => p.latitude != null && p.longitude != null
-      ? [{ latitude: p.latitude, longitude: p.longitude }] : []),
-  ]));
+  // The people, because that is the tab it opens on: framing on anything the
+  // first frame() will not frame puts a jump in front of the chef.
+  const [initialRegion] = useState(() => regionFor(
+    (team ?? []).map((m) => ({ latitude: m.latitude, longitude: m.longitude }))
+  ));
 
   // Frames only what the selected tab shows, so picking "Chantiers" zooms to the
   // sites and picking "Employés" to the people.
