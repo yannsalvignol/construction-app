@@ -402,9 +402,18 @@ Deno.serve(async (req) => {
     if (since < STALE_PARSE_MS) return json({ ok: true, status: 'parsing' }, 200);
   }
 
-  await admin.from('site_quotes')
-    .update({ status: 'parsing', parse_error: null, parse_warning: null, parsing_started_at: new Date().toISOString() })
-    .eq('id', quote.id);
+  // Claimed as the caller, not with the service role: the daily ceiling is a
+  // rule about his company, and checking it here with admin rights would mean
+  // writing the rule twice. It also marks the devis as parsing in the same
+  // statement, so two imports sent at once cannot both pass the count.
+  const asChef = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { error: claimError } = await asChef.rpc('claim_quote_parse', { quote: quote.id });
+  if (claimError) {
+    return json({ error: claimError.message }, claimError.message.includes('limit') ? 429 : 400);
+  }
 
   // Answer now; the parse continues on its own. The client watches the status.
   const work = parse(admin, openaiKey, quote, authHeader);

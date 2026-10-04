@@ -462,6 +462,44 @@ test('handing out devis work', async t => {
     assert.equal(Number((await peek('select count(*) from public.site_quotes where id = $1', [quote]))[0].count), 1);
   });
 
+  await t.test('a company reads five devis a day, and the sixth is refused', async () => {
+    const make = async (n) => (await peek(`
+      insert into public.site_quotes (company_id, site_id, file_path, file_name, mime_type, status, uploaded_by, size_bytes)
+      values ($1, $2, $3, $3, 'application/pdf', 'stored', $4, 10) returning id`,
+      [ids.company, ids.site, `limit-${n}.pdf`, ids.chef]))[0].id;
+
+    await db.query('update public.site_quotes set parsing_started_at = null where company_id = $1', [ids.company]);
+    const made = [];
+    for (let n = 0; n < 6; n += 1) made.push(await make(n));
+
+    for (let n = 0; n < 5; n += 1) {
+      await as(ids.chef, 'select public.claim_quote_parse($1)', [made[n]]);
+    }
+    assert.equal(Number((await as(ids.chef, 'select public.quote_parses_left() as n'))[0].n), 0);
+
+    await assert.rejects(
+      as(ids.chef, 'select public.claim_quote_parse($1)', [made[5]]),
+      /Daily devis reading limit reached/
+    );
+
+    // Re-reading one already counted today is not a sixth document.
+    await as(ids.chef, 'select public.claim_quote_parse($1)', [made[0]]);
+
+    // Only a chef, only his own company.
+    await assert.rejects(
+      as(ids.worker, 'select public.claim_quote_parse($1)', [made[0]]), /Only a chef/);
+    await assert.rejects(
+      as(ids.otherChef, 'select public.claim_quote_parse($1)', [made[0]]), /Quote not found/);
+
+    // The ceiling is a setting, raised without a deploy.
+    await db.query('update public.companies set daily_parse_limit = 20 where id = $1', [ids.company]);
+    await as(ids.chef, 'select public.claim_quote_parse($1)', [made[5]]);
+    assert.equal(Number((await as(ids.chef, 'select public.quote_parses_left() as n'))[0].n), 14);
+
+    await db.query('update public.companies set daily_parse_limit = 5 where id = $1', [ids.company]);
+    await db.query('delete from public.site_quotes where id = any($1)', [made]);
+  });
+
   await t.test('nobody reads another company\'s assignments', async () => {
     assert.equal((await as(ids.otherChef, 'select * from public.quote_assignments')).length, 0);
     assert.ok((await as(ids.chef, 'select * from public.quote_assignments')).length > 0);

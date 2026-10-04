@@ -143,6 +143,39 @@ photos that were asked for.
 
 ---
 
+## How many devis a company may have read in a day
+
+Five by default. Reading a devis is the one thing here that costs real money
+per use — a ten-page scan is 114 000 input tokens — and a parse that
+disappoints invites a retry that costs the same as the first.
+
+```sql
+-- raise it for a customer who really does import twenty in a morning
+update public.companies set daily_parse_limit = 20 where name = '...';
+
+-- no ceiling at all
+update public.companies set daily_parse_limit = 0 where name = '...';
+
+-- who is near it today
+select c.name, c.daily_parse_limit,
+       count(q.id) filter (
+         where (q.parsing_started_at at time zone coalesce(c.time_zone,'UTC'))::date
+             = (now() at time zone coalesce(c.time_zone,'UTC'))::date
+       ) as read_today
+from public.companies c
+left join public.site_quotes q on q.company_id = c.id
+group by c.id order by read_today desc;
+```
+
+Counted per company, over its own calendar day, and by **attempts** rather
+than successes: a reading that failed has already spent the tokens. Re-reading
+a devis already counted today does not count twice — the rule is about how
+many documents are read, and one document re-read is the same document.
+
+`0` means no ceiling.
+
+---
+
 ## Live location
 
 ```sql
