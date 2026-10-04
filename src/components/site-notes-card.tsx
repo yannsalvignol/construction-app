@@ -104,7 +104,9 @@ export function SiteNotesCard({ siteId, children }: { siteId: string; children: 
           justifyContent: 'center',
           gap: 4,
           backgroundColor: open ? theme.backgroundSelected : theme.backgroundElement,
-          borderColor: theme.backgroundSelected,
+          // Dark grey rather than the card tone: the chantier card beside it
+          // has no border at all, so this one has to draw its own edge.
+          borderColor: theme.textSecondary,
           opacity: pressed ? 0.6 : 1,
         })}>
         <Ionicons
