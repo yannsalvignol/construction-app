@@ -14,14 +14,25 @@ import { useTheme } from '@/hooks/use-theme';
 export const fold = (text: string) =>
   text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-/** The query as words. Every one has to appear somewhere in a row for it to
- *  match, in any order: "alaoui karim" finds Karim Alaoui, and so does
- *  "kar ala". */
-export const terms = (query: string) => fold(query.trim()).split(/\s+/).filter(Boolean);
+/** Split on anything that is not a letter or a digit, so Al-Manar is two
+ *  words and O'Brien is two: a chef typing "manar" means the second one. */
+const wordsOf = (text: string) => fold(text).split(/[^a-z0-9]+/).filter(Boolean);
 
+/** The query as words, in any order: "alaoui karim" and "kar ala" both find
+ *  Karim Alaoui. */
+export const terms = (query: string) => wordsOf(query);
+
+/**
+ * Matches from the start of a word, not anywhere inside one.
+ *
+ * Typing "a" should offer the people whose name begins with an A, not every
+ * name that happens to contain one — which on the first keystroke is almost
+ * all of them, and makes the field look as though it is not working. Every
+ * word of the query must begin some word of the row.
+ */
 export function hits(haystack: string, words: string[]) {
-  const folded = fold(haystack);
-  return words.every((word) => folded.includes(word));
+  const parts = wordsOf(haystack);
+  return words.every((word) => parts.some((part) => part.startsWith(word)));
 }
 
 /**
