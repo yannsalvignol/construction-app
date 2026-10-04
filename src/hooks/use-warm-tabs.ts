@@ -2,7 +2,10 @@ import { useEffect } from 'react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { prefetch } from '@/hooks/use-cached';
-import { employeesKey, loadEmployees, loadPlanning, loadSites, planningKey, sitesKey } from '@/lib/tab-data';
+import {
+  companyKey, dashboardKey, employeesKey, loadCompany, loadDashboard, loadEmployees,
+  loadPlanning, loadSites, planningKey, sitesKey,
+} from '@/lib/tab-data';
 
 /** Monday of the current week, in the plain-date form the tables store. */
 function weekBounds() {
@@ -40,6 +43,8 @@ export function useWarmTabs() {
     if (role === 'chef') {
       prefetch(sitesKey(companyId), () => loadSites(companyId));
       prefetch(employeesKey(companyId), () => loadEmployees(companyId));
+      prefetch(companyKey(companyId), () => loadCompany(companyId));
+      prefetch(dashboardKey(companyId), loadDashboard);
     }
   }, [companyId, role]);
 }

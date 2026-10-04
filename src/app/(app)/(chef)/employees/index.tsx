@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Keyboard, Pressable, ScrollView, Share, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,43 +23,31 @@ import { generatePassword, generateUsername } from '@/lib/generate-credentials';
 import { translateServerError } from '@/lib/i18n/server-errors';
 import { supabase } from '@/lib/supabase';
 import { invalidate, useCached } from '@/hooks/use-cached';
-import { employeesKey, loadEmployees } from '@/lib/tab-data';
+import { companyKey, employeesKey, loadCompany, loadEmployees } from '@/lib/tab-data';
 
 function JoinCodeCard() {
   const theme = useTheme();
   const { t, locale } = useI18n();
   const { profile } = useAuth();
 
-  const [joinCode, setJoinCode] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState<string | null>(null);
+  // Read through the cache that survives a cold start: a code that never
+  // changes has no business making anyone wait, and this one was fetched from
+  // the backend on every single focus.
+  const companyId = profile?.company_id;
+  const key = companyKey(companyId ?? '');
+  const loader = useCallback(() => loadCompany(companyId ?? ''), [companyId]);
+  const { data: company, refresh } = useCached(key, loader);
+  // Held separately only so a regeneration shows its new code at once; the
+  // cached read catches up on the next focus.
+  const [freshCode, setFreshCode] = useState<string | null>(null);
+  const joinCode = freshCode ?? company?.join_code ?? null;
+  const companyName = company?.name ?? null;
   const [regenerating, setRegenerating] = useState(false);
   const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showCodeInfo, setShowCodeInfo] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
   const copiedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const fetchJoinCode = useCallback(async () => {
-    if (!profile) return;
-    const { data, error } = await supabase
-      .from('companies')
-      .select('name, join_code')
-      .eq('id', profile.company_id)
-      .single();
-
-    if (error) {
-      console.error('[employees] failed to load company join code', error);
-      return;
-    }
-    setJoinCode(data.join_code);
-    setCompanyName(data.name);
-  }, [profile]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchJoinCode();
-    }, [fetchJoinCode])
-  );
 
   useEffect(() => {
     return () => {
@@ -94,7 +82,10 @@ function JoinCodeCard() {
       setCodeError(translateServerError(error.message, locale));
       return;
     }
-    setJoinCode(data);
+    setFreshCode(data);
+    // The cached copy now names a code that no longer works.
+    invalidate(key);
+    void refresh();
   }
 
   return (

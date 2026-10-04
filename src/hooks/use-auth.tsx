@@ -7,6 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useI18n } from '@/hooks/use-i18n';
 import { resolveFunctionError } from '@/lib/edge-function-error';
 import { translateServerError } from '@/lib/i18n/server-errors';
+import { clearCache } from '@/hooks/use-cached';
 import { supabase } from '@/lib/supabase';
 import { unregisterPresenceNotifications } from '@/lib/presence-notifications';
 import { stopSafetyWatch } from '@/lib/live-location';
@@ -549,6 +550,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // running until something stops it, so a deleted account would go on
         // reporting from the worker's pocket.
         await stopSafetyWatch().catch(() => {});
+        clearCache();
         // The auth user is gone, so the server-side sign-out would fail.
         await supabase.auth.signOut({ scope: 'local' });
         return { error: null };
@@ -559,6 +561,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // delivering positions to a task with nobody to report them for.
         await stopSafetyWatch().catch(() => {});
         await unregisterPresenceNotifications().catch(() => {});
+        // The tab cache now survives the app being closed, so it has to be
+        // thrown away deliberately: the next person to sign in on this phone
+        // must not be shown the last one's employees and chantiers.
+        clearCache();
         await supabase.auth.signOut();
       },
       refreshProfile: async () => {
