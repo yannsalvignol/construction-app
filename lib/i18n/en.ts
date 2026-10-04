@@ -501,6 +501,9 @@ const en = {
     lockedBody:
       'We hope CASPROD earned its keep. Call or write to us to talk about what comes next — we reopen your access right away.',
     mailSubject: 'Activate my company’s access',
+    takeDay: 'Carry on for one more day',
+    daysLeftToTake: (n: number): string =>
+      n > 1 ? `You can do this ${n} times in all.` : 'This is the last time.',
   },
   quoteReview: {
     milestones: 'Payment schedule',

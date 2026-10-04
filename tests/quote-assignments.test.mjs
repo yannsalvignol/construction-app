@@ -525,6 +525,29 @@ test('handing out devis work', async t => {
       /needs to be unlocked/
     );
 
+    // Three days he can take for himself, one at a time, and then no more.
+    assert.equal((await access(ids.chef)).grace_left, 3);
+    for (const left of [2, 1, 0]) {
+      const after = (await as(ids.chef, 'select public.take_grace_day() as a'))[0].a;
+      assert.equal(after.locked, false, 'a day taken opens the app');
+      assert.equal(after.grace_left, left);
+      // The writes open too, not just the screen.
+      await as(ids.chef, 'select public.require_company_access()');
+      // Spending the next one is only allowed once this one has run out.
+      await assert.rejects(as(ids.chef, 'select public.take_grace_day()'), /not locked/);
+      await db.query(`update public.companies set grace_until = now() - interval '1 minute'
+                      where id = $1`, [ids.company]);
+      assert.equal((await access(ids.chef)).locked, true);
+    }
+    await assert.rejects(as(ids.chef, 'select public.take_grace_day()'), /No more days/);
+    await assert.rejects(
+      as(ids.chef, 'select public.claim_quote_parse($1)', [quote]),
+      /needs to be unlocked/
+    );
+
+    // Nobody but a chef spends his company's days.
+    await assert.rejects(as(ids.worker, 'select public.take_grace_day()'), /Only a chef/);
+
     // Unlocked by hand, which is how this is sold.
     await db.query('update public.companies set subscription_active = true where id = $1', [ids.company]);
     assert.equal((await access(ids.chef)).locked, false);

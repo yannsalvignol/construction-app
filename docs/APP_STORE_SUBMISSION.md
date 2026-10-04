@@ -58,8 +58,10 @@ BUSINESS MODEL — NO IN-APP PURCHASE
   price and no link to a pricing page anywhere in the binary.
 - A new company gets 15 days of access. The chef sees a one-time welcome
   screen stating the number of days. After that, if we have not activated the
-  company's access, the chef sees a screen asking him to write to us so we can
-  reactivate it. Employees are never gated by this.
+  company's access, the chef sees a screen asking him to call or write to us
+  so we can reactivate it. That screen also lets him carry on for one more
+  day, three times, without contacting anyone. Employees are never gated by
+  this.
 - The phone number and e-mail address on those screens are for account
   activation and support. They are the only outbound links in the app.
 - The demo chef account above has an active access, so the reviewer never

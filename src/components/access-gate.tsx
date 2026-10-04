@@ -32,6 +32,8 @@ type Access = {
   days_left: number;
   locked: boolean;
   notice_seen: boolean;
+  /** Single days still there to take before the wall is final. */
+  grace_left: number;
 };
 
 /**
@@ -55,6 +57,7 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [access, setAccess] = useState<Access | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [taking, setTaking] = useState(false);
 
   const load = useCallback(async () => {
     if (profile?.role !== 'chef') return;
@@ -63,6 +66,16 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
   }, [profile?.role]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
+
+  /** Spends one of the three days. The server returns the new access, so the
+   *  wall comes down without a second round trip. */
+  async function takeDay() {
+    setTaking(true);
+    const { data } = await supabase.rpc('take_grace_day');
+    if (data) setAccess(data as Access);
+    else await load();
+    setTaking(false);
+  }
 
   if (profile?.role !== 'chef' || !access) return <>{children}</>;
 
@@ -116,6 +129,25 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
             <ThemedText type="smallBold" style={styles.linkLabel}>{SALES_EMAIL}</ThemedText>
             <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
           </Pressable>
+
+          {/* Three days he can take while the call is being arranged. Not an
+              escape — the count is on the company and the database holds it —
+              but a locked-out chef with a crew on site tomorrow needs a door,
+              and a man who had to break one does not sign a contract. */}
+          {access.grace_left > 0 && (
+            <>
+              <View style={[styles.rule, { backgroundColor: theme.separator }]} />
+              <Action
+                secondary
+                busy={taking}
+                label={t.trial.takeDay}
+                onPress={() => { void takeDay(); }}
+              />
+              <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+                {t.trial.daysLeftToTake(access.grace_left)}
+              </ThemedText>
+            </>
+          )}
         </Card>
       </WorkPage>
     );
@@ -205,6 +237,7 @@ const styles = StyleSheet.create({
   includedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   includedText: { flex: 1 },
   rule: { height: StyleSheet.hairlineWidth, marginTop: 2 },
+  centered: { textAlign: 'center' },
   linkRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderWidth: 1, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 14,

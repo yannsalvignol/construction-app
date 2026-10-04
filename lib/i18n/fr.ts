@@ -498,6 +498,9 @@ const fr = {
     lockedBody:
       'Nous espérons que CASPROD vous a rendu service. Appelez-nous ou écrivez-nous pour parler de la suite — nous rouvrons votre accès dans la foulée.',
     mailSubject: 'Activer l’accès de mon entreprise',
+    takeDay: 'Continuer encore un jour',
+    daysLeftToTake: (n: number) =>
+      n > 1 ? `Vous pouvez le faire ${n} fois en tout.` : 'C’est la dernière fois.',
   },
   quoteReview: {
     milestones: 'Échéancier',
