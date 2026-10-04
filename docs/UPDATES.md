@@ -119,8 +119,22 @@ out from a user.
 
 Where a function's signature must change, replace it with one whose new
 arguments have defaults, so a call that predates the change still resolves.
-`start_work_day` gained four arguments that way; a copy of the app that knows
-nothing about start-of-day photos keeps starting days exactly as it did.
+
+**A compatible signature is not a compatible behaviour.** `start_work_day`
+gained its photo arguments that way, with defaults, and the old app's two-
+argument call kept resolving — and five workers across four companies were
+locked out of their own work days within the hour, because the chef had
+switched the requirement on back when it did nothing, and their build has no
+camera step to satisfy it with. The signature was fine. The rule was not.
+
+So a requirement that needs something of the app asks the app first:
+`can_photograph` is sent only by a build that has the camera step, and the
+requirement is enforced only when it arrives. An older app loses a feature it
+never had; it does not lose the ability to work.
+
+> An old client silently missing a feature is survivable. An old client locked
+> out is not. When a change needs something new *from the app*, make the app
+> say so, and treat its silence as the old behaviour.
 
 > This is the reason to keep OTA working. With it, the window during which an
 > old version is running is days. Without it, it is however long a user takes

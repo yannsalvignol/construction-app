@@ -244,6 +244,11 @@ export default function EmployeeHomeScreen() {
                 lat: where?.accuracy ? where.latitude : null,
                 lng: where?.accuracy ? where.longitude : null,
                 accuracy: where?.accuracy || null,
+                // This build has the camera step, so the chef's requirement
+                // may be enforced against it. A build that predates this says
+                // nothing and is refused nothing, rather than being locked
+                // out of its own work days by a setting it cannot satisfy.
+                can_photograph: true,
               });
               if (failure) throw failure;
             });

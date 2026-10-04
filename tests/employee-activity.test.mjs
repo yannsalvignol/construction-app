@@ -107,13 +107,21 @@ test('employee activity', async t => {
     // them, which is the whole point of their existing.
     await db.query('update public.profiles set equipment_photo_required = true where id = $1', [ids.mate]);
     await as(ids.mate, "select public.set_presence_consent(true, '2026-09-07')");
+    // An app that cannot take a photo is not asked for one: the five accounts
+    // that already had this switched on were locked out of their own work
+    // days by a build that predates the camera step.
+    await as(ids.mate, 'select public.start_work_day($1, 8)', [ids.site]);
+    assert.equal(Number((await peek('select count(*) from public.work_day_photos'))[0].count), 0);
+    await db.query('delete from public.work_days where employee_id = $1', [ids.mate]);
+
+    // An app that can is refused without it.
     await assert.rejects(
-      as(ids.mate, 'select public.start_work_day($1, 8)', [ids.site]),
+      as(ids.mate, 'select public.start_work_day($1, 8, null, null, null, null, null, true)', [ids.site]),
       /safety equipment is required/
     );
 
     // With the photo, the day starts and the proof is stored with it.
-    await as(ids.mate, `select public.start_work_day($1, 8, '${ids.mate}/gear.jpg', null, 33.57, -7.58, 9)`, [ids.site]);
+    await as(ids.mate, `select public.start_work_day($1, 8, '${ids.mate}/gear.jpg', null, 33.57, -7.58, 9, true)`, [ids.site]);
     const proof = (await peek('select kind, photo_path, accuracy_meters from public.work_day_photos'))[0];
     assert.equal(proof.kind, 'equipment');
     assert.equal(proof.photo_path, `${ids.mate}/gear.jpg`);
