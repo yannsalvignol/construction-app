@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, TextInput, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { BrandSpinner } from './brand-spinner';
@@ -50,9 +51,21 @@ export function SiteNotesCard({ siteId, children }: { siteId: string; children: 
     if (next && !notes) void load();
   }
 
+  /** Haptics have no web implementation, and a failed tap is not worth a throw. */
+  function tap(style: Haptics.ImpactFeedbackStyle) {
+    if (Platform.OS !== 'web') Haptics.impactAsync(style).catch(() => {});
+  }
+  function felt(type: Haptics.NotificationFeedbackType) {
+    if (Platform.OS !== 'web') Haptics.notificationAsync(type).catch(() => {});
+  }
+
   async function send() {
     const body = draft.trim();
     if (!body || busy) return;
+    // One tap as it leaves, and a different one when it has landed: the chef
+    // is sending something to other people's phones and the send is not
+    // instant, so "pressed" and "sent" must not feel like the same event.
+    tap(Haptics.ImpactFeedbackStyle.Medium);
     setBusy(true); setError(null);
     // Through the Edge Function rather than the RPC directly: it writes the
     // note as the chef and then notifies the men on the chantier, which needs
@@ -61,7 +74,8 @@ export function SiteNotesCard({ siteId, children }: { siteId: string; children: 
       body: { site: siteId, body },
     });
     setBusy(false);
-    if (failure) { setError(copy.failed); return; }
+    if (failure) { felt(Haptics.NotificationFeedbackType.Error); setError(copy.failed); return; }
+    felt(Haptics.NotificationFeedbackType.Success);
     setDraft('');
     await load();
   }
@@ -128,21 +142,23 @@ export function SiteNotesCard({ siteId, children }: { siteId: string; children: 
         <View
           key={note.id}
           style={{
-            gap: 4, paddingLeft: 14, borderLeftWidth: 3, borderLeftColor: theme.backgroundSelected,
+            flexDirection: 'row', alignItems: 'center', gap: 14,
+            paddingLeft: 14, borderLeftWidth: 3, borderLeftColor: theme.backgroundSelected,
           }}>
-          <ThemedText type="small">{note.body}</ThemedText>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
-              {when(note.created_at)}
-            </ThemedText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={copy.noteDelete}
-              hitSlop={10}
-              onPress={() => confirmDelete(note)}>
-              <Ionicons name="trash-outline" size={16} color={theme.textSecondary} />
-            </Pressable>
+          {/* The note and its date read as one block; the bin belongs to the
+              whole of it, so it sits against it rather than on the date's line. */}
+          <View style={{ flex: 1, gap: 4 }}>
+            <ThemedText type="small">{note.body}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">{when(note.created_at)}</ThemedText>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={copy.noteDelete}
+            hitSlop={12}
+            onPress={() => confirmDelete(note)}
+            style={({ pressed }) => pressed && { opacity: 0.6 }}>
+            <Ionicons name="trash-outline" size={24} color={theme.textSecondary} />
+          </Pressable>
         </View>
       ))}
 
