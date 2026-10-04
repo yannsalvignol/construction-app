@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
-import MapView, { PROVIDER_GOOGLE, type Region } from 'react-native-maps';
+import MapView, { type Region } from 'react-native-maps';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Action } from './work-ui';
 import { ThemedText } from './themed-text';
 import { useI18n } from '@/hooks/use-i18n';
+import { MAP_PROVIDER } from '@/components/map-provider';
 import { useMapDiagnostics } from '@/hooks/use-map-diagnostics';
 import { useTheme } from '@/hooks/use-theme';
 import { addressAt, currentPosition, MOROCCO_REGION } from '@/lib/geocode';
@@ -235,7 +236,7 @@ export function SitePicker({ onChange }: {
     </View>
 
     <View style={{ height: 260, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
-      <MapView provider={PROVIDER_GOOGLE}
+      <MapView provider={MAP_PROVIDER}
         onMapReady={diagnostics.onMapReady}
         onMapLoaded={diagnostics.onMapLoaded}
         ref={map} style={{ flex: 1 }} initialRegion={MOROCCO_REGION} onRegionChangeComplete={settled} />

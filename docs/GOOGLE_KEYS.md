@@ -8,7 +8,7 @@ who opens the binary can spend against.
 
 | key | lives in | restricted by | used for |
 |---|---|---|---|
-| Maps — iOS | EAS env `GOOGLE_MAPS_IOS_API_KEY` | iOS bundle id | the map in the app |
+| Maps — iOS | EAS env `GOOGLE_MAPS_IOS_API_KEY` | iOS bundle id | **nothing, for now** — see below |
 | Maps — Android | EAS env `GOOGLE_MAPS_ANDROID_API_KEY` | package + SHA‑1 | the map in the app |
 | Places | Supabase secret `GOOGLE_PLACES_API_KEY` | API only | address search, server-side |
 
@@ -18,6 +18,23 @@ secrecy. The Places key is the opposite: it never leaves the server, so it is
 secret and needs no app restriction.
 
 ---
+
+## iOS draws with Apple Maps, for now
+
+`MAP_PROVIDER` returns `undefined` on iOS, so react-native-maps uses Apple's.
+
+Google was the intention — Apple and Google draw Morocco differently, and an
+app used by Moroccan crews should show the country as its users understand it.
+It renders in the simulator and never on a real device, with a key that is
+valid, present in the shipped binary, enabled on the right project, and an SDK
+that initialises cleanly. The one thing that would say why is the native log
+from the phone, and neither `devicectl`, `log stream` nor an Xcode attach would
+give it up.
+
+The key stays wired into the iOS build even though nothing uses it. Because the
+provider is a JS prop, switching back is one line in `map-provider.ts` and ships
+over the air — no native build, no review. Do that the day the error message
+exists.
 
 ## 1. Maps — iOS
 

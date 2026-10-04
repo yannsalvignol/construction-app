@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Circle, Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Action, Card, Feedback, pageStyles } from './work-ui';
 import { ThemedText } from './themed-text';
@@ -9,6 +9,7 @@ import { BrandSpinner } from './brand-spinner';
 import { OnSiteBadge } from './on-site-badge';
 import { SiteRow } from './site-row';
 import { useI18n } from '@/hooks/use-i18n';
+import { MAP_PROVIDER } from '@/components/map-provider';
 import { useMapDiagnostics } from '@/hooks/use-map-diagnostics';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchLiveTeam, type LivePosition } from '@/lib/live-location';
@@ -129,7 +130,7 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
     <View style={{ height: 380, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
       {/* Panning and zooming belong to the map; the page is scrolled from the lists
           below it, which is why the map is pinned rather than scrolling away. */}
-      <MapView provider={PROVIDER_GOOGLE}
+      <MapView provider={MAP_PROVIDER}
         onMapLoaded={diagnostics.onMapLoaded}
         ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}
         onMapReady={() => { diagnostics.onMapReady(); setMapReady(true); }}>

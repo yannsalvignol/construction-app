@@ -41,13 +41,22 @@ export function useMapDiagnostics(name: string) {
     const keyFor = Platform.OS === 'ios' ? 'iosGoogleMapsApiKey' : 'androidGoogleMapsApiKey';
     const key = args[keyFor];
 
+    const google = Platform.OS === 'android';
     console.log(
-      `[map:${name}] mounted on ${Platform.OS}, provider=google, ` +
-        `${keyFor}=${typeof key === 'string' && key.length ? `set (${key.length} chars)` : 'MISSING'}`
+      `[map:${name}] mounted on ${Platform.OS}, provider=${google ? 'google' : 'apple'}` +
+        (google
+          ? `, ${keyFor}=${typeof key === 'string' && key.length ? `set (${key.length} chars)` : 'MISSING'}`
+          : '')
     );
 
     const timer = setTimeout(() => {
       if (readyRef.current) return;
+      // Apple's map needs no key and no SDK, so a timeout there means
+      // something else entirely — a view with no size, most likely.
+      if (!google) {
+        console.warn(`[map:${name}] still not ready after ${GIVE_UP_MS / 1000}s on Apple Maps.`);
+        return;
+      }
       console.warn(
         `[map:${name}] still not ready after ${GIVE_UP_MS / 1000}s — the Google Maps SDK never started.\n` +
           '  Two causes, and they need different fixes:\n' +

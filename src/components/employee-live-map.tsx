@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Circle, Marker } from 'react-native-maps';
 import { BrandSpinner } from './brand-spinner';
 import { Action, Card } from './work-ui';
 import { ThemedText } from './themed-text';
 import { useI18n } from '@/hooks/use-i18n';
+import { MAP_PROVIDER } from '@/components/map-provider';
 import { useMapDiagnostics } from '@/hooks/use-map-diagnostics';
 import { useTheme } from '@/hooks/use-theme';
 import { hasBackgroundLocation, pushCurrentPosition } from '@/lib/live-location';
@@ -76,7 +77,7 @@ export function EmployeeLiveMap() {
           camera is pointed at the shared position instead, once per fix. */}
       <MapView
         // Google on both platforms, deliberately: see app.config.js.
-        provider={PROVIDER_GOOGLE}
+        provider={MAP_PROVIDER}
         onMapLoaded={diagnostics.onMapLoaded}
         ref={map}
         style={{ flex: 1 }}
