@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard, Pressable, ScrollView, Share, StyleSheet } from 'react-native';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, FlatList, Keyboard, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Image } from 'expo-image';
@@ -167,6 +167,78 @@ type Employee = {
   avatar_url: string | null;
 };
 
+/** Between two rows. A component, not an inline closure: a new function on
+ *  every render would make the list rebuild its separators. */
+function RowGap() {
+  return <View style={styles.rowGap} />;
+}
+
+const keyOf = (employee: Employee) => employee.id;
+
+/**
+ * One employee.
+ *
+ * Memoised, and outside the screen, because the list re-renders whenever the
+ * focus refresh lands and whenever a character is typed into the add form
+ * below it — neither of which changes a single row. Rebuilding a swipeable
+ * and its gesture for each of them was most of what the tab cost.
+ */
+const EmployeeCard = memo(function EmployeeCard({ employee, busy, removeLabel, onOpen, onDelete }: {
+  employee: Employee;
+  busy: boolean;
+  removeLabel: string;
+  onOpen: (employee: Employee) => void;
+  onDelete: (employee: Employee) => void;
+}) {
+  const theme = useTheme();
+  const palette = useAuthPalette();
+  return (
+    <SwipeToDelete
+      label={removeLabel}
+      radius={Spacing.three + Spacing.one}
+      busy={busy}
+      onDelete={() => onDelete(employee)}>
+      <Pressable
+        style={({ pressed }) => pressed && styles.pressed}
+        onPress={() => onOpen(employee)}>
+        <ThemedView
+          style={[
+            styles.employeeRow,
+            styles.transparent,
+            cardShadow(theme.isDark),
+            { backgroundColor: theme.backgroundElement, borderColor: theme.text },
+          ]}>
+          {employee.avatar_url ? (
+            <Image source={{ uri: employee.avatar_url }} style={styles.employeeAvatar} />
+          ) : (
+            <ThemedView
+              style={[
+                styles.employeeAvatar,
+                styles.employeeAvatarEmpty,
+                // The form grey, so an empty avatar reads as a slot
+                // waiting for a photograph, not a hole in the card.
+                { backgroundColor: palette.avatar },
+              ]}>
+              <Ionicons name="person" size={22} color={theme.textSecondary} />
+            </ThemedView>
+          )}
+          <ThemedView style={[styles.employeeIdentity, styles.transparent]}>
+            <ThemedText type="smallBold">
+              {employee.first_name} {employee.last_name}
+            </ThemedText>
+            {!!employee.username && (
+              <ThemedText type="small" themeColor="textSecondary">
+                {employee.username}
+              </ThemedText>
+            )}
+          </ThemedView>
+          <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+        </ThemedView>
+      </Pressable>
+    </SwipeToDelete>
+  );
+});
+
 export default function EmployeesScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -277,206 +349,195 @@ export default function EmployeesScreen() {
     fetchEmployees();
   }
 
+  const openEmployee = useCallback(
+    (employee: Employee) => router.push(`/employees/${employee.id}`),
+    [router]
+  );
+
+  const renderEmployee = useCallback(
+    ({ item }: { item: Employee }) => (
+      <EmployeeCard
+        employee={item}
+        busy={removing === item.id}
+        removeLabel={t.employees.remove.action}
+        onOpen={openEmployee}
+        onDelete={confirmRemove}
+      />
+    ),
+    // confirmRemove is redeclared each render and never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [removing, t.employees.remove.action, openEmployee]
+  );
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.four + insets.bottom }]} keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag">
-          <JoinCodeCard />
+        <FlatList
+          data={employees}
+          keyExtractor={keyOf}
+          renderItem={renderEmployee}
+          ItemSeparatorComponent={RowGap}
+          // Fifty-eight employees meant fifty-eight swipeable rows built
+          // before the tab could draw, and the press was where that was felt.
+          // A window of them is built now, and the rest as they come into
+          // view, which is what the list was always long enough to need.
+          initialNumToRender={8}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Spacing.four + insets.bottom }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          ListHeaderComponent={
+            <ThemedView style={[styles.transparent, styles.block]}>
+              <JoinCodeCard />
 
-          {removeError && (
-            <ThemedText type="small" style={[styles.centerText, { color: theme.danger }]}>
-              {removeError}
-            </ThemedText>
-          )}
+              {removeError && (
+                <ThemedText type="small" style={[styles.centerText, { color: theme.danger }]}>
+                  {removeError}
+                </ThemedText>
+              )}
 
-          {!loading && employees.length === 0 && !showAddForm && (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
-              {t.employees.noEmployees}
-            </ThemedText>
-          )}
-
-          {employees.length > 0 && (
-            <ThemedView style={[styles.employeeList, styles.transparent]}>
-              {employees.map((employee) => (
-                <SwipeToDelete
-                  key={employee.id}
-                  label={t.employees.remove.action}
-                  radius={Spacing.three + Spacing.one}
-                  busy={removing === employee.id}
-                  onDelete={() => confirmRemove(employee)}>
-                  <Pressable
-                    style={({ pressed }) => pressed && styles.pressed}
-                    onPress={() => router.push(`/employees/${employee.id}`)}>
-                    <ThemedView
-                      style={[
-                        styles.employeeRow,
-                        styles.transparent,
-                        cardShadow(theme.isDark),
-                        { backgroundColor: theme.backgroundElement, borderColor: theme.text },
-                      ]}>
-                      {employee.avatar_url ? (
-                        <Image source={{ uri: employee.avatar_url }} style={styles.employeeAvatar} />
-                      ) : (
-                        <ThemedView
-                          style={[
-                            styles.employeeAvatar,
-                            styles.employeeAvatarEmpty,
-                            // The form grey, so an empty avatar reads as a slot
-                            // waiting for a photograph, not a hole in the card.
-                            { backgroundColor: palette.avatar },
-                          ]}>
-                          <Ionicons name="person" size={22} color={theme.textSecondary} />
-                        </ThemedView>
-                      )}
-                      <ThemedView style={[styles.employeeIdentity, styles.transparent]}>
-                        <ThemedText type="smallBold">
-                          {employee.first_name} {employee.last_name}
-                        </ThemedText>
-                        {!!employee.username && (
-                          <ThemedText type="small" themeColor="textSecondary">
-                            {employee.username}
-                          </ThemedText>
-                        )}
-                      </ThemedView>
-                      <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
-                    </ThemedView>
-                  </Pressable>
-                </SwipeToDelete>
-              ))}
+              {!loading && employees.length === 0 && !showAddForm && (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+                  {t.employees.noEmployees}
+                </ThemedText>
+              )}
             </ThemedView>
-          )}
-
-          {showAddForm ? (
-            <ThemedView style={[styles.form, styles.transparent]}>
-              <AnimatedInput
-                surface={palette.field}
-                labelColor={palette.fieldText}
-                label={t.employees.form.firstNamePlaceholder}
-                returnKeyType="next"
-                value={firstName}
-                onChangeText={setFirstName}
-              />
-              <AnimatedInput
-                surface={palette.field}
-                labelColor={palette.fieldText}
-                label={t.employees.form.lastNamePlaceholder}
-                returnKeyType="next"
-                value={lastName}
-                onChangeText={setLastName}
-              />
-              <PhoneInput
-                surface={palette.field}
-                labelColor={palette.fieldText}
-                label={t.employees.form.phonePlaceholder}
-                value={phone}
-                onChangeText={setPhone}
-              />
-              <ThemedView
-                style={[
-                  styles.credentials,
-                  cardShadow(theme.isDark),
-                  { backgroundColor: theme.backgroundElement },
-                ]}>
-                <ThemedView style={[styles.transparent, { flexDirection: 'row', alignItems: 'center', gap: Spacing.two }]}>
-                  <ThemedText type="smallBold" style={{ flex: 1 }}>
-                    {t.employees.form.credentialsTitle}
-                  </ThemedText>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t.employees.form.generateRandomly}
-                    onPress={() => {
-                      setUsername(generateUsername(firstName || 'employee', lastName));
-                      setPassword(generatePassword());
-                    }}
-                    style={({ pressed }) => [
-                      styles.generateButton,
-                      { borderColor: theme.accent, opacity: pressed ? 0.6 : 1 },
+          }
+          ListFooterComponent={
+            <ThemedView style={[styles.transparent, styles.block]}>
+              {showAddForm ? (
+                <ThemedView style={[styles.form, styles.transparent]}>
+                  <AnimatedInput
+                    surface={palette.field}
+                    labelColor={palette.fieldText}
+                    label={t.employees.form.firstNamePlaceholder}
+                    returnKeyType="next"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                  />
+                  <AnimatedInput
+                    surface={palette.field}
+                    labelColor={palette.fieldText}
+                    label={t.employees.form.lastNamePlaceholder}
+                    returnKeyType="next"
+                    value={lastName}
+                    onChangeText={setLastName}
+                  />
+                  <PhoneInput
+                    surface={palette.field}
+                    labelColor={palette.fieldText}
+                    label={t.employees.form.phonePlaceholder}
+                    value={phone}
+                    onChangeText={setPhone}
+                  />
+                  <ThemedView
+                    style={[
+                      styles.credentials,
+                      cardShadow(theme.isDark),
+                      { backgroundColor: theme.backgroundElement },
                     ]}>
-                    <Ionicons name="dice-outline" size={16} color={theme.accentText} />
-                    <ThemedText type="small" themeColor="accentText">
-                      {t.employees.form.generate}
+                    <ThemedView style={[styles.transparent, { flexDirection: 'row', alignItems: 'center', gap: Spacing.two }]}>
+                      <ThemedText type="smallBold" style={{ flex: 1 }}>
+                        {t.employees.form.credentialsTitle}
+                      </ThemedText>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t.employees.form.generateRandomly}
+                        onPress={() => {
+                          setUsername(generateUsername(firstName || 'employee', lastName));
+                          setPassword(generatePassword());
+                        }}
+                        style={({ pressed }) => [
+                          styles.generateButton,
+                          { borderColor: theme.accent, opacity: pressed ? 0.6 : 1 },
+                        ]}>
+                        <Ionicons name="dice-outline" size={16} color={theme.accentText} />
+                        <ThemedText type="small" themeColor="accentText">
+                          {t.employees.form.generate}
+                        </ThemedText>
+                      </Pressable>
+                    </ThemedView>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t.employees.form.credentialsHint}
+                    </ThemedText>
+
+                    <AnimatedInput
+                      surface={palette.field}
+                      labelColor={palette.fieldText}
+                      label={t.employees.form.usernamePlaceholder}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                      value={username}
+                      onChangeText={setUsername}
+                    />
+
+                    <RuleChecklist rules={[
+                      { label: t.employees.form.ruleLength, met: username.trim().length >= 3 && username.trim().length <= 20 },
+                      { label: t.employees.form.ruleNoAccent, met: username.trim().length > 0 && !/[\s-]|[^\x00-\x7F]/.test(username.trim()) },
+                    ]} />
+
+                    <AnimatedInput
+                      surface={palette.field}
+                      labelColor={palette.fieldText}
+                      label={t.employees.form.passwordPlaceholder}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      value={password}
+                      onChangeText={setPassword}
+                    />
+
+                    <RuleChecklist rules={[
+                      { label: t.employees.form.rulePassword, met: password.length >= 6 },
+                    ]} />
+
+                  </ThemedView>
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.primary,
+                      { backgroundColor: theme.accent, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
+                    ]}
+                    disabled={submitting || !canSubmit}
+                    onPress={handleAddEmployee}>
+                    <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
+                      {submitting ? t.employees.form.submitting : t.employees.form.submit}
+                    </ThemedText>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      resetForm();
+                      setShowAddForm(false);
+                    }}>
+                    <ThemedText type="linkPrimary" style={styles.centerText}>
+                      {t.employees.form.cancel}
                     </ThemedText>
                   </Pressable>
                 </ThemedView>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t.employees.form.credentialsHint}
-                </ThemedText>
-
-                <AnimatedInput
-                  surface={palette.field}
-                  labelColor={palette.fieldText}
-                  label={t.employees.form.usernamePlaceholder}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                  value={username}
-                  onChangeText={setUsername}
-                />
-
-                <RuleChecklist rules={[
-                  { label: t.employees.form.ruleLength, met: username.trim().length >= 3 && username.trim().length <= 20 },
-                  { label: t.employees.form.ruleNoAccent, met: username.trim().length > 0 && !/[\s-]|[^\x00-\x7F]/.test(username.trim()) },
-                ]} />
-
-                <AnimatedInput
-                  surface={palette.field}
-                  labelColor={palette.fieldText}
-                  label={t.employees.form.passwordPlaceholder}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                  value={password}
-                  onChangeText={setPassword}
-                />
-
-                <RuleChecklist rules={[
-                  { label: t.employees.form.rulePassword, met: password.length >= 6 },
-                ]} />
-
-              </ThemedView>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.primary,
-                  { backgroundColor: theme.accent, opacity: pressed || submitting || !canSubmit ? 0.7 : 1 },
-                ]}
-                disabled={submitting || !canSubmit}
-                onPress={handleAddEmployee}>
-                <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
-                  {submitting ? t.employees.form.submitting : t.employees.form.submit}
-                </ThemedText>
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  resetForm();
-                  setShowAddForm(false);
-                }}>
-                <ThemedText type="linkPrimary" style={styles.centerText}>
-                  {t.employees.form.cancel}
-                </ThemedText>
-              </Pressable>
+              ) : (
+                <ThemedView style={[styles.transparent, styles.manualAddSection]}>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
+                    {t.employees.manualAddNote}
+                  </ThemedText>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.primary,
+                      { backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
+                    ]}
+                    onPress={() => setShowAddForm(true)}>
+                    <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
+                      {t.employees.addManually}
+                    </ThemedText>
+                  </Pressable>
+                </ThemedView>
+              )}
             </ThemedView>
-          ) : (
-            <ThemedView style={[styles.transparent, styles.manualAddSection]}>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
-                {t.employees.manualAddNote}
-              </ThemedText>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.primary,
-                  { backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
-                ]}
-                onPress={() => setShowAddForm(true)}>
-                <ThemedText style={[styles.buttonLabel, { color: theme.buttonText }]}>
-                  {t.employees.addManually}
-                </ThemedText>
-              </Pressable>
-            </ThemedView>
-          )}
-        </ScrollView>
+          }
+        />
       </SafeAreaView>
 
       <AppModal
@@ -509,7 +570,15 @@ const styles = StyleSheet.create({
     // clearance or it reads as tucked under the pills.
     paddingTop: Spacing.three,
     paddingBottom: Spacing.four,
+  },
+  /** The header and footer keep the old page rhythm; between the rows, the
+   *  separator does, because a FlatList lays its items out itself. */
+  block: {
     gap: Spacing.three,
+    marginVertical: Spacing.two,
+  },
+  rowGap: {
+    height: Spacing.two,
   },
   title: {
     textAlign: 'center',
