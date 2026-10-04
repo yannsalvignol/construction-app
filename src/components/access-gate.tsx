@@ -105,8 +105,6 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
             ))}
           </View>
 
-          <ThemedText type="small" themeColor="textSecondary">{t.trial.welcomeBody}</ThemedText>
-
           <Action
             large
             label={t.trial.start}
@@ -118,8 +116,7 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
 
           <View style={[styles.rule, { backgroundColor: theme.separator }]} />
 
-          {/* Not "later, when the trial ends" — both doors are open today, and
-              they sit below the button so they never compete with it. */}
+          {/* Below the button, so the two addresses never compete with it. */}
           <ThemedText type="small" themeColor="textSecondary">{t.trial.reachUsNow}</ThemedText>
           {/* Bordered rows rather than coloured links: they read as pressable
               without borrowing the accent the button is holding. */}
@@ -154,18 +151,18 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  hero: { flexDirection: 'row', alignItems: 'center', gap: 18, borderRadius: 16, padding: 20 },
-  heroCount: { fontSize: 64, lineHeight: 68, fontWeight: '700', letterSpacing: -2 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 16, borderRadius: 16, padding: 16 },
+  heroCount: { fontSize: 54, lineHeight: 58, fontWeight: '700', letterSpacing: -1.5 },
   heroWords: { flex: 1, gap: 4 },
-  heroUnit: { fontSize: 19, lineHeight: 24, fontWeight: '700' },
-  included: { gap: 10 },
+  heroUnit: { fontSize: 18, lineHeight: 22, fontWeight: '700' },
+  included: { gap: 8 },
   includedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   includedText: { flex: 1 },
   rule: { height: StyleSheet.hairlineWidth, marginTop: 2 },
-  links: { gap: 10 },
+  links: { gap: 8 },
   linkRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderWidth: 1, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 16,
+    borderWidth: 1, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 14,
   },
   linkLabel: { flex: 1 },
   pressed: { opacity: 0.6 },

@@ -489,14 +489,12 @@ const en = {
     freeDaysUnit: (n: number): string => (n > 1 ? 'days of free trial' : 'day of free trial'),
     noCard: 'No card, no commitment.',
     included: [
-      'Your devis read and split into tasks by AI',
-      'Sites, crews and presence with no limits',
-      'Everything you create stays yours, after the trial',
+      'Devis read and split by AI',
+      'Sites, crews and presence, no limits',
+      'What you create stays yours',
     ],
-    welcomeBody:
-      'At the end of the fifteen days we will set up a call to pick the plan that suits you. Until then, use it as much as you like.',
     reachUsNow:
-      'You do not have to wait for the trial to end: write to us today to talk it through, and see our pricing online.',
+      'At the end we pick your plan together. You can talk to us about it today.',
     start: 'Get started',
     seePricing: 'See pricing',
     lockedTitle: 'Your trial has ended',

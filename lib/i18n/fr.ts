@@ -485,14 +485,12 @@ const fr = {
     freeDaysUnit: (n: number) => (n > 1 ? "jours d'essai gratuit" : "jour d'essai gratuit"),
     noCard: 'Sans carte bancaire, sans engagement.',
     included: [
-      'Vos devis lus et découpés en tâches par l’IA',
+      'Devis lus et découpés par l’IA',
       'Chantiers, équipes et présence sans limite',
-      'Tout ce que vous créez reste à vous, après l’essai',
+      'Ce que vous créez reste à vous',
     ],
-    welcomeBody:
-      "À la fin des quinze jours, nous prendrons rendez-vous ensemble pour choisir la formule qui vous convient. D'ici là, servez-vous autant que vous le voulez.",
     reachUsNow:
-      "Vous n'avez pas à attendre la fin de l'essai : écrivez-nous dès maintenant pour en parler, et consultez nos tarifs en ligne.",
+      "À la fin, nous choisirons ensemble votre formule. Vous pouvez nous en parler dès maintenant.",
     start: 'Commencer',
     seePricing: 'Voir les tarifs',
     lockedTitle: 'Votre période d’essai est terminée',
