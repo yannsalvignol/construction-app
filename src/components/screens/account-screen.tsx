@@ -18,6 +18,7 @@ import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 import { translateServerError } from '@/lib/i18n/server-errors';
+import { avatarPath, shrinkAvatar } from '@/lib/avatar';
 import { supabase } from '@/lib/supabase';
 
 export function AccountScreen() {
@@ -103,23 +104,35 @@ export function AccountScreen() {
       return;
     }
 
+    // No base64 from the picker: the full-resolution bytes would be carried
+    // through JavaScript only to be thrown away by the resize below.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.6,
-      base64: true,
+      quality: 1,
     });
 
-    if (result.canceled || !result.assets[0]?.base64) return;
+    if (result.canceled || !result.assets[0]?.uri) return;
 
     setUploadingPhoto(true);
 
-    const path = `${profile.id}/avatar.jpg`;
+    const path = avatarPath(profile.id);
+    let bytes: string;
+    try {
+      bytes = await shrinkAvatar(result.assets[0].uri);
+    } catch {
+      setUploadingPhoto(false);
+      setPhotoError(t.account.photoFailed);
+      return;
+    }
+
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(path, decode(result.assets[0].base64), {
+      .upload(path, decode(bytes), {
         contentType: 'image/jpeg',
+        // One file per person at a fixed path, so the new photograph replaces
+        // the old bytes instead of leaving them in the bucket.
         upsert: true,
       });
 

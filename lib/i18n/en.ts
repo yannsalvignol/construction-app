@@ -600,6 +600,7 @@ const en = {
     changePhoto: 'Change photo',
     uploadingPhoto: 'Uploading…',
     photoPermissionDenied: 'Photo library access was denied',
+    photoFailed: 'That photo could not be prepared. Try another one.',
     profile: {
       title: 'Profile',
       firstNamePlaceholder: 'First name',

@@ -596,6 +596,7 @@ const fr = {
     changePhoto: 'Changer la photo',
     uploadingPhoto: 'Envoi…',
     photoPermissionDenied: "L'accès à la photothèque a été refusé",
+    photoFailed: "Cette photo n'a pas pu être préparée. Essayez-en une autre.",
     profile: {
       title: 'Profil',
       firstNamePlaceholder: 'Prénom',
