@@ -3,9 +3,10 @@ import { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { prefetch } from '@/hooks/use-cached';
 import {
-  companyKey, dashboardKey, employeesKey, loadCompany, loadDashboard, loadEmployees,
-  loadPlanning, loadSites, planningKey, sitesKey,
+  companyKey, dashboardKey, employeesKey, liveTeamKey, loadCompany, loadDashboard,
+  loadEmployees, loadPlanning, loadSites, planningKey, sitesKey,
 } from '@/lib/tab-data';
+import { fetchLiveTeam } from '@/lib/live-location';
 
 /** Monday of the current week, in the plain-date form the tables store. */
 function weekBounds() {
@@ -45,6 +46,7 @@ export function useWarmTabs() {
       prefetch(employeesKey(companyId), () => loadEmployees(companyId));
       prefetch(companyKey(companyId), () => loadCompany(companyId));
       prefetch(dashboardKey(companyId), loadDashboard);
+      prefetch(liveTeamKey(companyId), fetchLiveTeam);
     }
   }, [companyId, role]);
 }

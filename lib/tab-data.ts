@@ -33,6 +33,7 @@ export type CompanyIdentity = { name: string; join_code: string };
 export const sitesKey = (companyId: string) => `sites:${companyId}`;
 export const companyKey = (companyId: string) => `company:${companyId}`;
 export const dashboardKey = (companyId: string) => `dashboard:${companyId}`;
+export const liveTeamKey = (companyId: string) => `live-team:${companyId}`;
 export const employeesKey = (companyId: string) => `employees:${companyId}`;
 export const planningKey = (companyId: string, from: string) => `planning:${companyId}:${from}`;
 
