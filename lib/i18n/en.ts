@@ -486,9 +486,15 @@ const en = {
 
   trial: {
     welcomeTitle: 'Welcome to CASPROD',
-    freeDays: (n: number) => `${n} days free`,
+    freeDaysUnit: (n: number): string => (n > 1 ? 'days of free trial' : 'day of free trial'),
+    noCard: 'No card, no commitment.',
+    included: [
+      'Your devis read and split into tasks by AI',
+      'Sites, crews and presence with no limits',
+      'Everything you create stays yours, after the trial',
+    ],
     welcomeBody:
-      'You have everything, with no limits, for fifteen days. At the end of it we will set up a call to pick the plan that suits you. Until then, use it as much as you like.',
+      'At the end of the fifteen days we will set up a call to pick the plan that suits you. Until then, use it as much as you like.',
     reachUsNow:
       'You do not have to wait for the trial to end: write to us today to talk it through, and see our pricing online.',
     start: 'Get started',

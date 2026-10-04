@@ -482,9 +482,15 @@ const fr = {
 
   trial: {
     welcomeTitle: 'Bienvenue sur CASPROD',
-    freeDays: (n: number) => `${n} jours d'essai gratuit`,
+    freeDaysUnit: (n: number) => (n > 1 ? "jours d'essai gratuit" : "jour d'essai gratuit"),
+    noCard: 'Sans carte bancaire, sans engagement.',
+    included: [
+      'Vos devis lus et découpés en tâches par l’IA',
+      'Chantiers, équipes et présence sans limite',
+      'Tout ce que vous créez reste à vous, après l’essai',
+    ],
     welcomeBody:
-      "Vous avez accès à tout, sans limite, pendant quinze jours. À la fin de cette période, nous prendrons rendez-vous ensemble pour choisir la formule qui vous convient. D'ici là, servez-vous autant que vous le voulez.",
+      "À la fin des quinze jours, nous prendrons rendez-vous ensemble pour choisir la formule qui vous convient. D'ici là, servez-vous autant que vous le voulez.",
     reachUsNow:
       "Vous n'avez pas à attendre la fin de l'essai : écrivez-nous dès maintenant pour en parler, et consultez nos tarifs en ligne.",
     start: 'Commencer',
