@@ -489,18 +489,18 @@ const fr = {
       'Chantiers, équipes et présence sans limite',
       'Ce que vous créez reste à vous',
     ],
-    reachUsNow: 'Une question, ou besoin de prolonger votre accès ? Écrivez-nous.',
+    reachUsNow: 'Pour toute question, ou pour prolonger votre accès, contactez-nous.',
     start: 'Commencer',
-    lockedTitle: (n: number) => `Vos ${n} jours sont écoulés`,
+    lockedTitle: (n: number) => `Vos ${n} jours d’essai sont écoulés`,
     lockedHead: 'Votre accès est en pause',
     lockedKept:
-      'Rien n’a été supprimé : vos chantiers, vos devis et vos équipes vous attendent.',
+      'Aucune donnée n’a été supprimée : vos chantiers, vos devis et vos équipes sont conservés.',
     lockedBody:
-      'Nous espérons que CASPROD vous a rendu service. Appelez-nous ou écrivez-nous pour parler de la suite — nous rouvrons votre accès dans la foulée.',
+      'Nous espérons que CASPROD vous a été utile. Contactez-nous par téléphone ou par e-mail afin de convenir de la suite ; votre accès sera rétabli à l’issue de cet échange.',
     mailSubject: 'Activer l’accès de mon entreprise',
-    takeDay: 'Continuer encore un jour',
+    takeDay: 'Reporter d’une journée',
     daysLeftToTake: (n: number) =>
-      n > 1 ? `Vous pouvez le faire ${n} fois en tout.` : 'C’est la dernière fois.',
+      n > 1 ? `Report disponible ${n} fois au total.` : 'Dernier report disponible.',
   },
   quoteReview: {
     milestones: 'Échéancier',

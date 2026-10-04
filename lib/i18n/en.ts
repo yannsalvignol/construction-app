@@ -493,17 +493,18 @@ const en = {
       'Sites, crews and presence, no limits',
       'What you create stays yours',
     ],
-    reachUsNow: 'A question, or need your access extended? Write to us.',
+    reachUsNow: 'For any question, or to extend your access, please contact us.',
     start: 'Get started',
-    lockedTitle: (n: number): string => `Your ${n} days are up`,
+    lockedTitle: (n: number): string => `Your ${n}-day trial has ended`,
     lockedHead: 'Your access is paused',
-    lockedKept: 'Nothing was deleted: your sites, your devis and your crews are waiting.',
+    lockedKept:
+      'No data has been deleted: your sites, your devis and your crews are kept as they are.',
     lockedBody:
-      'We hope CASPROD earned its keep. Call or write to us to talk about what comes next — we reopen your access right away.',
+      'We hope CASPROD has been useful to you. Please contact us by phone or e-mail to agree on what comes next; your access will be restored following that conversation.',
     mailSubject: 'Activate my company’s access',
-    takeDay: 'Carry on for one more day',
+    takeDay: 'Postpone for one day',
     daysLeftToTake: (n: number): string =>
-      n > 1 ? `You can do this ${n} times in all.` : 'This is the last time.',
+      n > 1 ? `Available ${n} times in all.` : 'Last postponement available.',
   },
   quoteReview: {
     milestones: 'Payment schedule',
