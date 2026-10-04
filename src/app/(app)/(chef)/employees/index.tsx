@@ -10,7 +10,7 @@ import { AnimatedInput } from '@/components/animated-input';
 import { AppModal, ModalButton } from '@/components/app-modal';
 import { PhoneInput } from '@/components/phone-input';
 import { RuleChecklist } from '@/components/rule-checklist';
-import { hits, SearchField, terms } from '@/components/search-field';
+import { begins, SearchField, terms } from '@/components/search-field';
 import { SwipeToDelete } from '@/components/swipe-to-delete';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -176,9 +176,25 @@ function RowGap() {
 
 const keyOf = (employee: Employee) => employee.id;
 
-/** A row matches on either name or on the username the employee signs in with. */
-const haystackOf = (employee: Employee) =>
-  `${employee.first_name} ${employee.last_name} ${employee.username ?? ''}`;
+/**
+ * Where a search term lands on a person: 0 on the prénom, 1 on the nom, null
+ * nowhere.
+ *
+ * A chef looking somebody up types the prénom — it is what he calls the man
+ * on the chantier — and falls back to the nom when two men share it. So both
+ * are searched, but the prénoms come first: typing "a" offers Ahmed and Amine
+ * before Karim Alaoui, rather than burying them among the surnames.
+ *
+ * With several words every one of them has to begin a prénom or a nom, and
+ * the first word decides the order, since that is the one being thought of.
+ */
+function rankOf(employee: Employee, words: string[]): number | null {
+  const matched = words.every(
+    (word) => begins(employee.first_name, word) || begins(employee.last_name, word)
+  );
+  if (!matched) return null;
+  return begins(employee.first_name, words[0]) ? 0 : 1;
+}
 
 /**
  * One employee.
@@ -274,7 +290,15 @@ export default function EmployeesScreen() {
   const cached = useCached(employeesKey(companyId), loader);
   const all = cached.data ?? [];
   const words = terms(query);
-  const employees = words.length ? all.filter((e) => hits(haystackOf(e), words)) : all;
+  // Sort is stable and the rows arrive ordered by prénom, so within each of
+  // the two groups the list keeps the order it had.
+  const employees = words.length
+    ? all
+        .map((employee) => ({ employee, rank: rankOf(employee, words) }))
+        .filter((row): row is { employee: Employee; rank: number } => row.rank !== null)
+        .sort((a, b) => a.rank - b.rank)
+        .map((row) => row.employee)
+    : all;
   const loading = cached.loading;
   const fetchEmployees = useCallback(async () => {
     invalidate(employeesKey(companyId));

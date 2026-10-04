@@ -16,7 +16,11 @@ export const fold = (text: string) =>
 
 /** Split on anything that is not a letter or a digit, so Al-Manar is two
  *  words and O'Brien is two: a chef typing "manar" means the second one. */
-const wordsOf = (text: string) => fold(text).split(/[^a-z0-9]+/).filter(Boolean);
+export const wordsOf = (text: string) => fold(text).split(/[^a-z0-9]+/).filter(Boolean);
+
+/** Whether some word of `text` begins with `word`. */
+export const begins = (text: string, word: string) =>
+  wordsOf(text).some((part) => part.startsWith(word));
 
 /** The query as words, in any order: "alaoui karim" and "kar ala" both find
  *  Karim Alaoui. */
