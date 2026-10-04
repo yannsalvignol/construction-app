@@ -67,6 +67,19 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
+  /**
+   * Records that the welcome has been read, so it does not come back.
+   *
+   * A real async function, not `void supabase.rpc(...)` inside the handler:
+   * a supabase-js builder is lazy and sends nothing until something awaits it,
+   * so the fire-and-forget version built the request and dropped it. The
+   * notice was never written and the screen greeted the chef at every launch.
+   */
+  async function markSeen() {
+    setDismissed(true);
+    await supabase.rpc('mark_trial_notice_seen');
+  }
+
   /** Spends one of the three days. The server returns the new access, so the
    *  wall comes down without a second round trip. */
   async function takeDay() {
@@ -153,9 +166,18 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // The welcome, once. Marked seen as he dismisses it rather than as it
-  // appears: a screen closed by a crash was never read.
-  if (!access.active && !access.notice_seen && !dismissed) {
+  // The welcome, once, and only while there is something to welcome him to.
+  //
+  // `days_left > 0` is not decoration: a chef who takes one of his three days
+  // is no longer locked, and without it he was shown "0 jour d'essai gratuit"
+  // with a Commencer button under it. The same would greet anyone whose first
+  // opening came after the fortnight had already run out.
+  //
+  // Marked seen as he dismisses it rather than as it appears: a screen closed
+  // by a crash was never read. The local flag carries this launch in case the
+  // write does not land; if it truly failed, it comes back next time, which is
+  // the right way round for a notice we are meant to have shown.
+  if (!access.active && !access.notice_seen && !dismissed && access.days_left > 0) {
     return (
       <WorkPage topInset title={t.trial.welcomeTitle}>
         <Card>
@@ -186,10 +208,7 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
           <Action
             large
             label={t.trial.start}
-            onPress={() => {
-              setDismissed(true);
-              void supabase.rpc('mark_trial_notice_seen');
-            }}
+            onPress={() => { void markSeen(); }}
           />
 
           <View style={[styles.rule, { backgroundColor: theme.separator }]} />
