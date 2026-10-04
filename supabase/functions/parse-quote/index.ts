@@ -1,4 +1,5 @@
 import OpenAI from 'npm:openai@4.104.0';
+import { extractText, getDocumentProxy } from 'npm:unpdf@0.12.1';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // Reads a devis into quote_lines (docs/DEVIS_AVANCEMENT.md).
@@ -78,7 +79,7 @@ const SCHEMA = {
           lot: {
             type: ['string', 'null'],
             description:
-              "Le titre de la section où la ligne est imprimée, EN ENTIER: numéro ET intitulé, tel qu'imprimé — \"A Courant fort\", \"LOT N° 10 : COURANT FORT COURANT FAIBLE\". Jamais la seule lettre ou le seul numéro: \"A\" tout court ne dit rien à personne. Si la section n'a pas d'intitulé imprimé, null.",
+              "La section de PLUS HAUT NIVEAU où la ligne est imprimée, en entier: numéro ET intitulé — \"A Courant fort\", \"LOT: CLIMATISATION - VENTILATION\". Jamais la seule lettre, jamais un titre de chapitre intermédiaire. Identique mot pour mot pour toutes les lignes de la section. Null si le devis n'a pas de sections.",
           },
           label: {
             type: 'string',
@@ -124,9 +125,12 @@ const SYSTEM = `Tu lis des devis du bâtiment (plomberie, CVC, électricité) au
 Règles:
 - Restitue CHAQUE ligne imprimée, dans l'ordre du document, sans en fusionner ni en inventer.
 - Garde le libellé d'origine mot pour mot, numéro ou lettre compris ("3- RESEAUX FRIGORIFIQUES", "a- Ø250").
-- Une ligne numérotée qui ne porte aucune quantité et qui chapeaute des sous-lignes est un "heading". Restitue-la comme ligne ET reporte son titre complet dans le "lot" des lignes qu'elle chapeaute.
-- "lot" porte toujours l'intitulé, pas seulement le repère: "A Courant fort", jamais "A".
+- Une ligne qui ne porte aucune quantité et qui chapeaute des sous-lignes est un "heading". Restitue-la comme ligne, à sa place dans le document.
+- "lot" ne porte QUE la section de plus haut niveau — celle en laquelle le devis entier se divise: "LOT: CLIMATISATION - VENTILATION", "A Courant fort". Jamais un titre intermédiaire comme "1- UNITE EXTERIEURE DRV", même si la ligne est imprimée dessous: les niveaux intermédiaires se lisent à la position des headings, et un "lot" qui change à chaque chapitre ne divise plus rien.
+- "lot" porte l'intitulé entier, pas seulement le repère: "A Courant fort", jamais "A". Toutes les lignes d'une même section portent exactement la même chaîne.
+- Un devis a souvent une colonne de référence ou de code article ("Produit", "P_022920", "REF 1245"). Elle n'est pas le libellé: ne la colle jamais devant la désignation.
 - Une remise, un rabais ou toute ligne négative est un "discount", jamais du travail.
+- Un report, un sous-total, un total de lot ou un total général ("Total lot n°C", "Sous-total", "Report", "TOTAL HT") n'est PAS une ligne du devis: ne le restitue pas du tout. C'est la somme de lignes que tu as déjà rendues, et la rendre une fois de plus compterait le travail deux fois. Le total général va dans "total_ht", nulle part ailleurs.
 - Reporte les quantités et les prix tels quels. N'arrondis pas, ne recalcule pas, ne corrige pas une incohérence: elle appartient au document.
 - task_code: uniquement si la correspondance est évidente. Dans le doute, null.
 - Les en-têtes et pieds de page répétés (adresse, RC, ICE, pagination) ne sont pas des lignes.
@@ -203,6 +207,13 @@ const STEPS_MODEL = Deno.env.get('PARSE_STEPS_MODEL') || 'gpt-5.6-luna';
  */
 const MAX_RECOVERY_PASSES = 2;
 
+/**
+ * Pages of a scan read at once. Four: enough that ten pages are three rounds
+ * rather than ten, few enough that a rate limit is not the next thing to go
+ * wrong.
+ */
+const READ_CONCURRENCY = 4;
+
 /** Lines per steps request. Text only, so this is about the answer's size. */
 const STEPS_BATCH = 30;
 /** Steps batches at once. Text-only and on the cheap tier, so wider than the pages. */
@@ -216,6 +227,65 @@ const STALE_PARSE_MS = 5 * 60_000;
 
 /** More than this is a method statement, not a line of a devis. */
 const MAX_STEPS_PER_LINE = 3;
+
+/**
+ * Telling a devis that carries its own text from one that is a photograph of
+ * a devis.
+ *
+ * Both arrive as a PDF and nothing in the extension says which. The
+ * difference is worth finding: a born-digital devis hands over its figures
+ * exactly, for nothing, and no model has to read 126 800 off a picture and
+ * risk returning 126 000. A scan has no text to hand over and has to be read.
+ *
+ * Measured over the PDFs to hand, the two kinds do not overlap. Born-digital
+ * runs 1 000 to 3 800 characters a page at about 8 bytes of file per
+ * character; a scan gives nothing at all and weighs megabytes. The second
+ * ratio is what catches the awkward middle case — a scan carrying an OCR
+ * layer, which has text but pays hundreds of bytes a character for it, and
+ * whose text is a guess rather than the document.
+ */
+const TEXT_CHARS_PER_PAGE = 300;
+const TEXT_BYTES_PER_CHAR = 150;
+/** Beyond this the probe is skipped: the CPU a parse costs is not worth
+ *  spending on a file this size, which is a scan in all but name. */
+const TEXT_PROBE_MAX_BYTES = 15_000_000;
+
+/**
+ * The devis's own text, when it has one worth trusting.
+ *
+ * Never throws: a probe that fails leaves the file to be read as a picture,
+ * which is what happened to every devis before this existed.
+ */
+async function inspect(bytes: Uint8Array): Promise<{ pages: number; text: string | null }> {
+  const layer = await textLayer(bytes);
+  if (layer) return { pages: layer.pages, text: layer.text };
+  // No usable text, but the page count is still worth having: it decides
+  // whether the document is read whole or a page at a time.
+  try {
+    const pdf = await getDocumentProxy(bytes);
+    return { pages: Math.max(1, pdf.numPages || 1), text: null };
+  } catch { return { pages: 1, text: null }; }
+}
+
+async function textLayer(bytes: Uint8Array): Promise<{ text: string; pages: number } | null> {
+  // A switch rather than a redeploy: if reading a devis ever goes wrong in a
+  // way that looks like the probe, it can be taken out of the path in one
+  // command and put back the same way.
+  if (Deno.env.get('PARSE_TEXT_PROBE') === 'off') return null;
+  if (bytes.byteLength > TEXT_PROBE_MAX_BYTES) return null;
+  try {
+    const pdf = await getDocumentProxy(bytes);
+    const { totalPages, text } = await extractText(pdf, { mergePages: true });
+    const body = String(text ?? '').trim();
+    const pages = Math.max(1, totalPages || 1);
+    if (body.length / pages < TEXT_CHARS_PER_PAGE) return null;
+    if (bytes.byteLength / body.length > TEXT_BYTES_PER_CHAR) return null;
+    return { text: body, pages };
+  } catch (failure) {
+    console.error(`[parse-quote] text probe failed, reading as a picture: ${describe(failure)}`);
+    return null;
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -256,6 +326,25 @@ Deno.serve(async (req) => {
   // Generating the operations on their own, and answering with what happened.
   // This one waits: the chef pressed a button and is watching, and the report
   // is the point — it goes back to him so Metro shows it line by line.
+  // Another reading, for the lines the last one missed. Its own invocation,
+  // its own budget, started by the pass before it.
+  if (only === 'recover') {
+    const run = recover(admin, openaiKey, quote.id, authHeader).catch(async (failure) => {
+      console.error(`[parse-quote] recovery failed: ${describe(failure)}`);
+      // A failed recovery is not a failed devis: the lines from the first
+      // reading are already stored and usable. Say so and move on.
+      await admin
+        .from('site_quotes')
+        .update({ parse_warning: `Relecture interrompue : ${describe(failure).slice(0, 140)}` })
+        .eq('id', quote.id);
+      await handOn(admin, quote.id, authHeader, []);
+    });
+    // @ts-expect-error EdgeRuntime is provided by the Supabase runtime.
+    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(run);
+    else await run;
+    return json({ ok: true, status: 'recover' }, 202);
+  }
+
   if (only === 'steps') {
     const started = Date.now();
     const run = (async () => {
@@ -314,6 +403,190 @@ Deno.serve(async (req) => {
 });
 
 type Quote = { id: string; company_id: string; file_path: string; mime_type: string; parsing_started_at?: string | null; parse_warning?: string | null };
+
+/**
+ * Whether the devis as stored still looks short of what the paper says.
+ *
+ * The printed total is the signal that does not come from the reading: a
+ * model that stops short of a long list stops counting it too, and one devis
+ * came back insisting it had found all 160 of the 160 lines it saw, where the
+ * document holds 295. The total it cannot argue with — the lines summed to
+ * two thirds of the figure printed at the foot of the page.
+ */
+async function stillShort(admin: ReturnType<typeof createClient>, quoteId: string) {
+  const { data: quote } = await admin
+    .from('site_quotes').select('total_ht, parse_passes').eq('id', quoteId).maybeSingle();
+  if (!quote?.total_ht) return false;
+  const { data: lines } = await admin
+    .from('quote_lines').select('amount_ht, kind').eq('quote_id', quoteId).eq('kind', 'work');
+  const sum = (lines ?? []).reduce((total, line) => total + (Number(line.amount_ht) || 0), 0);
+  return sum > 0 && sum / Number(quote.total_ht) < 0.9;
+}
+
+/**
+ * Starts whatever comes next, in an invocation of its own.
+ *
+ * Reading a ten-page scan is minutes of work and a reading that came back
+ * short is read again; all of it used to happen in one invocation, which ran
+ * past the time an invocation is allowed and was killed with nothing written.
+ * One pass per invocation means each gets a whole budget, and the chef has a
+ * usable devis from the first one.
+ */
+async function handOn(
+  admin: ReturnType<typeof createClient>,
+  quoteId: string,
+  authHeader: string,
+  warnings: string[]
+) {
+  const { data: quote } = await admin
+    .from('site_quotes').select('parse_passes').eq('id', quoteId).maybeSingle();
+  const passes = Number(quote?.parse_passes ?? 1);
+  const again = passes <= MAX_RECOVERY_PASSES && (await stillShort(admin, quoteId));
+  const next = again ? 'recover' : 'steps';
+
+  const dispatched = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/parse-quote`, {
+    method: 'POST',
+    headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quoteId, only: next, background: true }),
+  }).catch((failure) => ({ ok: false, status: 0, text: () => Promise.resolve(describe(failure)) }));
+
+  if (!dispatched.ok) {
+    const reason = await dispatched.text().catch(() => '');
+    console.error(`[parse-quote] could not start the ${next} pass: ${dispatched.status} ${reason}`);
+    await admin
+      .from('site_quotes')
+      .update({
+        parse_warning: [...warnings, `${next === 'recover' ? 'relecture' : 'sous-tâches'} non lancée, relancez depuis la page du devis`]
+          .join(' ; ') || null,
+      })
+      .eq('id', quoteId);
+    return;
+  }
+  console.log(`[parse-quote] ${quoteId}: handed on to the ${next} pass (${passes} reading(s) so far)`);
+}
+
+/**
+ * Reads the devis again for the lines the last reading missed.
+ *
+ * Asking for what is missing rather than for the whole devis again: the first
+ * answer's lines were not wrong, they were incomplete, and a second full pass
+ * would be as likely to stop short as the first. The file is referenced by the
+ * id OpenAI already holds, so nothing is uploaded twice.
+ */
+async function recover(
+  admin: ReturnType<typeof createClient>,
+  openaiKey: string,
+  quoteId: string,
+  authHeader: string
+) {
+  const startedAt = Date.now();
+  const { data: quote } = await admin
+    .from('site_quotes')
+    .select('id, company_id, total_ht, parse_passes, parse_file_ids, input_tokens, output_tokens')
+    .eq('id', quoteId)
+    .single();
+
+  const { data: stored } = await admin
+    .from('quote_lines')
+    .select('label, position')
+    .eq('quote_id', quoteId)
+    .order('position');
+  const have = (stored ?? []).map((line) => String(line.label ?? '')).filter(Boolean);
+  const nextPosition = ((stored ?? []).at(-1)?.position ?? -1) + 1;
+
+  const { data: codes } = await admin
+    .from('task_codes').select('code, unit, label_fr').eq('is_active', true);
+  const catalogue = (codes ?? []).map((c) => `${c.code} (${c.unit}) ${c.label_fr ?? ''}`.trim()).join('\n');
+
+  const { data: work } = await admin
+    .from('quote_lines').select('amount_ht').eq('quote_id', quoteId).eq('kind', 'work');
+  const sum = (work ?? []).reduce((total, line) => total + (Number(line.amount_ht) || 0), 0);
+
+  const openai = new OpenAI({ apiKey: openaiKey });
+  const extra = await openai.chat.completions.create({
+    model: READ_MODEL,
+    max_completion_tokens: 100000,
+    response_format: { type: 'json_schema', json_schema: { name: 'devis', strict: true, schema: SCHEMA } },
+    messages: [
+      { role: 'system', content: SYSTEM },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text:
+              `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
+              `Le devis annonce un total de ${Math.round(Number(quote.total_ht ?? 0))} et les lignes déjà relevées ` +
+              `n'en font que ${Math.round(sum)} : il manque des lignes.\n\n` +
+              `Voici les libellés déjà relevés, dans l'ordre :\n${have.join('\n').slice(0, 200_000)}\n\n` +
+              `Rends UNIQUEMENT les lignes du devis qui manquent dans cette liste, dans l'ordre du document. ` +
+              `Si rien ne manque, rends une liste vide.`,
+          },
+          ...((quote.parse_file_ids ?? []) as string[]).map((id) => ({
+            type: 'file' as const, file: { file_id: id },
+          })),
+        ] as never,
+      },
+    ],
+  });
+
+  const body = extra.choices[0]?.message?.content;
+  const found = body && extra.choices[0]?.finish_reason !== 'length'
+    ? ((JSON.parse(body) as { lines?: Record<string, unknown>[] }).lines ?? [])
+    : [];
+
+  const known = new Set((codes ?? []).map((c) => c.code));
+  const allowedUnits = new Set(UNITS);
+  const rows = found.map((line, index) => {
+    const label = String(line.label ?? '').slice(0, 500);
+    const isChild = /^\s*[a-z]\s*-/i.test(label);
+    return {
+      quote_id: quoteId,
+      company_id: quote.company_id,
+      // Appended rather than spliced into place: where exactly a recovered
+      // line sat is a guess, and a guess about order is worse than an order
+      // that is plainly "found afterwards".
+      position: nextPosition + index,
+      lot: line.lot ?? null,
+      label,
+      candidate_label: label,
+      kind: line.kind ?? 'work',
+      source_unit: line.source_unit ?? null,
+      unit: allowedUnits.has(line.unit as never) ? line.unit : null,
+      quantity: line.quantity ?? null,
+      unit_price: line.unit_price ?? null,
+      amount_ht: line.amount_ht ?? null,
+      task_code: known.has(line.task_code as string) ? (line.task_code as string) : null,
+    };
+  }).filter((row) => row.label.length > 0 && !have.includes(row.label));
+
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await admin.from('quote_lines').insert(rows.slice(i, i + 500));
+    if (error) { console.error('[parse-quote] recover insert', error.message); break; }
+  }
+
+  await admin
+    .from('site_quotes')
+    .update({
+      parse_passes: Number(quote.parse_passes ?? 1) + 1,
+      input_tokens: Number(quote.input_tokens ?? 0) + (extra.usage?.prompt_tokens ?? 0),
+      output_tokens: Number(quote.output_tokens ?? 0) + (extra.usage?.completion_tokens ?? 0),
+    })
+    .eq('id', quoteId);
+
+  console.log(
+    `[parse-quote] ${quoteId} recovery ${Number(quote.parse_passes ?? 1) + 1}:` +
+      ` ${rows.length} line(s) found in ${Date.now() - startedAt}ms`
+  );
+
+  // No progress means asking again will not help either.
+  if (!rows.length) {
+    await admin.from('site_quotes').update({ parse_passes: 99 }).eq('id', quoteId);
+  }
+  const { data: after } = await admin
+    .from('site_quotes').select('parse_warning').eq('id', quoteId).maybeSingle();
+  await handOn(admin, quoteId, authHeader, after?.parse_warning ? [after.parse_warning] : []);
+}
 
 /** Supabase and OpenAI both reject with plain objects, which String() turns
  *  into "[object Object]" — the reason has to be dug out deliberately. */
@@ -532,7 +805,14 @@ async function parse(
    *  down: it runs as him, under the same checks, in its own invocation. */
   authHeader: string
 ) {
+  const startedAt = Date.now();
+  /** Each step says it has begun, so a reading that dies says where. */
+  const stage = async (name: string) => {
+    console.log(`[parse-quote] ${quote.id} ${name} at ${Date.now() - startedAt}ms`);
+    await admin.from('site_quotes').update({ parse_stage: name }).eq('id', quote.id);
+  };
   try {
+    await stage('download');
     // Every page of the devis, in the order they were captured. A paper
     // devis photographed page by page is one quote, not several.
     const { data: pageRows } = await admin
@@ -559,6 +839,8 @@ async function parse(
     // reason the local inspection was not earning its keep.
     const fileIds: string[] = [];
     const images: { mime: string; base64: string }[] = [];
+    const texts: string[] = [];
+    let pageCount = 0;
 
     for (const page of pages) {
       const { data: file, error: downloadError } = await admin.storage
@@ -567,6 +849,21 @@ async function parse(
       if (downloadError || !file) throw new Error(`Could not read the file: ${downloadError?.message}`);
 
       if (page.mime_type === 'application/pdf') {
+        // A devis that carries its own text hands over its figures exactly and
+        // for nothing. The page still goes up with it: the text layer gives
+        // the characters, the picture gives the columns they sit in, and a
+        // devis is a table before it is a list of words.
+        await stage('upload');
+        const probeStarted = Date.now();
+        const seen = await inspect(new Uint8Array(await file.arrayBuffer()));
+        if (seen.text) texts.push(seen.text);
+        pageCount += seen.pages;
+        console.log(
+          `[parse-quote] ${quote.id} inspected: ${seen.pages} page(s), ` +
+            `${seen.text ? `${seen.text.length} chars of text` : 'no usable text layer'}` +
+            ` in ${Date.now() - probeStarted}ms`
+        );
+
         const form = new FormData();
         form.append('purpose', 'user_data');
         form.append('file', file, page.file_path.split('/').pop() || 'devis.pdf');
@@ -611,12 +908,9 @@ async function parse(
       lines: Record<string, unknown>[];
     };
 
-    // One request for the whole devis. Splitting it existed only because gpt-4o
-    // could not emit more than 16k tokens; these models allow 128k, which is a
-    // three-hundred-line devis with room over. One request also means the model
-    // sees the lot headings on the page they are printed on, so nothing has to
-    // be carried across a seam afterwards.
-    const response = await openai.chat.completions.create({
+    await stage('read');
+
+    const ask = async (instruction: string) => openai.chat.completions.create({
       model: READ_MODEL,
       max_completion_tokens: 100000,
       response_format: {
@@ -632,7 +926,14 @@ async function parse(
               type: 'text',
               text:
                 `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
-                `Relève toutes les lignes de ce devis, dans l'ordre du document, page après page.`,
+                (texts.length
+                  ? `Ce devis porte sa propre couche de texte, reproduite ci-dessous. ` +
+                    `Les chiffres y sont exacts: prends-y chaque quantité, chaque prix et chaque libellé, ` +
+                    `au caractère près, sans jamais les relire sur l'image. L'image ne sert qu'à voir ` +
+                    `quelle colonne est laquelle et où une ligne commence.\n\n` +
+                    `--- texte du document ---\n${texts.join('\n\n--- page suivante ---\n\n').slice(0, 400_000)}\n--- fin ---\n\n`
+                  : '') +
+                instruction,
             },
             ...fileIds.map((id) => ({ type: 'file' as const, file: { file_id: id } })),
             ...images.map((image) => ({
@@ -644,92 +945,100 @@ async function parse(
       ],
     });
 
-    const model = response.model ?? null;
-    // Summed with the operations pass below, so the recorded cost is the devis.
-    let inputTokens = response.usage?.prompt_tokens ?? 0;
-    let outputTokens = response.usage?.completion_tokens ?? 0;
-    if (response.choices[0]?.finish_reason === 'length') {
-      throw new Error('Ce devis dépasse ce que le modèle peut rendre en une fois.');
-    }
-    const body = response.choices[0]?.message?.content;
-    if (!body) throw new Error('The model returned no content');
-    const parsed = JSON.parse(body) as Parsed;
-    parsed.lines ??= [];
+    /**
+     * A scan is read a page at a time; a devis that carries its own text is
+     * read whole.
+     *
+     * Not because a model cannot see ten pages at once — it can — but because
+     * it will not write out three hundred lines in one answer. Asked for the
+     * whole of this devis it counted 300 lines, returned 64, and said so: the
+     * failure is in the writing, not the reading. One page is thirty lines,
+     * which it writes without faltering, and ten short answers also fit in
+     * the time one invocation is allowed where one long answer does not.
+     *
+     * The text path keeps the single request: the figures are given to it
+     * exactly, so there is nothing to lose and a whole-document view to keep.
+     */
+    const byPage = !texts.length && pageCount > 1;
+    let parsed: Parsed;
+    let model: string | null = null;
+    let inputTokens = 0;
+    let outputTokens = 0;
 
-    const warnings: string[] = [];
-    // Omission is a known failure of structured extraction: the line is printed
-    // and simply absent from the answer, with nothing in the response saying so.
-    // Models also stop short of a long list rather than refusing it — the same
-    // devis has come back 327, 328 and 89 lines on identical input. So the devis
-    // is asked to count its own lines, and a short answer is read again.
-    //
-    // Asking for what is missing rather than for the whole devis again: the
-    // first answer's lines were not wrong, they were incomplete, and a second
-    // full pass would be as likely to stop short as the first.
-    //
-    // The model's own count is the weaker of the two signals: a model that
-    // stops short of a long list stops counting it too, and this devis came
-    // back saying it had found all 160 of the 160 lines it claimed to see,
-    // where the document has 295. The printed total is the signal that does
-    // not come from the reading — the devis states 13 718 771 and the lines
-    // summed to 8 732 268, which no amount of self-consistency can explain
-    // away. Either shortfall asks again.
-    const counted = typeof parsed.printed_line_count === 'number' ? parsed.printed_line_count : 0;
-    const sumOf = (lines: Record<string, unknown>[]) => lines
-      .filter((line) => (line.kind ?? 'work') === 'work')
-      .reduce((total, line) => total + (Number(line.amount_ht) || 0), 0);
-    const short = () => {
-      if (parsed.lines.length < counted) return true;
-      const sum = sumOf(parsed.lines);
-      return !!parsed.total_ht && sum > 0 && sum / parsed.total_ht < 0.9;
-    };
-    for (let attempt = 0; attempt < MAX_RECOVERY_PASSES && short(); attempt++) {
-      const have = parsed.lines.map((line) => String(line.label ?? '')).filter(Boolean);
-      const before = parsed.lines.length;
-      const extra = await openai.chat.completions.create({
-        model: READ_MODEL,
-        max_completion_tokens: 100000,
-        response_format: {
-          type: 'json_schema',
-          json_schema: { name: 'devis', strict: true, schema: SCHEMA },
-        },
-        messages: [
-          { role: 'system', content: SYSTEM },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text:
-                  `Catalogue de codes tâches disponibles:\n${catalogue}\n\n` +
-                  (parsed.total_ht
-                    ? `Le devis annonce un total de ${Math.round(parsed.total_ht)} et les lignes rendues n'en font que ${Math.round(sumOf(parsed.lines))} : il manque des lignes. `
-                    : `Tu as compté ${counted} lignes dans ce devis et tu n'en as rendu que ${before}. `) +
-                  `Voici les libellés déjà relevés, dans l'ordre :\n${have.join('\n')}\n\n` +
-                  `Rends UNIQUEMENT les lignes du devis qui manquent dans cette liste, dans l'ordre du document. ` +
-                  `Si rien ne manque, rends une liste vide.`,
-              },
-              ...fileIds.map((fid) => ({ type: 'file' as const, file: { file_id: fid } })),
-              ...images.map((image) => ({
-                type: 'image_url' as const,
-                image_url: { url: `data:${image.mime};base64,${image.base64}`, detail: 'high' as const },
-              })),
-            ] as never,
-          },
-        ],
+    if (byPage) {
+      const answers = await pooled(
+        Array.from({ length: pageCount }, (_, i) => async () => {
+          try {
+            return await ask(
+              `Ce document a ${pageCount} pages. Relève UNIQUEMENT les lignes imprimées sur la PAGE ${i + 1}, ` +
+              `dans l'ordre, et rien des autres pages. ` +
+              `printed_line_count est le nombre de lignes de cette page seule. ` +
+              `total_ht et milestones: uniquement s'ils sont imprimés sur cette page, sinon null et liste vide.`
+            );
+          } catch (failure) {
+            console.error(`[parse-quote] ${quote.id} page ${i + 1}: ${describe(failure)}`);
+            return null;
+          }
+        }),
+        READ_CONCURRENCY
+      );
+
+      parsed = { printed_line_count: 0, total_ht: null, currency: 'MAD', milestones: [], lines: [] };
+      let lastLot: string | null = null;
+      answers.forEach((response, index) => {
+        if (!response) return;
+        model ??= response.model ?? null;
+        inputTokens += response.usage?.prompt_tokens ?? 0;
+        outputTokens += response.usage?.completion_tokens ?? 0;
+        const body = response.choices[0]?.message?.content;
+        if (!body || response.choices[0]?.finish_reason === 'length') {
+          console.error(`[parse-quote] ${quote.id} page ${index + 1} came back empty or truncated`);
+          return;
+        }
+        let page: Parsed;
+        try { page = JSON.parse(body) as Parsed; }
+        catch (failure) {
+          console.error(`[parse-quote] ${quote.id} page ${index + 1} unreadable: ${describe(failure)}`);
+          return;
+        }
+        parsed.printed_line_count = (parsed.printed_line_count ?? 0) + (page.printed_line_count ?? 0);
+        // The total is printed once, at the foot; the terms likewise.
+        if (page.total_ht) parsed.total_ht = page.total_ht;
+        if (page.currency) parsed.currency = page.currency;
+        if (page.milestones?.length) parsed.milestones = page.milestones;
+        for (const line of page.lines ?? []) {
+          // A lot opened on one page runs onto the next, where its heading is
+          // not reprinted. Carried forward, because a devis does not change
+          // lot in silence.
+          const lot = line.lot ? String(line.lot) : null;
+          if (lot) lastLot = lot; else if (lastLot) line.lot = lastLot;
+          parsed.lines.push(line);
+        }
       });
-      inputTokens += extra.usage?.prompt_tokens ?? 0;
-      outputTokens += extra.usage?.completion_tokens ?? 0;
-      const extraBody = extra.choices[0]?.message?.content;
-      if (!extraBody || extra.choices[0]?.finish_reason === 'length') break;
-      const recovered = (JSON.parse(extraBody) as Parsed).lines ?? [];
-      // Appended rather than spliced into place: the order within the devis is
-      // lost for the recovered lines, which is a smaller loss than losing them.
-      parsed.lines.push(...recovered);
-      // No progress means asking again will not help either.
-      if (parsed.lines.length === before) break;
+      console.log(
+        `[parse-quote] ${quote.id} read ${pageCount} pages separately:` +
+          ` ${parsed.lines.length} lines in ${Date.now() - startedAt}ms`
+      );
+    } else {
+      const response = await ask(
+        `Relève toutes les lignes de ce devis, dans l'ordre du document, page après page.`
+      );
+      model = response.model ?? null;
+      inputTokens = response.usage?.prompt_tokens ?? 0;
+      outputTokens = response.usage?.completion_tokens ?? 0;
+      if (response.choices[0]?.finish_reason === 'length') {
+        throw new Error('Ce devis dépasse ce que le modèle peut rendre en une fois.');
+      }
+      const body = response.choices[0]?.message?.content;
+      if (!body) throw new Error('The model returned no content');
+      parsed = JSON.parse(body) as Parsed;
+      parsed.lines ??= [];
     }
 
+    await stage('store');
+    const warnings: string[] = [];
+
+    const counted = typeof parsed.printed_line_count === 'number' ? parsed.printed_line_count : 0;
     if (counted && parsed.lines.length < counted) {
       warnings.push(`${parsed.lines.length} ligne(s) relevée(s) sur ${counted} comptée(s)`);
     }
@@ -745,7 +1054,27 @@ async function parse(
     const allowedUnits = new Set(UNITS);
     let droppedCodes = 0;
 
-    const rows = parsed.lines.map((line, index) => {
+    /**
+     * A sub-total is not a line.
+     *
+     * Reading a page on its own, "Total lot n°C — 863 636" at the foot looks
+     * like any other row, and two of them added seven hundred thousand
+     * dirhams of work that does not exist. The prompt says so too, but a
+     * figure that doubles part of a devis is worth refusing twice: a row that
+     * names itself a total and carries neither quantity nor unit price is the
+     * sum of rows already counted.
+     */
+    const isSubTotal = (label: string, line: Record<string, unknown>) =>
+      /^\s*(sous[-\s]?totaux?|totaux?|report|s\/totaux?)\b/i.test(label)
+      && line.quantity == null
+      && line.unit_price == null;
+
+    let dropped = 0;
+    const rows = parsed.lines.filter((line) => {
+      if (!isSubTotal(String(line.label ?? ''), line)) return true;
+      dropped++;
+      return false;
+    }).map((line, index) => {
       const label = String(line.label ?? '').slice(0, 500);
       if (line.kind === 'heading') heading = label;
       const isChild = /^\s*[a-z]\s*-/i.test(label);
@@ -841,39 +1170,23 @@ async function parse(
         input_tokens: inputTokens || null,
         output_tokens: outputTokens || null,
         parse_model: model,
+        parse_source: texts.length ? 'text' : 'image',
+        // Kept so a second reading does not send eleven megabytes again.
+        parse_file_ids: fileIds.length ? fileIds : null,
+        parse_passes: 1,
+        parse_stage: null,
       })
       .eq('id', quote.id);
 
-    // The operations go to a second invocation rather than running here.
-    //
-    // They used to run inline, after the status was set, so a devis survived
-    // them being killed. It was not enough: a three-hundred-line devis that
-    // needs two recovery reads leaves so little of the budget that the
-    // operations pass got no further than starting, and came back with
-    // nothing and no reason given. Two invocations means two budgets, and
-    // reading a devis never has to compete with breaking it down.
-    //
-    // It runs as the caller, through the same handler and the same checks.
-    const dispatched = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/parse-quote`, {
-      method: 'POST',
-      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quoteId: quote.id, only: 'steps', background: true }),
-    }).catch((failure) => ({ ok: false, status: 0, text: () => Promise.resolve(describe(failure)) }));
-    if (!dispatched.ok) {
-      const reason = await dispatched.text().catch(() => '');
-      console.error(`[parse-quote] could not start the operations pass: ${dispatched.status} ${reason}`);
-      await admin
-        .from('site_quotes')
-        .update({
-          parse_warning: [...warnings, 'sous-tâches non lancées, utilisez le bouton sur la page du devis']
-            .join(' ; ') || null,
-        })
-        .eq('id', quote.id);
-    }
+    // Whatever comes next gets an invocation of its own: another reading if
+    // this one came back short, the operations otherwise.
+    await handOn(admin, quote.id, authHeader, warnings);
     console.log(
-      `[parse-quote] ${quote.id}: ${rows.length} lines, ${milestones.length} milestones, total ${parsed.total_ht}` +
+      `[parse-quote] ${quote.id} read from ${texts.length ? 'its text layer' : 'the page images'}:` +
+        ` ${rows.length} lines, ${milestones.length} milestones, total ${parsed.total_ht}` +
         `, ${inputTokens} in / ${outputTokens} out tokens` +
-        (droppedCodes ? `, ${droppedCodes} unknown task codes dropped` : '')
+        (droppedCodes ? `, ${droppedCodes} unknown task codes dropped` : '') +
+        (dropped ? `, ${dropped} sub-total row(s) dropped` : '')
     );
   } catch (failure) {
     const message = describe(failure);
