@@ -108,25 +108,8 @@ Le worker est aussi vérifiable sans les types Deno avec `npm run check:backend`
 
 Résultat de cette session : 21 tests réussis, contrôle TypeScript du worker et lint backend réussis.
 
-## Turning the lone-worker watch off
+## Réglages modifiables sans build
 
-```sql
--- one company
-update public.companies set lone_worker_enabled = false where name = 'Castor Ingénierie';
--- everywhere
-update public.companies set lone_worker_enabled = false;
-```
-
-Takes effect at once, no build and no review. It stops the automatic watch: the
-stillness question, the alert that follows silence, and the position reporting
-the phone does to feed them — which also gives the battery back.
-
-**The SOS button keeps working.** That is a man deciding he needs help; it
-cannot misfire, and removing it is not what anybody means by "turn off the
-false alarms". His card tells him so rather than going quiet: *« La
-surveillance automatique n'est pas activée dans votre entreprise. Le bouton
-d'alerte reste disponible. »*
-
-An app that predates the switch keeps reporting its position — it costs
-battery, and is never unsafe, because the sweeps that would act on those
-reports are gated server-side.
+La surveillance du travailleur isolé, les modèles de lecture des devis et les
+exigences de photo se coupent et se règlent depuis la base ou les secrets, sans
+passer par l'App Store. Voir `docs/OPERATIONS.md`.
