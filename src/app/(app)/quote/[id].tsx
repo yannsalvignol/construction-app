@@ -72,6 +72,12 @@ function treeOf(lines: Line[], paths: Map<string, string[]>, untitled: string): 
   const root: Node[] = [];
   const byKey = new Map<string, Group>();
   for (const line of lines) {
+    // A heading is a part, and the part is already drawn as the card its
+    // title names. Left in as a row it has no path, no quantity and no
+    // amount, so it fell into "sans titre" and drew a card reading
+    // "0 ligne · 0 MAD" — one at the top of every devis, since a devis opens
+    // with a heading.
+    if (line.kind === 'heading') continue;
     const path = (paths.get(line.id) ?? []).filter(Boolean);
     if (!path.length) path.push(untitled);
     let items = root;
@@ -189,14 +195,13 @@ export default function QuoteReviewScreen() {
         // repeated title or a stray row the reading picked up. Showing it as
         // an empty card invites a chef to open it and find out.
         if (!node.lines.length) continue;
-        const work = node.lines.filter((line) => line.kind === 'work');
         const open = openSections.has(node.key);
         out.push({
           kind: 'group',
           group: node,
           open,
-          count: work.length,
-          total: work.reduce((sum, line) => sum + (Number(line.amount_ht) || 0), 0),
+          count: node.lines.length,
+          total: node.lines.reduce((sum, line) => sum + (Number(line.amount_ht) || 0), 0),
         });
         if (open) walk(node.items, depth + 1);
       }
