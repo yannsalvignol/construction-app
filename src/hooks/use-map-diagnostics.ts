@@ -50,12 +50,18 @@ export function useMapDiagnostics(name: string) {
       if (readyRef.current) return;
       console.warn(
         `[map:${name}] still not ready after ${GIVE_UP_MS / 1000}s — the Google Maps SDK never started.\n` +
-          (Platform.OS === 'ios'
-            ? '  On iOS that is almost always Info.plist with no GMSApiKey, which means this\n' +
-              '  binary was built before the key was configured. Rebuild natively:\n' +
-              '    npx expo prebuild --platform ios && npx expo run:ios --device <udid>\n' +
-              '  A JS reload cannot fix it: the SDK is linked into the binary.'
-            : '  On Android that is a missing or wrong key in AndroidManifest.xml.')
+          '  Two causes, and they need different fixes:\n' +
+          '  1. The key never reached the binary. Check it, do not assume:\n' +
+          '       /usr/libexec/PlistBuddy -c "Print :GMSApiKey" ios/*/Info.plist\n' +
+          '     Absent means this binary predates the key. Rebuild natively; a JS\n' +
+          '     reload cannot help, since the SDK is linked into the binary.\n' +
+          '  2. The key is there and Google refused it at startup — wrong key, the\n' +
+          '     SDK not enabled on the project, or an application restriction that\n' +
+          '     does not allow this bundle id. Restrictions are enforced on a real\n' +
+          '     device and not in the simulator, which is why a map can work in one\n' +
+          '     and not the other from the same binary.\n' +
+          '  The native reason is only in the device log: run from Xcode, or use\n' +
+          '  Console.app with the phone selected and the filter GMS.'
       );
     }, GIVE_UP_MS);
     return () => clearTimeout(timer);
