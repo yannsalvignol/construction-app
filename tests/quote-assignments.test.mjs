@@ -500,6 +500,42 @@ test('handing out devis work', async t => {
     await db.query('delete from public.site_quotes where id = any($1)', [made]);
   });
 
+  await t.test('fifteen days, then the account is locked', async () => {
+    const access = async (who) => (await as(who, 'select public.company_access() as a'))[0].a;
+
+    // A company that pays is never locked, whatever its trial dates say.
+    await db.query(`update public.companies set subscription_active = true,
+                    trial_started_at = now() - interval '90 days' where id = $1`, [ids.company]);
+    assert.equal((await access(ids.chef)).locked, false);
+
+    // On trial: usable, and the screen can say how long is left.
+    await db.query(`update public.companies set subscription_active = false,
+                    trial_started_at = now() - interval '14 days' where id = $1`, [ids.company]);
+    const left = await access(ids.chef);
+    assert.equal(left.locked, false);
+    assert.equal(left.days_left, 1);
+
+    // Expired: locked, and the database refuses what costs money rather than
+    // trusting a screen to have stopped him.
+    await db.query(`update public.companies set trial_started_at = now() - interval '16 days'
+                    where id = $1`, [ids.company]);
+    assert.equal((await access(ids.chef)).locked, true);
+    await assert.rejects(
+      as(ids.chef, 'select public.claim_quote_parse($1)', [quote]),
+      /needs to be unlocked/
+    );
+
+    // Unlocked by hand, which is how this is sold.
+    await db.query('update public.companies set subscription_active = true where id = $1', [ids.company]);
+    assert.equal((await access(ids.chef)).locked, false);
+    await as(ids.chef, 'select public.claim_quote_parse($1)', [quote]);
+
+    // The notice is shown once.
+    assert.equal((await access(ids.chef)).notice_seen, false);
+    await as(ids.chef, 'select public.mark_trial_notice_seen()');
+    assert.equal((await access(ids.chef)).notice_seen, true);
+  });
+
   await t.test('nobody reads another company\'s assignments', async () => {
     assert.equal((await as(ids.otherChef, 'select * from public.quote_assignments')).length, 0);
     assert.ok((await as(ids.chef, 'select * from public.quote_assignments')).length > 0);

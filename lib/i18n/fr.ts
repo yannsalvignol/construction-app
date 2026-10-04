@@ -480,6 +480,19 @@ const fr = {
     failed: 'Lecture échouée',
   },
 
+  trial: {
+    welcomeTitle: 'Bienvenue sur CASPROD',
+    freeDays: (n: number) => `${n} jours d'essai gratuit`,
+    welcomeBody:
+      "Vous avez accès à tout, sans limite, pendant quinze jours. À la fin de cette période, nous prendrons rendez-vous ensemble pour choisir la formule qui vous convient — nos tarifs sont déjà consultables sur notre site. D'ici là, servez-vous autant que vous le voulez.",
+    start: 'Commencer',
+    seePricing: 'Voir les tarifs',
+    lockedTitle: 'Votre période d’essai est terminée',
+    lockedBody:
+      "Pour continuer à utiliser CASPROD, écrivez-nous afin de choisir votre formule et débloquer votre compte. Vos chantiers, vos devis et vos équipes vous attendent intacts.",
+    writeToUs: 'Nous écrire',
+    mailSubject: 'Débloquer mon compte CASPROD',
+  },
   quoteReview: {
     milestones: 'Échéancier',
     milestoneRetention: 'Retenue de garantie',

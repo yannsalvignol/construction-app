@@ -28,6 +28,8 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'A clock-in photo is required to start the day':
     'Votre chef demande une photo de pointage avant de commencer la journée.',
   'Only a chef can import a devis': 'Seul un chef peut importer un devis.',
+  'This account needs to be unlocked before it can be used':
+    "Votre période d'essai est terminée. Écrivez à melanie@casprod.app pour débloquer votre compte.",
   'Daily devis reading limit reached':
     "Vous avez atteint le nombre de devis lisibles aujourd'hui. Réessayez demain, ou demandez à relever la limite.",
   'Only a chef can validate a devis': 'Seul un chef peut valider un devis.',

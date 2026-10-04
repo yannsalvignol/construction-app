@@ -176,6 +176,43 @@ many documents are read, and one document re-read is the same document.
 
 ---
 
+## Unlocking a paid account
+
+Fifteen days from the day a company is created, then its chef cannot get in
+until somebody here says the account is paid for.
+
+```sql
+-- the customer is paying
+update public.companies set subscription_active = true where name = '...';
+
+-- the customer stopped paying
+update public.companies set subscription_active = false where name = '...';
+
+-- give one company more time instead
+update public.companies set trial_started_at = now() where name = '...';
+
+-- who is on trial and how long they have
+select name, subscription_active,
+       (trial_started_at + interval '15 days')::date as trial_ends
+from public.companies
+where not subscription_active
+order by trial_ends;
+```
+
+Nothing is deleted when an account locks: the sites, the devis and the crews
+are waiting. Only the chef is stopped — an employee did not sign anything and
+cannot pay anything, and locking him out of a day he is halfway through would
+punish the wrong person for his employer's invoice.
+
+The database refuses a locked company's expensive writes on its own, not only
+the screen, because a lock that lives in the app is a suggestion.
+
+> Every company that existed before this shipped was marked paid. Starting
+> their clock at the migration would have locked them out within a fortnight
+> without warning.
+
+---
+
 ## Live location
 
 ```sql

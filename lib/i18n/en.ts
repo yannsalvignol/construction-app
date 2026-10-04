@@ -484,6 +484,19 @@ const en = {
     failed: 'Reading failed',
   },
 
+  trial: {
+    welcomeTitle: 'Welcome to CASPROD',
+    freeDays: (n: number) => `${n} days free`,
+    welcomeBody:
+      'You have everything, with no limits, for fifteen days. At the end of it we will set up a call to pick the plan that suits you — our pricing is already on our website. Until then, use it as much as you like.',
+    start: 'Get started',
+    seePricing: 'See pricing',
+    lockedTitle: 'Your trial has ended',
+    lockedBody:
+      'To keep using CASPROD, write to us so we can pick your plan and unlock your account. Your sites, your devis and your crews are waiting, untouched.',
+    writeToUs: 'Write to us',
+    mailSubject: 'Unlock my CASPROD account',
+  },
   quoteReview: {
     milestones: 'Payment schedule',
     milestoneRetention: 'Retention',
