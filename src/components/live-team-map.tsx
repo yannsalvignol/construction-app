@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import MapView, { Circle, Marker } from 'react-native-maps';
+import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Action, Card, Feedback, pageStyles } from './work-ui';
 import { ThemedText } from './themed-text';
@@ -127,7 +127,7 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
     <View style={{ height: 380, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
       {/* Panning and zooming belong to the map; the page is scrolled from the lists
           below it, which is why the map is pinned rather than scrolling away. */}
-      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}
+      <MapView provider={PROVIDER_GOOGLE} ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}
         onMapReady={() => setMapReady(true)}>
         {showSites && sites.map(site => site.latitude != null && site.longitude != null
           ? <Marker key={'site-' + site.id} coordinate={{ latitude: site.latitude, longitude: site.longitude }}

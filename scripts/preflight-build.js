@@ -318,9 +318,26 @@ function checkRuntimeVersionBump() {
     .filter((name) => /^(expo$|expo-|react-native-|@react-native)/.test(name))
     .sort()
     .map((name) => `${name}@${pkg.dependencies[name]}`);
-  const plugins = (appJson.expo?.plugins || [])
-    .map((p) => (Array.isArray(p) ? p[0] : p))
-    .sort();
+  // The plugins as they are actually resolved, arguments included, hashed
+  // rather than stored: an argument can be an API key, and a record file is
+  // not a place for one. Names alone were not enough — handing
+  // react-native-maps an iOS key rewrites Info.plist, which is as native a
+  // change as adding the module, and the name never moves.
+  let resolved = JSON.stringify(appJson.expo?.plugins ?? []);
+  try {
+    resolved = execFileSync('npx', ['expo', 'config', '--type', 'public', '--json'], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+      .split('\n')
+      .pop();
+    resolved = JSON.stringify(JSON.parse(resolved).plugins ?? []);
+  } catch {
+    warn('Could not resolve app config; comparing the plugin list as written.');
+  }
+  const plugins = require('crypto').createHash('sha256').update(resolved).digest('hex').slice(0, 16);
   const fingerprint = JSON.stringify({ native, plugins });
 
   const recordPath = path.join(ROOT, 'scripts', '.native-at-version.json');

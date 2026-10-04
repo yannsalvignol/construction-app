@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
-import MapView, { type Region } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Action } from './work-ui';
 import { ThemedText } from './themed-text';
@@ -233,7 +233,7 @@ export function SitePicker({ onChange }: {
     </View>
 
     <View style={{ height: 260, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
-      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO_REGION} onRegionChangeComplete={settled} />
+      <MapView provider={PROVIDER_GOOGLE} ref={map} style={{ flex: 1 }} initialRegion={MOROCCO_REGION} onRegionChangeComplete={settled} />
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
         {/* Sits half a pin above centre so the point, not the head, marks the spot. */}
         <View style={{ marginBottom: 28 }}>

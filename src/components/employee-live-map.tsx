@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import MapView, { Circle, Marker } from 'react-native-maps';
+import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { BrandSpinner } from './brand-spinner';
 import { Action, Card } from './work-ui';
 import { ThemedText } from './themed-text';
@@ -73,6 +73,8 @@ export function EmployeeLiveMap() {
           user's own panning — the map could be zoomed but never moved. The
           camera is pointed at the shared position instead, once per fix. */}
       <MapView
+        // Google on both platforms, deliberately: see app.config.js.
+        provider={PROVIDER_GOOGLE}
         ref={map}
         style={{ flex: 1 }}
         showsUserLocation
