@@ -13,6 +13,28 @@ you need on a Tuesday afternoon when a customer phones.
 
 ---
 
+## Qui est arrêté, et quand
+
+A company that has not been paid for stops in two steps.
+
+| | when | what happens |
+|---|---|---|
+| Chef | 15 days after the company was created (`trial_days()`), plus any of his three postponements | the wall, with the phone number and the address |
+| Employees | 7 days after that (`employee_grace_days()`) | signed out, and told on the sign-in screen to ask their chef |
+
+The week exists because an employee signed nothing and can pay nothing:
+stopping him at the same midnight as his employer punishes the wrong person,
+and a week is long enough for a chef to answer an e-mail and for a man to
+finish the chantier week he is standing in. A day already open is never
+interrupted — the block is on starting a new one.
+
+A day the chef buys back with `take_grace_day()` moves both walls.
+
+```sql
+-- give a company its access back
+update public.companies set subscription_active = true where name = '...';
+```
+
 ## Protection du travailleur isolé
 
 **Off by default.** A company gets the watch when it asks for it.

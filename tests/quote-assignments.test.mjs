@@ -548,6 +548,37 @@ test('handing out devis work', async t => {
     // Nobody but a chef spends his company's days.
     await assert.rejects(as(ids.worker, 'select public.take_grace_day()'), /Only a chef/);
 
+    // The crew follows a week later, not at midnight with the chef.
+    {
+      const employeeAccess = async () => (await as(ids.worker, 'select public.company_access() as a'))[0].a;
+      await db.query(`update public.companies set grace_until = null, grace_days_used = 0,
+                      trial_started_at = now() - interval '16 days' where id = $1`, [ids.company]);
+      // Chef stopped; the man on the chantier is not.
+      assert.equal((await access(ids.chef)).locked, true);
+      assert.equal((await employeeAccess()).locked, false);
+      await as(ids.worker, 'select public.require_company_access()');
+      // Day six: still working.
+      await db.query(`update public.companies set trial_started_at = now() - interval '21 days'
+                      where id = $1`, [ids.company]);
+      assert.equal((await employeeAccess()).locked, false);
+      // Day eight: stopped too, and the database refuses a new day rather
+      // than trusting a screen to have stopped him.
+      await db.query(`update public.companies set trial_started_at = now() - interval '23 days'
+                      where id = $1`, [ids.company]);
+      assert.equal((await employeeAccess()).locked, true);
+      await assert.rejects(as(ids.worker, 'select public.require_company_access()'), /needs to be unlocked/);
+      await assert.rejects(
+        as(ids.worker, 'select public.start_work_day($1, 8)', [ids.site]),
+        /needs to be unlocked/
+      );
+      // A day the chef buys back carries his men with it.
+      await as(ids.chef, 'select public.take_grace_day()');
+      assert.equal((await access(ids.chef)).locked, false);
+      assert.equal((await employeeAccess()).locked, false);
+      await db.query(`update public.companies set grace_until = null, grace_days_used = 0,
+                      trial_started_at = now() - interval '16 days' where id = $1`, [ids.company]);
+    }
+
     // Unlocked by hand, which is how this is sold.
     await db.query('update public.companies set subscription_active = true where id = $1', [ids.company]);
     assert.equal((await access(ids.chef)).locked, false);

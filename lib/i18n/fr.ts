@@ -52,6 +52,8 @@ const fr = {
   },
 
   signIn: {
+    companyLocked:
+      "L’accès de votre entreprise n’est plus actif. Prévenez votre chef : il doit nous contacter pour le rétablir.",
     titleBefore: 'Content de vous revoir sur ',
     titleAfter: ' !',
     identifierPlaceholder: "E-mail ou nom d'utilisateur",

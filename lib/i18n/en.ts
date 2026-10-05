@@ -55,6 +55,8 @@ const en = {
   },
 
   signIn: {
+    companyLocked:
+      'Your company’s access is no longer active. Tell your manager: he needs to contact us to restore it.',
     titleBefore: 'Glad to see you again on ',
     titleAfter: '!',
     identifierPlaceholder: 'Email or username',

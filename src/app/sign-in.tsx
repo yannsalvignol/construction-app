@@ -11,6 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useAuthPalette } from '@/hooks/use-auth-palette';
+import { clearLockout, readLockout } from '@/lib/lockout';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -21,6 +22,9 @@ export default function SignInScreen() {
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  // Set once, by the sign-out that ended the last session, so the screen can
+  // say why he is back here instead of looking like a bug.
+  const [lockedOut, setLockedOut] = useState(readLockout);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const passwordInput = useRef<TextInput>(null);
@@ -36,6 +40,10 @@ export default function SignInScreen() {
     passwordInput.current?.blur();
     if (submitting || !identifier.trim() || !password) return;
     setError(null);
+    // A new attempt is a new answer: if the company is still shut the gate
+    // puts the notice straight back, and if it has been paid it must go.
+    clearLockout();
+    setLockedOut(false);
     setSubmitting(true);
     const { error } = await signIn(identifier.trim(), password);
     setSubmitting(false);
@@ -56,6 +64,11 @@ export default function SignInScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}>
+        {lockedOut && (
+          <ThemedView style={[styles.notice, { backgroundColor: theme.warningSoft }]}>
+            <ThemedText type="small" themeColor="warning">{t.signIn.companyLocked}</ThemedText>
+          </ThemedView>
+        )}
         <ThemedText type="subtitle" style={styles.title}>
           {t.signIn.titleBefore}
           <BrandName />
@@ -137,6 +150,11 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
+  notice: {
+    borderRadius: 14,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',

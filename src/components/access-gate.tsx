@@ -8,6 +8,7 @@ import { Action, Card, WorkPage } from '@/components/work-ui';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
+import { rememberLockout } from '@/lib/lockout';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -44,15 +45,24 @@ type Access = {
  * it every morning. After it expires, a wall: the app is not usable until
  * somebody here unlocks the account.
  *
- * Only in front of the chef. An employee did not sign anything and cannot pay
- * anything; locking him out of a day he is halfway through would punish the
- * wrong person for his employer's invoice.
+ * The crew follows the chef, a week behind. An employee did not sign anything
+ * and cannot pay anything, so stopping him at the same midnight would punish
+ * the wrong person for his employer's invoice — but letting him work for ever
+ * would mean the account never really closed. A week is long enough for a
+ * chef to answer an e-mail, and for a man to finish the chantier week he is
+ * standing in.
+ *
+ * When his week is up he is signed out rather than shown a wall he could sit
+ * behind: there is nothing for him to do here, no conversation he can have
+ * with us, and nothing of his employer's that should stay on his phone. He is
+ * told why, on the sign-in screen, and signing in again lands him straight
+ * back on it until somebody pays.
  *
  * The screen is not the lock. The database refuses a locked company's writes
  * on its own, because a lock that lives in the app is a suggestion.
  */
 export function AccessGate({ children }: { children: React.ReactNode }) {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const { t } = useI18n();
   const theme = useTheme();
   const [access, setAccess] = useState<Access | null>(null);
@@ -60,10 +70,18 @@ export function AccessGate({ children }: { children: React.ReactNode }) {
   const [taking, setTaking] = useState(false);
 
   const load = useCallback(async () => {
-    if (profile?.role !== 'chef') return;
+    if (!profile) return;
     const { data } = await supabase.rpc('company_access');
-    setAccess((data as Access) ?? null);
-  }, [profile?.role]);
+    const answer = (data as Access) ?? null;
+    // An employee past his week has nothing to read here. Out, with the
+    // reason waiting for him on the sign-in screen.
+    if (answer?.locked && profile.role === 'employee') {
+      rememberLockout();
+      await signOut().catch(() => supabase.auth.signOut({ scope: 'local' }));
+      return;
+    }
+    setAccess(answer);
+  }, [profile, signOut]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
