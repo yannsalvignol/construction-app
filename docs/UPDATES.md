@@ -25,9 +25,13 @@ this way is how the permission gets withdrawn, so it is for fixes and
 improvements to the app that was approved, not for a new one.
 
 **It only works from the next production build onward.** The build currently
-on the App Store was made before `expo-updates` existed and has no mechanism
-to fetch anything; it will live out its life as it is. Build and submit once,
-and every release after that can go over the air.
+on the App Store is 1.0.0, made before `expo-updates` existed, and has no
+mechanism to fetch anything; it will live out its life as it is. Build and
+submit 1.1.0 once, and every release after that can go over the air.
+
+From 1.1.0 the app also stops waiting for the *following* launch: it checks on
+startup and on every return to the foreground, and reloads itself as soon as
+it has the new bundle. See **Forcing an update** below.
 
 ### What an update cannot carry
 
@@ -48,7 +52,7 @@ the update, with no review process in the way to catch it.
 
 `app.json` sets `runtimeVersion: { policy: "appVersion" }`. Every build and
 every update carrying the same `version` string are declared compatible. Today
-that string is `1.0.0`.
+that string is `1.1.0`.
 
 So: **a native change must come with a new `version` in `app.json`.** Bump it,
 build, submit. Updates then target the new version and never reach the old
@@ -91,7 +95,7 @@ touching anything a customer has.
 ## A full release, when native did change
 
 ```bash
-# 1. bump "version" in app.json          (1.0.0 -> 1.0.1)
+# 1. bump "version" in app.json          (1.1.0 -> 1.2.0)
 npm run preflight                         # lockfile, EAS env vars, native sync, version rule
 npx eas build --platform ios --profile production --auto-submit
 ```
