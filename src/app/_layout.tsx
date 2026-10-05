@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/theme';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { FatalNote } from '@/components/fatal-note';
 import { SessionLoadingScreen } from '@/components/session-loading';
 import { UpdateWall } from '@/components/update-wall';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
@@ -18,8 +19,12 @@ import { I18nProvider } from '@/hooks/use-i18n';
 // Registers the live-location background task at startup: a background wake
 // after the app was terminated must find the task already defined.
 import '@/lib/live-location';
+import { installFatalRecorder } from '@/lib/crash-note';
 import { applyThemeChoice, readStoredThemeChoice } from '@/lib/theme-choice';
 
+// Before anything else runs: an error thrown while the modules below are still
+// being evaluated is exactly the one nobody can see.
+installFatalRecorder();
 applyThemeChoice(readStoredThemeChoice());
 
 SplashScreen.preventAutoHideAsync();
@@ -68,6 +73,7 @@ export default function RootLayout() {
         <I18nProvider>
           <AuthProvider>
             <AnimatedSplashOverlay />
+            <FatalNote />
             {/* Outside the navigator and outside the session: a build too old
                 to use is too old to sign in with. */}
             <UpdateWall>

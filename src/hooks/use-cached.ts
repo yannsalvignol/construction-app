@@ -1,4 +1,5 @@
 import { useFocusEffect } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { useCallback, useState } from 'react';
 
 import '@/lib/sqlite-local-storage';
@@ -27,10 +28,35 @@ import '@/lib/sqlite-local-storage';
  * screen warm the other tabs while the chef is reading it.
  */
 
-/** Bumped when a cached shape changes, so yesterday's rows cannot come back
- *  into today's components with a field missing. */
-const SCHEMA = 'v1';
-const DISK_PREFIX = `casprod:cache:${SCHEMA}:`;
+/**
+ * Cached rows are only ever guaranteed to match the code that wrote them, and
+ * the code can change without the app being reinstalled: an update travels
+ * over the air, so a bundle published this afternoon reads what this morning's
+ * bundle left on the device. A field renamed in between is then read back into
+ * a component that no longer expects it, on a phone nobody can reach.
+ *
+ * So the key carries the bundle that wrote it. A new bundle starts cold —
+ * one blank frame, once, instead of yesterday's shapes in today's screens —
+ * and the rows the old bundle left are swept the first time this module loads.
+ */
+const SCHEMA = 'v2';
+const BUNDLE = Updates.updateId ?? 'embedded';
+const ROOT = 'casprod:cache:';
+const DISK_PREFIX = `${ROOT}${SCHEMA}:${BUNDLE}:`;
+
+/** Drops every cache but this bundle's. Runs once, at module load. */
+function sweepOtherBundles() {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const stale: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(ROOT) && !key.startsWith(DISK_PREFIX)) stale.push(key);
+    }
+    for (const key of stale) localStorage.removeItem(key);
+  } catch { /* a cache that will not open is simply a cold one */ }
+}
+sweepOtherBundles();
 
 const cache = new Map<string, unknown>();
 
@@ -71,7 +97,7 @@ export function clearCache() {
     if (typeof localStorage === 'undefined') return;
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
-      if (key?.startsWith('casprod:cache:')) localStorage.removeItem(key);
+      if (key?.startsWith(ROOT)) localStorage.removeItem(key);
     }
   } catch { /* nothing to clear if the store will not open */ }
 }
