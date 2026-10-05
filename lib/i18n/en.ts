@@ -476,8 +476,6 @@ const en = {
     quantityFor: (label: string) => `Quantity done · ${label}`,
     scopeMine: (n: number) => `For me (${n})`,
     scopeAll: 'The whole devis',
-    otherWork: 'Other work, outside the quote',
-    otherWorkHint: 'For work the quote does not cover.',
   },
 
   quoteStatus: {

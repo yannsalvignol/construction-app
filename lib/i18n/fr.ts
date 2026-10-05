@@ -472,8 +472,6 @@ const fr = {
     quantityFor: (label: string) => `Quantité réalisée · ${label}`,
     scopeMine: (n: number) => `Pour moi (${n})`,
     scopeAll: 'Tout le devis',
-    otherWork: 'Autre tâche, hors devis',
-    otherWorkHint: 'Pour un travail que le devis ne couvre pas.',
   },
 
   quoteStatus: {
