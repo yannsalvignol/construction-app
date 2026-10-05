@@ -30,9 +30,31 @@ interrupted — the block is on starting a new one.
 
 A day the chef buys back with `take_grace_day()` moves both walls.
 
+### When a company pays
+
+```bash
+node scripts/trial-access.mjs list            # who has access, and who does not
+node scripts/trial-access.mjs on  <company-id>   # paid
+node scripts/trial-access.mjs off <company-id>   # stopped paying
+```
+
+`on` lifts both walls in one statement. The chef's screen clears the next time
+he opens the app — the gate re-reads on focus, there is nothing to redeploy —
+and his employees, who were signed out, sign in again with the credentials
+they always had. Nothing was reissued and nothing was deleted: their chantiers,
+devis, declared days and photographs were never touched by the lock, which
+only ever refused new writes.
+
+It also hands back the three postponements. They exist for the days between an
+invoice and its payment, and a company that has now paid should not begin its
+next cycle having already spent them.
+
+The equivalent by hand, if the script is not to hand:
+
 ```sql
--- give a company its access back
-update public.companies set subscription_active = true where name = '...';
+update public.companies
+   set subscription_active = true, grace_days_used = 0, grace_until = null
+ where name = '...';
 ```
 
 ## Protection du travailleur isolé
