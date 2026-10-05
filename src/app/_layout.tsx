@@ -12,6 +12,7 @@ import { Colors } from '@/constants/theme';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { SessionLoadingScreen } from '@/components/session-loading';
+import { UpdateWall } from '@/components/update-wall';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { I18nProvider } from '@/hooks/use-i18n';
 // Registers the live-location background task at startup: a background wake
@@ -67,7 +68,11 @@ export default function RootLayout() {
         <I18nProvider>
           <AuthProvider>
             <AnimatedSplashOverlay />
-            <RootNavigator />
+            {/* Outside the navigator and outside the session: a build too old
+                to use is too old to sign in with. */}
+            <UpdateWall>
+              <RootNavigator />
+            </UpdateWall>
           </AuthProvider>
         </I18nProvider>
       </ThemeProvider>

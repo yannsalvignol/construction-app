@@ -139,3 +139,47 @@ never had; it does not lose the ability to work.
 > This is the reason to keep OTA working. With it, the window during which an
 > old version is running is days. Without it, it is however long a user takes
 > to open the App Store — which for a work tool on a chantier can be never.
+
+## Forcing an update
+
+Two kinds, and only one can be forced quietly.
+
+**Over the air.** A JavaScript change is fetched and applied by the app
+itself, on launch and whenever it returns to the foreground. Nobody is asked
+and nobody has to do anything: the app reloads and the new code is running.
+That covers most releases, and it is why the wall below should be rare.
+
+**Through the store.** Native code cannot travel over the air. When an old
+binary is genuinely broken against the server — a function it calls has
+changed shape, a column it writes is gone — raise the floor:
+
+```sql
+update public.app_policy set minimum_version = '1.1.0', updated_at = now();
+```
+
+Anything below that version stops at a screen with one button, which opens
+the store. No dismissal and no "later": a "later" means a chef declaring work
+into a version whose writes the server has stopped accepting, and learning
+about it at the end of the week.
+
+Optional wording for a particular release, shown instead of the default
+sentence:
+
+```sql
+update public.app_policy
+   set note_fr = 'Les devis ont changé de format. Mettez à jour pour continuer à les lire.',
+       note_en = 'Devis changed format. Update to keep reading them.'
+ where id;
+```
+
+The row is readable by anyone and writable through no key at all — raising
+the floor shuts people out of their work, so it is typed against the database
+on purpose. Check what is live with:
+
+```sql
+select minimum_version, updated_at from public.app_policy;
+```
+
+**Raise it only when an older build is actually broken.** A wall in front of
+somebody standing on a chantier is a serious thing to put there, and the
+honest reason to put it there is that the alternative is worse.

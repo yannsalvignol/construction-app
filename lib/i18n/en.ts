@@ -488,6 +488,13 @@ const en = {
     failed: 'Reading failed',
   },
 
+  update: {
+    title: 'Update required',
+    body: 'This version of the app is no longer compatible. Install the update to carry on.',
+    action: 'Update',
+    current: (v: string): string => `Installed version: ${v}`,
+  },
+
   trial: {
     welcomeTitle: 'Welcome to CASPROD',
     freeDaysUnit: (n: number): string => (n > 1 ? 'days of free trial' : 'day of free trial'),

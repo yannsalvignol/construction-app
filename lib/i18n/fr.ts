@@ -484,6 +484,13 @@ const fr = {
     failed: 'Lecture échouée',
   },
 
+  update: {
+    title: 'Mise à jour nécessaire',
+    body: "Cette version de l'application n'est plus compatible. Installez la mise à jour pour continuer.",
+    action: 'Mettre à jour',
+    current: (v: string) => `Version installée : ${v}`,
+  },
+
   trial: {
     welcomeTitle: 'Bienvenue sur CASPROD',
     freeDaysUnit: (n: number) => (n > 1 ? "jours d'essai gratuit" : "jour d'essai gratuit"),
