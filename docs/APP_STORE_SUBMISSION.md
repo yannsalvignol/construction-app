@@ -149,7 +149,88 @@ part of app functionality).
 - [ ] Age rating questionnaire (all "None"), category "Business", price Free.
 - [ ] Export compliance is already declared (`ITSAppUsesNonExemptEncryption: false`).
 
-## 4. Guideline 3.1 — why no in-app purchase
+## 4. Shipping an update over the live version
+
+1.0.0 stays on the store, serving everyone, until 1.1.0 is approved **and
+released**. Nothing you do below takes it down or interrupts anybody; the two
+coexist until the moment you swap them.
+
+### Build and upload
+
+```bash
+npm run preflight
+npx eas-cli build --platform ios --profile production --auto-submit
+```
+
+`--auto-submit` uploads it to App Store Connect when the build finishes.
+Without it: `npx eas-cli submit --platform ios --latest`.
+
+Then **wait for processing** — TestFlight → Builds shows "Processing" for ten
+to thirty minutes. The build cannot be attached to a version until it is done,
+and it will simply not appear in the list before then.
+
+### Create the version
+
+App Store Connect → the app → **iOS App** in the left column → **+ Version or
+Platform** → `1.1.0`. It has to match `app.json`'s `version` exactly.
+
+This gives you a fresh, editable copy of every field. **The live version's
+metadata is frozen; the new version's is not** — so this is where screenshots,
+description and keywords are replaced, and nothing you type here affects what
+is on the store until 1.1.0 goes live.
+
+### Replace the listing
+
+- **Screenshots** — the only piece Apple is fussy about. Upload the largest
+  iPhone size it asks for and it scales the rest; it will tell you the exact
+  pixels in the uploader. Drag to reorder: the first two are what people see
+  without scrolling, so they should be the chantier list and the day screen,
+  not a settings page.
+- **Description, keywords, subtitle, support URL** — overwrite freely.
+- **Promotional text** — the one field that can be changed later without a
+  review, at any time, including while a version is live. Anything you expect
+  to reword belongs there rather than in the description.
+- **What's New in This Version** — required for an update, and read. Say what
+  changed in a sentence or two, in French.
+
+### Attach the build and submit
+
+- **Build** section → **+** → pick the processed build.
+- **Export compliance**: standard HTTPS only, no proprietary cryptography.
+- **App Review Information**: the notes in §1 of this document, and demo
+  accounts that work — a reviewer locked out is a rejection.
+- **Version Release**: choose **Manually release this version**. Automatic
+  means it goes live the hour it is approved, which may be three in the
+  morning. Manual means you press the button when you are awake and watching.
+- **Add for Review** → **Submit**.
+
+Review is typically a day or two. You will get "In Review", then "Pending
+Developer Release" if you chose manual — the app is approved and waiting for
+you.
+
+### Release
+
+Press **Release this version**. It propagates to the store over a few hours.
+
+For a release carrying a lot of change, **Phased Release for Automatic
+Updates** (a checkbox on the version) rolls it to 1 %, 2 %, 5 % … of existing
+users over seven days and can be paused if something is wrong. New downloads
+get it immediately either way. There is no undo on the App Store, so a phased
+release is the only brake you have.
+
+### After it is live
+
+From 1.1.0 onward, a JavaScript fix no longer needs any of this:
+
+```bash
+npx eas update --channel production --message "ce que ça corrige"
+```
+
+See `docs/UPDATES.md` for what can and cannot travel that way.
+
+---
+
+## 5. Guideline 3.1 — why no in-app purchase
 
 Worth knowing before anyone adds a "see our pricing" button back.
 
@@ -167,7 +248,7 @@ and says nothing at all about money. `SALES_EMAIL` in
 only outbound links; the comment above them says why. The pricing page lives on the website, which is where a chef who
 wants prices will look anyway.
 
-## 5. Known non-blockers
+## 6. Known non-blockers
 
 - Console warning "Can't perform a React state update on a component that
   hasn't mounted yet" from `expo-router/useLinking.native.js` on Android
