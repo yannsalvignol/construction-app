@@ -185,6 +185,7 @@ export function PhoneInput({
             <AnimatedText type="small" style={labelTextStyle}>{label}</AnimatedText>
           </Animated.View>
           <TextInput
+            allowFontScaling={false}
             value={shown}
             onChangeText={(next) => {
               const digits = digitsOf(next).slice(0, capacity(country));
@@ -218,6 +219,7 @@ export function PhoneInput({
           </View>
 
           <TextInput
+            allowFontScaling={false}
             value={search}
             onChangeText={setSearch}
             placeholder={t.account.profile.countrySearch}

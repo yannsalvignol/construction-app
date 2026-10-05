@@ -462,6 +462,156 @@ test('handing out devis work', async t => {
     assert.equal(Number((await peek('select count(*) from public.site_quotes where id = $1', [quote]))[0].count), 1);
   });
 
+  await t.test('a company reads five devis a day, and the sixth is refused', async () => {
+    const make = async (n) => (await peek(`
+      insert into public.site_quotes (company_id, site_id, file_path, file_name, mime_type, status, uploaded_by, size_bytes)
+      values ($1, $2, $3, $3, 'application/pdf', 'stored', $4, 10) returning id`,
+      [ids.company, ids.site, `limit-${n}.pdf`, ids.chef]))[0].id;
+
+    await db.query('update public.site_quotes set parsing_started_at = null where company_id = $1', [ids.company]);
+    const made = [];
+    for (let n = 0; n < 6; n += 1) made.push(await make(n));
+
+    for (let n = 0; n < 5; n += 1) {
+      await as(ids.chef, 'select public.claim_quote_parse($1)', [made[n]]);
+    }
+    assert.equal(Number((await as(ids.chef, 'select public.quote_parses_left() as n'))[0].n), 0);
+
+    await assert.rejects(
+      as(ids.chef, 'select public.claim_quote_parse($1)', [made[5]]),
+      /Daily devis reading limit reached/
+    );
+
+    // Re-reading one already counted today is not a sixth document.
+    await as(ids.chef, 'select public.claim_quote_parse($1)', [made[0]]);
+
+    // Only a chef, only his own company.
+    await assert.rejects(
+      as(ids.worker, 'select public.claim_quote_parse($1)', [made[0]]), /Only a chef/);
+    await assert.rejects(
+      as(ids.otherChef, 'select public.claim_quote_parse($1)', [made[0]]), /Quote not found/);
+
+    // The ceiling is a setting, raised without a deploy.
+    await db.query('update public.companies set daily_parse_limit = 20 where id = $1', [ids.company]);
+    await as(ids.chef, 'select public.claim_quote_parse($1)', [made[5]]);
+    assert.equal(Number((await as(ids.chef, 'select public.quote_parses_left() as n'))[0].n), 14);
+
+    await db.query('update public.companies set daily_parse_limit = 5 where id = $1', [ids.company]);
+    await db.query('delete from public.site_quotes where id = any($1)', [made]);
+  });
+
+  await t.test('fifteen days, then the account is locked', async () => {
+    const access = async (who) => (await as(who, 'select public.company_access() as a'))[0].a;
+
+    // A company that pays is never locked, whatever its trial dates say.
+    await db.query(`update public.companies set subscription_active = true,
+                    trial_started_at = now() - interval '90 days' where id = $1`, [ids.company]);
+    assert.equal((await access(ids.chef)).locked, false);
+
+    // On trial: usable, and the screen can say how long is left.
+    await db.query(`update public.companies set subscription_active = false,
+                    trial_started_at = now() - interval '14 days' where id = $1`, [ids.company]);
+    const left = await access(ids.chef);
+    assert.equal(left.locked, false);
+    assert.equal(left.days_left, 1);
+
+    // Expired: locked, and the database refuses what costs money rather than
+    // trusting a screen to have stopped him.
+    await db.query(`update public.companies set trial_started_at = now() - interval '16 days'
+                    where id = $1`, [ids.company]);
+    assert.equal((await access(ids.chef)).locked, true);
+    await assert.rejects(
+      as(ids.chef, 'select public.claim_quote_parse($1)', [quote]),
+      /needs to be unlocked/
+    );
+
+    // Three days he can take for himself, one at a time, and then no more.
+    assert.equal((await access(ids.chef)).grace_left, 3);
+    for (const left of [2, 1, 0]) {
+      const after = (await as(ids.chef, 'select public.take_grace_day() as a'))[0].a;
+      assert.equal(after.locked, false, 'a day taken opens the app');
+      assert.equal(after.grace_left, left);
+      // The writes open too, not just the screen.
+      await as(ids.chef, 'select public.require_company_access()');
+      // Spending the next one is only allowed once this one has run out.
+      await assert.rejects(as(ids.chef, 'select public.take_grace_day()'), /not locked/);
+      await db.query(`update public.companies set grace_until = now() - interval '1 minute'
+                      where id = $1`, [ids.company]);
+      assert.equal((await access(ids.chef)).locked, true);
+    }
+    await assert.rejects(as(ids.chef, 'select public.take_grace_day()'), /No more days/);
+    await assert.rejects(
+      as(ids.chef, 'select public.claim_quote_parse($1)', [quote]),
+      /needs to be unlocked/
+    );
+
+    // Nobody but a chef spends his company's days.
+    await assert.rejects(as(ids.worker, 'select public.take_grace_day()'), /Only a chef/);
+
+    // The crew follows a week later, not at midnight with the chef.
+    {
+      const employeeAccess = async () => (await as(ids.worker, 'select public.company_access() as a'))[0].a;
+      await db.query(`update public.companies set grace_until = null, grace_days_used = 0,
+                      trial_started_at = now() - interval '16 days' where id = $1`, [ids.company]);
+      // Chef stopped; the man on the chantier is not.
+      assert.equal((await access(ids.chef)).locked, true);
+      assert.equal((await employeeAccess()).locked, false);
+      await as(ids.worker, 'select public.require_company_access()');
+      // Day six: still working.
+      await db.query(`update public.companies set trial_started_at = now() - interval '21 days'
+                      where id = $1`, [ids.company]);
+      assert.equal((await employeeAccess()).locked, false);
+      // Day eight: stopped too, and the database refuses a new day rather
+      // than trusting a screen to have stopped him.
+      await db.query(`update public.companies set trial_started_at = now() - interval '23 days'
+                      where id = $1`, [ids.company]);
+      assert.equal((await employeeAccess()).locked, true);
+      await assert.rejects(as(ids.worker, 'select public.require_company_access()'), /needs to be unlocked/);
+      await assert.rejects(
+        as(ids.worker, 'select public.start_work_day($1, 8)', [ids.site]),
+        /needs to be unlocked/
+      );
+      // A day the chef buys back carries his men with it.
+      await as(ids.chef, 'select public.take_grace_day()');
+      assert.equal((await access(ids.chef)).locked, false);
+      assert.equal((await employeeAccess()).locked, false);
+      await db.query(`update public.companies set grace_until = null, grace_days_used = 0,
+                      trial_started_at = now() - interval '16 days' where id = $1`, [ids.company]);
+    }
+
+    // Unlocked by hand, which is how this is sold.
+    await db.query('update public.companies set subscription_active = true where id = $1', [ids.company]);
+    assert.equal((await access(ids.chef)).locked, false);
+    await as(ids.chef, 'select public.claim_quote_parse($1)', [quote]);
+
+    // The notice is shown once.
+    assert.equal((await access(ids.chef)).notice_seen, false);
+    await as(ids.chef, 'select public.mark_trial_notice_seen()');
+    assert.equal((await access(ids.chef)).notice_seen, true);
+  });
+
+  await t.test('a company searches fifty addresses a week, and the fifty-first is refused', async () => {
+    const left = async (session) =>
+      (await as(ids.chef, 'select public.claim_place_search($1) as n', [session]))[0].n;
+    // The keystrokes and the resolve of one lookup share a session, and cost
+    // one between them however many requests they take.
+    assert.equal(await left('session-1'), 49);
+    assert.equal(await left('session-1'), 49);
+    for (let i = 2; i <= 50; i++) await left('session-' + i);
+    await assert.rejects(as(ids.chef, 'select public.claim_place_search($1)', ['session-51']),
+      /Weekly address search limit reached/);
+    // A week later the oldest fall away and the count starts again.
+    await db.query(`update public.place_search_sessions set created_at = now() - interval '8 days'
+                    where company_id = $1`, [ids.company]);
+    assert.equal(await left('session-51'), 49);
+    // Nobody else spends it, and a limit of zero is no limit at all.
+    await assert.rejects(as(ids.worker, 'select public.claim_place_search($1)', ['x']),
+      /Only a chef can search addresses/);
+    await db.query('update public.companies set weekly_place_search_limit = 0 where id = $1', [ids.company]);
+    assert.equal(await left('session-99'), -1);
+    await db.query('update public.companies set weekly_place_search_limit = 50 where id = $1', [ids.company]);
+  });
+
   await t.test('nobody reads another company\'s assignments', async () => {
     assert.equal((await as(ids.otherChef, 'select * from public.quote_assignments')).length, 0);
     assert.ok((await as(ids.chef, 'select * from public.quote_assignments')).length > 0);

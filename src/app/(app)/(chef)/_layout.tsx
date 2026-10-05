@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { AccessGate } from '@/components/access-gate';
 import ChefTabs from '@/components/chef-tabs';
 import { useI18n } from '@/hooks/use-i18n';
 import { useWarmTabs } from '@/hooks/use-warm-tabs';
@@ -12,5 +13,5 @@ export default function ChefLayout() {
   const { locale } = useI18n();
   // A safety alert that waits for him to open the app is not a safety feature.
   useEffect(() => { void enableChefAlerts(locale); }, [locale]);
-  return <ChefTabs />;
+  return <AccessGate><ChefTabs /></AccessGate>;
 }

@@ -46,10 +46,31 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const action = body?.action;
 
+  // One lookup — the keystrokes and the resolve that follows — counts once
+  // against the company's week. Claimed as the caller, so the refusal is the
+  // database's, and only once a request is going to reach Google: a query too
+  // short to send costs nothing and must not count as a lookup.
+  const session = typeof body.session === 'string' && body.session ? body.session : crypto.randomUUID();
+  const caller_client = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  let left = -1;
+  async function claim() {
+    const { data, error } = await caller_client.rpc('claim_place_search', { session });
+    if (error) {
+      console.error('[place-search] quota refused', error.message);
+      return json({ error: error.message, quota: true }, 429);
+    }
+    left = data as number;
+    return null;
+  }
+
   if (action === 'suggest') {
     const input = typeof body.input === 'string' ? body.input.trim() : '';
     // Two characters suggest everything and cost a request to say so.
     if (input.length < 3) return json({ suggestions: [] });
+    const refused = await claim();
+    if (refused) return refused;
 
     const payload: Record<string, unknown> = {
       input,
@@ -87,12 +108,14 @@ Deno.serve(async (req) => {
         detail: p.structuredFormat?.secondaryText?.text ?? '',
       }))
       .filter((s: Suggestion) => s.id && s.label);
-    return json({ suggestions });
+    return json({ suggestions, left });
   }
 
   if (action === 'resolve') {
     const id = typeof body.id === 'string' ? body.id : '';
     if (!id) return json({ error: 'Missing place id' }, 400);
+    const refused = await claim();
+    if (refused) return refused;
     // The field mask is the bill: ask for the three fields the pin needs and
     // nothing else.
     const response = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`, {

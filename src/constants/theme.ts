@@ -43,6 +43,8 @@ export const Colors = {
     success: '#26734A',
     /** A surface that carries white text, where success is a tone for text. */
     successFill: '#26734A',
+    /** Likewise for danger: the text tone is too light to carry white. */
+    dangerFill: '#B82746',
     warning: '#8A5410',
     /** A wash of the warning tone, for lighting a field that was left empty. */
     warningSoft: '#FAE8D2',
@@ -81,6 +83,8 @@ export const Colors = {
     /** A surface that carries white text: the dark success tone is a pale green
      * meant for lettering, and white on it is unreadable. */
     successFill: '#2E7D56',
+    /** Same reason: the dark danger tone is a pale pink for lettering. */
+    dangerFill: '#A3283F',
     warning: '#F1C077',
     /** A wash of the warning tone, for lighting a field that was left empty. */
     warningSoft: '#4A3418',

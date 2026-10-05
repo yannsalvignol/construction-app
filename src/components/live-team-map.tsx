@@ -8,10 +8,14 @@ import { ThemedText } from './themed-text';
 import { BrandSpinner } from './brand-spinner';
 import { OnSiteBadge } from './on-site-badge';
 import { SiteRow } from './site-row';
+import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
+import { MAP_PROVIDER } from '@/components/map-provider';
+import { useMapDiagnostics } from '@/hooks/use-map-diagnostics';
 import { useTheme } from '@/hooks/use-theme';
+import { readCache, writeCache } from '@/hooks/use-cached';
 import { fetchLiveTeam, type LivePosition } from '@/lib/live-location';
-import { supabase } from '@/lib/supabase';
+import { liveTeamKey, loadSites, sitesKey } from '@/lib/tab-data';
 import type { Site } from '@/lib/presence';
 import { positionAge, STALE_AFTER_MS, workCopy } from '@/lib/work-copy';
 
@@ -22,6 +26,33 @@ const MOROCCO = { latitude: 31.7917, longitude: -7.0926, latitudeDelta: 12, long
 /** Deltas used when centring on one pin picked from the lists below the map. */
 const CLOSE_UP = { latitudeDelta: 0.006, longitudeDelta: 0.006 };
 
+/**
+ * Has a map drawn at all this session?
+ *
+ * The spinner over the map earns its place the first time, when there is
+ * nothing but a grey rectangle and no way to tell loading from broken. On
+ * every visit after that the tiles are in the device's cache and come back in
+ * a frame or two, and a spinner that appears and vanishes is itself the flash
+ * it was meant to cover.
+ */
+let mapHasDrawn = false;
+
+/** The region that holds every point, with a margin, so the map opens framed
+ *  on the cached pins instead of on the whole country and then jumping. */
+function regionFor(points: { latitude: number; longitude: number }[]) {
+  if (!points.length) return MOROCCO;
+  const lats = points.map((p) => p.latitude);
+  const lngs = points.map((p) => p.longitude);
+  const [minLat, maxLat] = [Math.min(...lats), Math.max(...lats)];
+  const [minLng, maxLng] = [Math.min(...lngs), Math.max(...lngs)];
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.01),
+    longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.01),
+  };
+}
+
 /** Which pins and list are shown; null shows both. */
 type Tab = 'people' | 'sites' | null;
 
@@ -29,12 +60,28 @@ type Tab = 'people' | 'sites' | null;
  * at the top, and the employee / chantier lists scroll underneath. */
 export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   const { locale } = useI18n();
+  const { profile } = useAuth();
+  const diagnostics = useMapDiagnostics('équipe');
   const copy = workCopy(locale);
   const theme = useTheme();
-  const [team, setTeam] = useState<LivePosition[] | null>(null);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [tab, setTab] = useState<Tab>(null);
-  const tabRef = useRef<Tab>(null);
+  // Both seeded from the cache the tabs are warmed into, so the tab opens on
+  // pins instead of on an empty map that fills in a moment later. A position
+  // out of that cache is treated exactly like one that has sat on the server
+  // all morning: drawn faded, with its age next to the name. The page says how
+  // old every pin is, which is what makes showing an old one honest.
+  const companyId = profile?.company_id ?? '';
+  const [team, setTeam] = useState<LivePosition[] | null>(
+    () => readCache<LivePosition[]>(liveTeamKey(companyId)) ?? null
+  );
+  const [sites, setSites] = useState<Site[]>(
+    () => (readCache<Site[]>(sitesKey(companyId)) ?? []).filter((site) => site.latitude != null)
+  );
+  // Employés, not both: the question this tab is opened with is where the
+  // crew is, and the chantiers are pins that do not move. The web map has
+  // always opened this way; the native one was the odd one out. Tapping it
+  // again still clears the filter and brings the chantiers back.
+  const [tab, setTab] = useState<Tab>('people');
+  const tabRef = useRef<Tab>('people');
   const [error, setError] = useState<string | null>(null);
   // Ticked with each refresh: reading the clock during render is not pure.
   const [now, setNow] = useState(() => Date.now());
@@ -45,11 +92,18 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
   const framed = useRef('');
   // Team and sites arrive from two independent requests; framing reads the latest
   // of both through refs so whichever finishes second still frames the full picture.
-  const sitesRef = useRef<Site[]>([]);
-  const teamRef = useRef<LivePosition[]>([]);
+  const sitesRef = useRef<Site[]>(sites);
+  const teamRef = useRef<LivePosition[]>(team ?? []);
   // Tiles take a moment to arrive; until they do the map is a blank rectangle,
   // which reads as broken rather than loading.
-  const [mapReady, setMapReady] = useState(false);
+  const [mapReady, setMapReady] = useState(mapHasDrawn);
+  // Fixed at mount: a region that moved under the camera would fight the
+  // framing and the chef's own panning.
+  // The people, because that is the tab it opens on: framing on anything the
+  // first frame() will not frame puts a jump in front of the chef.
+  const [initialRegion] = useState(() => regionFor(
+    (team ?? []).map((m) => ({ latitude: m.latitude, longitude: m.longitude }))
+  ));
 
   // Frames only what the selected tab shows, so picking "Chantiers" zooms to the
   // sites and picking "Employés" to the people.
@@ -87,27 +141,32 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
     try {
       const rows = await fetchLiveTeam();
       if (sequence !== request.current) return;
+      writeCache(liveTeamKey(companyId), rows);
       teamRef.current = rows; setTeam(rows); setError(null); frame(rows, sitesRef.current);
       // Runs after a network response, never during render; the lint cannot tell.
       // eslint-disable-next-line react-hooks/purity
       setNow(Date.now());
     } catch { if (sequence === request.current) setError(copy.failed); }
-  }, [copy.failed, frame]);
+  }, [companyId, copy.failed, frame]);
 
-  const loadSites = useCallback(async () => {
-    const { data } = await supabase.from('sites')
-      .select('id,name,address,is_active,latitude,longitude')
-      .eq('is_active', true).not('latitude', 'is', null);
-    sitesRef.current = data ?? [];
-    setSites(sitesRef.current);
-    frame(teamRef.current, sitesRef.current);
-  }, [frame]);
+  const refreshSites = useCallback(async () => {
+    // The same query the Chantiers tab caches, so the two tabs warm each other
+    // rather than each asking for the list on its own.
+    const all = await loadSites(companyId);
+    // Cached whole, because the Chantiers tab reads this same key and wants
+    // every active site; only the map drops the ones with no coordinates.
+    writeCache(sitesKey(companyId), all);
+    const located = all.filter((site) => site.latitude != null);
+    sitesRef.current = located;
+    setSites(located);
+    frame(teamRef.current, located);
+  }, [companyId, frame]);
 
   useFocusEffect(useCallback(() => {
-    void refresh(); void loadSites();
+    void refresh(); void refreshSites();
     const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(); }, REFRESH_MS);
     return () => { clearInterval(timer); request.current++; };
-  }, [refresh, loadSites]));
+  }, [refresh, refreshSites]));
 
   // Rebuilt on each render from the current team: membership changes as people
   // start and stop sharing, and a stale set would offer dead links.
@@ -127,8 +186,10 @@ export function LiveTeamMap({ header }: { header: React.ReactNode }) {
     <View style={{ height: 380, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.backgroundSelected }}>
       {/* Panning and zooming belong to the map; the page is scrolled from the lists
           below it, which is why the map is pinned rather than scrolling away. */}
-      <MapView ref={map} style={{ flex: 1 }} initialRegion={MOROCCO} rotateEnabled={false} pitchEnabled={false}
-        onMapReady={() => setMapReady(true)}>
+      <MapView provider={MAP_PROVIDER}
+        onMapLoaded={diagnostics.onMapLoaded}
+        ref={map} style={{ flex: 1 }} initialRegion={initialRegion} rotateEnabled={false} pitchEnabled={false}
+        onMapReady={() => { diagnostics.onMapReady(); mapHasDrawn = true; setMapReady(true); }}>
         {showSites && sites.map(site => site.latitude != null && site.longitude != null
           ? <Marker key={'site-' + site.id} coordinate={{ latitude: site.latitude, longitude: site.longitude }}
               title={site.name} description={site.address ?? undefined} pinColor={theme.accent} />

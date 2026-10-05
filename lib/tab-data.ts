@@ -28,9 +28,40 @@ export type Shift = {
   profiles: { first_name: string; last_name: string } | null;
 };
 
+export type CompanyIdentity = { name: string; join_code: string };
+
 export const sitesKey = (companyId: string) => `sites:${companyId}`;
+export const companyKey = (companyId: string) => `company:${companyId}`;
+export const dashboardKey = (companyId: string) => `dashboard:${companyId}`;
+export const liveTeamKey = (companyId: string) => `live-team:${companyId}`;
 export const employeesKey = (companyId: string) => `employees:${companyId}`;
 export const planningKey = (companyId: string, from: string) => `planning:${companyId}:${from}`;
+
+/**
+ * The company's name and the code employees type to join it.
+ *
+ * Both are fixed for the life of the company — the code only moves when a chef
+ * deliberately regenerates it, which invalidates this key — so this is the one
+ * tab read that has no business showing a spinner, ever. Cached on disk, it is
+ * on screen in the first frame after a cold start.
+ */
+export async function loadCompany(companyId: string): Promise<CompanyIdentity> {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('name, join_code')
+    .eq('id', companyId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** The chef's home screen, which is the first thing he sees after signing in
+ *  and therefore the blank frame that matters most. */
+export async function loadDashboard(): Promise<unknown> {
+  const { data, error } = await supabase.rpc('chef_dashboard');
+  if (error) throw error;
+  return data;
+}
 
 export async function loadSites(companyId: string): Promise<Site[]> {
   const { data, error } = await supabase

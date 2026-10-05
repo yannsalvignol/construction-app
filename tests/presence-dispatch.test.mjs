@@ -4,7 +4,7 @@ import { createPresenceHandler } from '../supabase/functions/presence-dispatch/h
 
 const now = Date.parse('2026-09-07T10:00:00Z');
 const job = { request_id: 'request-a', token: 'ExpoPushToken[test]', locale: 'fr', expires_at: new Date(now + 300_000).toISOString() };
-function fixture({ jobs = [], receipts = [], expired = [], storageError = null, fetchImpl,
+function fixture({ jobs = [], receipts = [], expired = [], orphans = [], storageError = null, fetchImpl,
   questions = [], alerts = [], raised = 0 } = {}) {
   const calls = [];
   const db = {
@@ -13,6 +13,7 @@ function fixture({ jobs = [], receipts = [], expired = [], storageError = null, 
       const data = {
         claim_presence_notifications: jobs, claim_presence_receipts: receipts,
         expired_presence_photos: expired, redact_expired_presence_evidence: 1,
+        orphan_avatars: orphans,
         claim_lone_worker_questions: questions, raise_due_lone_worker_alerts: raised,
         claim_safety_alert_notifications: alerts,
       }[name] ?? null;
@@ -62,6 +63,18 @@ test('failed Storage deletion keeps the evidence path for a later retry', async 
   const { handler, calls } = fixture({ expired: [{ path: 'old-proof' }], storageError: { message: 'temporary failure' } });
   assert.equal((await handler(request())).status, 503);
   assert.ok(!calls.find(c => c.name === 'redact_expired_presence_evidence'));
+});
+
+test('an avatar whose owner is gone is swept with the presence proofs', async () => {
+  const { handler, calls } = fixture({ orphans: [{ path: 'gone-employee/avatar.jpg' }] });
+  const report = await (await handler(request())).json();
+  assert.equal(report.cleanup.avatars, 1);
+  assert.ok(calls.find(c => c.name === 'remove' && c.bucket === 'avatars'
+    && c.paths[0] === 'gone-employee/avatar.jpg'));
+  // Nothing to sweep must not reach into Storage at all.
+  const quiet = fixture();
+  await quiet.handler(request());
+  assert.ok(!quiet.calls.find(c => c.name === 'remove'));
 });
 
 test('invalid devices are removed, receipts are checked and missing receipts are retried later', async () => {

@@ -55,6 +55,8 @@ const en = {
   },
 
   signIn: {
+    companyLocked:
+      'Your company’s access is no longer active. Tell your manager: he needs to contact us to restore it.',
     titleBefore: 'Glad to see you again on ',
     titleAfter: '!',
     identifierPlaceholder: 'Email or username',
@@ -244,6 +246,8 @@ const en = {
       shareMessage: (companyName: string, code: string) =>
         `Join ${companyName} on Casprod: download the app, tap "Join your team with a code", and enter ${code}.`,
     },
+    search: 'Search for an employee',
+    searchEmpty: (q: string): string => `No employee matching “${q}”`,
     noEmployees: 'No employees yet.',
     manualAddNote: 'Or add one employee at a time and hand them their login yourself.',
     addManually: 'Add employee manually',
@@ -342,6 +346,9 @@ const en = {
     empty: 'No work day declared in the last 30 days.',
     failed: 'This activity could not be loaded.',
     history: 'Activity history',
+    equipmentProof: 'Equipment proof',
+    clockInProof: 'Clock-in photo',
+    seeProof: 'View',
     today: 'Today',
     yesterday: 'Yesterday',
     dayOn: (site: string) => `Work day declared on ${site}`,
@@ -481,6 +488,28 @@ const en = {
     failed: 'Reading failed',
   },
 
+  trial: {
+    welcomeTitle: 'Welcome to CASPROD',
+    freeDaysUnit: (n: number): string => (n > 1 ? 'days of free trial' : 'day of free trial'),
+    noCard: 'No card, no commitment.',
+    included: [
+      'Devis read and split by AI',
+      'Sites, crews and presence, no limits',
+      'What you create stays yours',
+    ],
+    reachUsNow: 'For any question, or to extend your access, please contact us.',
+    start: 'Get started',
+    lockedTitle: (n: number): string => `Your ${n}-day trial has ended`,
+    lockedHead: 'Your access is paused',
+    lockedKept:
+      'No data has been deleted: your sites, your devis and your crews are kept as they are.',
+    lockedBody:
+      'We hope CASPROD has been useful to you. Please contact us by phone or e-mail to agree on what comes next; your access will be restored following that conversation.',
+    mailSubject: 'Activate my company’s access',
+    takeDay: 'Postpone for one day',
+    daysLeftToTake: (n: number): string =>
+      n > 1 ? `Available ${n} times in all.` : 'Last postponement available.',
+  },
   quoteReview: {
     milestones: 'Payment schedule',
     milestoneRetention: 'Retention',
@@ -559,6 +588,7 @@ const en = {
 
   settings: {
     title: 'Settings',
+    consent: 'Information and agreement',
     accountSection: 'Account',
     appearance: {
       title: 'Appearance',
@@ -574,6 +604,7 @@ const en = {
     changePhoto: 'Change photo',
     uploadingPhoto: 'Uploading…',
     photoPermissionDenied: 'Photo library access was denied',
+    photoFailed: 'That photo could not be prepared. Try another one.',
     profile: {
       title: 'Profile',
       firstNamePlaceholder: 'First name',
@@ -628,6 +659,10 @@ const en = {
         'You are the only manager of this company. Deleting your account deletes the company: its sites, all declared work and presence records, and the accounts of every employee. This cannot be undone.',
       confirm: 'Delete for good',
       deleting: 'Deleting…',
+      countdownTitle: 'Deleting in…',
+      countdownBody:
+        'Your account is deleted when the count reaches zero. Tap “Keep my account” to call it off.',
+      keep: 'Keep my account',
       failed: 'Deletion failed. Check your connection and try again.',
     },
     signedInAs: (role: string) => `Signed in as ${role}`,

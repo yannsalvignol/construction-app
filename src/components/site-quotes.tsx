@@ -109,7 +109,11 @@ export function SiteQuotes({ siteId, onChange }: { siteId: string; onChange?: ()
       onChange?.();
       router.push(`/quote/${stored.id}`);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : copy.failed);
+      setError(
+        failure instanceof Error
+          ? translateServerError(failure.message, locale)
+          : copy.failed
+      );
     } finally {
       setStage('idle');
     }

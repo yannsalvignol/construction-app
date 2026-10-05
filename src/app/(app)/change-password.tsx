@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,6 +46,10 @@ export default function ChangePasswordScreen() {
   // screen.
   const [step, setStep] = useState<'email' | 'code' | 'password'>('email');
   const [done, setDone] = useState(false);
+  // Cleared on unmount: a navigation fired after the screen has gone would
+  // pop whatever replaced it.
+  const leaving = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (leaving.current) clearTimeout(leaving.current); }, []);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
 
@@ -113,6 +117,11 @@ export default function ChangePasswordScreen() {
     setCode('');
     setPassword('');
     setConfirm('');
+    // Long enough to read the tick, short enough not to be a wait.
+    leaving.current = setTimeout(
+      () => (router.canGoBack() ? router.back() : router.replace('/settings')),
+      1200
+    );
   }
 
   return (
@@ -126,16 +135,15 @@ export default function ChangePasswordScreen() {
           </ThemedText>
 
           {done ? (
+            // The confirmation stays long enough to be seen and then leaves on
+            // its own. A link to press here asked the person to acknowledge
+            // something they had just caused, which is a step that carries no
+            // decision.
             <Animated.View entering={FadeInDown.duration(200)} style={styles.doneBlock}>
               <Ionicons name="checkmark-circle-outline" size={44} color={theme.success} />
               <ThemedText type="smallBold" style={{ color: theme.success }}>
                 {t.account.security.updated}
               </ThemedText>
-              <Pressable
-                onPress={() => (router.canGoBack() ? router.back() : router.replace('/settings'))}
-                style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText type="linkPrimary">{t.common.done}</ThemedText>
-              </Pressable>
             </Animated.View>
           ) : (
             <>

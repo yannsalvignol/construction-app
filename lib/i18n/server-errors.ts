@@ -23,6 +23,17 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'Only a chef can regenerate the join code': "Seul un chef peut régénérer le code d'invitation.",
   'Could not generate a unique join code': "Impossible de générer un code d'invitation unique.",
   'Invalid work duration': 'Durée de journée invalide.',
+  'A photo of your safety equipment is required to start the day':
+    "Votre chef demande une photo de votre équipement de sécurité avant de commencer la journée.",
+  'A clock-in photo is required to start the day':
+    'Votre chef demande une photo de pointage avant de commencer la journée.',
+  'Only a chef can import a devis': 'Seul un chef peut importer un devis.',
+  'This account needs to be unlocked before it can be used':
+    "Votre période d'essai est terminée. Écrivez à melanie@casprod.app pour débloquer votre compte.",
+  'Weekly address search limit reached':
+    'Vous avez atteint le nombre de recherches d’adresse de la semaine. Saisissez l’adresse à la main, ou demandez-nous de relever la limite.',
+  'Daily devis reading limit reached':
+    "Vous avez atteint le nombre de devis lisibles aujourd'hui. Réessayez demain, ou demandez à relever la limite.",
   'Only a chef can validate a devis': 'Seul un chef peut valider un devis.',
   'This devis has not been read yet': "Ce devis n'a pas encore été lu.",
   'That devis does not belong to this chantier': 'Ce devis n’appartient pas à ce chantier.',
@@ -127,4 +138,21 @@ export function translateServerError(message: string, locale: Locale): string {
     if (match) return build(match);
   }
   return message;
+}
+
+/**
+ * The reason the server gave, in the person's language, or a last resort.
+ *
+ * Supabase rejects with a plain object rather than an Error, so testing for
+ * `instanceof Error` throws away every reason the server gave — which is how
+ * an action that failed for a nameable cause came to say "impossible de
+ * charger les données".
+ */
+export function serverMessage(failure: unknown, fallback: string, locale: Locale) {
+  const raw = failure instanceof Error
+    ? failure.message
+    : typeof (failure as { message?: unknown })?.message === 'string'
+      ? (failure as { message: string }).message
+      : '';
+  return raw ? translateServerError(raw, locale) : fallback;
 }

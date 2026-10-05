@@ -46,3 +46,7 @@ example
 DC2600010.pdf
 chantier_1.pdf
 chantier_2.pdf
+
+# Google Play service account key for eas submit. Never committed: it can
+# publish to your Play listing.
+google-play-service-account.json

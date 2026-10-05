@@ -107,3 +107,9 @@ Références techniques consultées : [planification Supabase](https://supabase.
 Le worker est aussi vérifiable sans les types Deno avec `npm run check:backend`.
 
 Résultat de cette session : 21 tests réussis, contrôle TypeScript du worker et lint backend réussis.
+
+## Réglages modifiables sans build
+
+La surveillance du travailleur isolé, les modèles de lecture des devis et les
+exigences de photo se coupent et se règlent depuis la base ou les secrets, sans
+passer par l'App Store. Voir `docs/OPERATIONS.md`.

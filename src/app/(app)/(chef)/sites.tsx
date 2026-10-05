@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { invalidate, useCached } from '@/hooks/use-cached';
 import { loadSites, sitesKey } from '@/lib/tab-data';
 import { SitePicker } from '@/components/site-picker';
+import { SiteNotesCard } from '@/components/site-notes-card';
 import { SiteRow } from '@/components/site-row';
 import { workCopy } from '@/lib/work-copy';
 
@@ -48,12 +49,18 @@ export default function SitesScreen() {
   }
   return <WorkPage title={copy.sitesTitle}>
     <Feedback message={error ?? loadError} />
-    {sites.map(site => <SiteRow key={site.id} site={site} onRemoved={refresh} />)}
+    {/* The message card stands against each chantier and owns the row, so the
+        note is written where the chantier is read. */}
+    {sites.map(site => <SiteNotesCard key={site.id} siteId={site.id}>
+      <SiteRow site={site} onRemoved={refresh} />
+    </SiteNotesCard>)}
     {!!sites.length && <ThemedText type="small" themeColor="textSecondary">{copy.removeSiteHint}</ThemedText>}
     {adding ? <Card>
       {/* Labelled rather than placeheld: a placeholder is gone the moment you
           type, and these two fields sat next to each other looking the same —
-          one naming the chantier, the other finding it on a map. */}
+          one naming the chantier, the other finding it on a map. The name is
+          the bigger of the two because it is the one being invented; the
+          address is being looked up. */}
       <View style={{ gap: 8 }}>
         <ThemedText type="smallBold">{copy.siteName}</ThemedText>
         <Field
@@ -61,8 +68,8 @@ export default function SitesScreen() {
           placeholder={copy.siteNameExample}
           value={name}
           onChangeText={setName}
+          style={{ minHeight: 60, fontSize: 19 }}
           maxLength={120} />
-        <ThemedText type="small" themeColor="textSecondary">{copy.siteNameHint}</ThemedText>
       </View>
       <SitePicker onChange={setLocated} />
       <Action label={copy.save} busy={busy} disabled={!name.trim() || !located} onPress={save} />

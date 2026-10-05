@@ -173,6 +173,7 @@ export default function JoinScreen() {
 
             <ThemedView style={[styles.form, { backgroundColor: palette.page }]}>
               <TextInput
+                allowFontScaling={false}
                 style={inputStyle(theme)}
                 placeholder={t.join.usernamePlaceholder}
                 placeholderTextColor={theme.textPlaceholder}

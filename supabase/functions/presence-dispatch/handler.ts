@@ -146,7 +146,15 @@ export function createPresenceHandler(dependencies: Dependencies) {
       if (error) throw new Error('Proof cleanup failed');
     }
     const redacted = await rpc(db, 'redact_expired_presence_evidence');
-    return { removed: expired.length, redacted };
+    // Avatars whose profile is gone. Removing an employee deletes the row and
+    // leaves the file, and the file is publicly readable, so it is swept here
+    // rather than left to whichever client happened to press the button.
+    const orphans = await rpc(db, 'orphan_avatars') as { path: string }[];
+    if (orphans.length) {
+      const { error } = await db.storage.from('avatars').remove(orphans.map(row => row.path));
+      if (error) throw new Error('Avatar cleanup failed');
+    }
+    return { removed: expired.length, redacted, avatars: orphans.length };
   }
   return async (request: Request) => {
     if (!dependencies.secret || request.headers.get('Authorization') !== 'Bearer ' + dependencies.secret) {

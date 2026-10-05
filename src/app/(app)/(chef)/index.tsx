@@ -21,6 +21,8 @@ import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/hooks/use-auth';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
+import { readCache, writeCache } from '@/hooks/use-cached';
+import { dashboardKey } from '@/lib/tab-data';
 import { supabase } from '@/lib/supabase';
 import type { Dashboard } from '@/lib/presence';
 import { unitShort, workCopy } from '@/lib/work-copy';
@@ -86,9 +88,15 @@ export default function ChefHomeScreen() {
   const copy = workCopy(locale);
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const [data, setData] = useState<Dashboard | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const companyId = profile?.company_id;
+  // Seeded from the cache, which survives the app being closed: this screen is
+  // the first thing a chef sees after signing in, and it used to be blank for
+  // as long as the round trip took. The refreshing below is unchanged — what
+  // is drawn in the meantime is last time's answer rather than nothing.
+  const [data, setData] = useState<Dashboard | null>(
+    () => readCache<Dashboard>(dashboardKey(companyId ?? '')) ?? null
+  );
+  const [error, setError] = useState<string | null>(null);
   const request = useRef(0);
   const refresh = useCallback(async () => {
     const sequence = ++request.current;
@@ -96,9 +104,10 @@ export default function ChefHomeScreen() {
       const { data: result, error: failure } = await supabase.rpc('chef_dashboard');
       if (sequence !== request.current) return;
       if (failure) throw failure;
+      writeCache(dashboardKey(companyId ?? ''), result);
       setData(result as Dashboard); setError(null);
     } catch { if (sequence === request.current) setError(workCopy(locale).failed); }
-  }, [locale]);
+  }, [companyId, locale]);
   useFocusEffect(useCallback(() => {
     void refresh();
     const timer = setInterval(() => { if (AppState.currentState === 'active') void refresh(); }, 30_000);

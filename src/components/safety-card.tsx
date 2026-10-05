@@ -24,6 +24,10 @@ import { hasBackgroundLocation } from '@/lib/live-location';
  * to reach somebody if he is hurt and cannot get to his phone, which is why
  * the watch has to keep running with the screen off.
  */
+/**
+ * Not rendered at all when the company has the feature switched off: the
+ * caller decides that, because half a safety card is worse than none.
+ */
 export function SafetyCard({ dayOpen, employeeId, watchOn, asked, onChanged }: {
   dayOpen: boolean;
   employeeId: string;

@@ -52,6 +52,8 @@ const fr = {
   },
 
   signIn: {
+    companyLocked:
+      "L’accès de votre entreprise n’est plus actif. Prévenez votre chef : il doit nous contacter pour le rétablir.",
     titleBefore: 'Content de vous revoir sur ',
     titleAfter: ' !',
     identifierPlaceholder: "E-mail ou nom d'utilisateur",
@@ -239,6 +241,8 @@ const fr = {
       shareMessage: (companyName: string, code: string) =>
         `Rejoignez ${companyName} sur Casprod : téléchargez l'application, appuyez sur « Rejoindre votre équipe avec un code », puis entrez ${code}.`,
     },
+    search: 'Rechercher un employé',
+    searchEmpty: (q: string) => `Aucun employé pour « ${q} »`,
     noEmployees: 'Aucun employé pour le moment.',
     manualAddNote: 'Ou ajoutez un employé à la fois et remettez-lui ses identifiants vous-même.',
     addManually: 'Ajouter un employé manuellement',
@@ -337,6 +341,9 @@ const fr = {
     empty: 'Aucune journée déclarée sur les 30 derniers jours.',
     failed: 'Impossible de charger cette activité.',
     history: 'Historique d’activité',
+    equipmentProof: "Preuve d'équipement",
+    clockInProof: 'Photo de pointage',
+    seeProof: 'Voir',
     today: "Aujourd'hui",
     yesterday: 'Hier',
     dayOn: (site: string) => `Journée déclarée sur ${site}`,
@@ -477,6 +484,28 @@ const fr = {
     failed: 'Lecture échouée',
   },
 
+  trial: {
+    welcomeTitle: 'Bienvenue sur CASPROD',
+    freeDaysUnit: (n: number) => (n > 1 ? "jours d'essai gratuit" : "jour d'essai gratuit"),
+    noCard: 'Sans carte bancaire, sans engagement.',
+    included: [
+      'Devis lus et découpés par l’IA',
+      'Chantiers, équipes et présence sans limite',
+      'Ce que vous créez reste à vous',
+    ],
+    reachUsNow: 'Pour toute question, ou pour prolonger votre accès, contactez-nous.',
+    start: 'Commencer',
+    lockedTitle: (n: number) => `Vos ${n} jours d’essai sont écoulés`,
+    lockedHead: 'Votre accès est en pause',
+    lockedKept:
+      'Aucune donnée n’a été supprimée : vos chantiers, vos devis et vos équipes sont conservés.',
+    lockedBody:
+      'Nous espérons que CASPROD vous a été utile. Contactez-nous par téléphone ou par e-mail afin de convenir de la suite ; votre accès sera rétabli à l’issue de cet échange.',
+    mailSubject: 'Activer l’accès de mon entreprise',
+    takeDay: 'Reporter d’une journée',
+    daysLeftToTake: (n: number) =>
+      n > 1 ? `Report disponible ${n} fois au total.` : 'Dernier report disponible.',
+  },
   quoteReview: {
     milestones: 'Échéancier',
     milestoneRetention: 'Retenue de garantie',
@@ -555,6 +584,7 @@ const fr = {
 
   settings: {
     title: 'Réglages',
+    consent: 'Information et accord',
     accountSection: 'Compte',
     appearance: {
       title: 'Apparence',
@@ -570,6 +600,7 @@ const fr = {
     changePhoto: 'Changer la photo',
     uploadingPhoto: 'Envoi…',
     photoPermissionDenied: "L'accès à la photothèque a été refusé",
+    photoFailed: "Cette photo n'a pas pu être préparée. Essayez-en une autre.",
     profile: {
       title: 'Profil',
       firstNamePlaceholder: 'Prénom',
@@ -624,6 +655,10 @@ const fr = {
         'Vous êtes le seul chef de cette entreprise. Supprimer votre compte supprime l’entreprise : ses chantiers, toutes les déclarations et vérifications de présence, et les comptes de tous les employés. Cette action est irréversible.',
       confirm: 'Supprimer définitivement',
       deleting: 'Suppression…',
+      countdownTitle: 'Suppression dans…',
+      countdownBody:
+        'Votre compte sera supprimé à la fin du décompte. Touchez « Garder mon compte » pour tout annuler.',
+      keep: 'Garder mon compte',
       failed: 'La suppression a échoué. Vérifiez votre connexion et réessayez.',
     },
     signedInAs: (role: string) => `Connecté en tant que ${role}`,

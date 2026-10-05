@@ -24,6 +24,24 @@ DEMO ACCOUNTS (already linked to the same company, with one site created):
   Employee: username <username>  /  <password>
   (Employees sign in with a username, not an email.)
 
+PROTECTION DU TRAVAILLEUR ISOLÉ (lone-worker protection)
+- This is the safety feature the background location mode exists for, and the
+  reason the app is used on sites where a man works out of sight of anyone
+  else. French and Moroccan employers owe a duty of care to a worker alone on
+  a chantier; a fall from a scaffold, a trench collapse or an electric shock
+  leaves nobody to call for help.
+- How it works: while an employee has a declared work day open and has agreed
+  to the notice, his phone reports its position in the background. If the
+  position has not moved more than 35 m for 25 minutes, the app asks him
+  whether he is all right. If he does not answer within 3 minutes, his site
+  manager is alerted by push notification with the last known position, so
+  somebody can go and look. Moving again answers the question by itself.
+- The employee can switch his own watch off at any time, and the whole
+  feature stops when he ends his declared day.
+- To see it: sign in as the demo employee, start a work day, accept the
+  notice, and leave the phone still — or press the alert button on the day
+  screen, which raises the same alert immediately and shows it on the chef's.
+
 LOCATION USE
 - Presence checks read the location ONCE, only when the employee taps to
   answer a check. No background access is involved.
@@ -35,6 +53,11 @@ LOCATION USE
   when the employee ends the day or withdraws consent. Only the latest
   position is stored; no movement history is kept. The employee can withdraw
   at any time from the day screen and can sign out at any time.
+- The SAME background stream feeds lone-worker protection above, which is the
+  safety reason the background mode is requested: a position that stops
+  moving is what raises the alarm. Without background location a worker who
+  has fallen cannot be noticed, because a phone in a pocket on a stationary
+  body stops reporting the moment the screen locks.
 - To see it: sign in as the chef → Employees → open the demo employee →
   enable "Live location". Then sign in as the employee, accept the notice,
   start a work day. The chef's "Live" tab shows the pin.
@@ -46,9 +69,26 @@ CAMERA / PHOTOS
   checks are deleted after 30 days.
 
 ACCOUNT DELETION
-- Account → "Delete my account" → confirm. Works for both roles. A chef
-  deleting their account deletes the company and its employees' accounts,
-  which the confirmation text states.
+- Account → "Delete my account" → confirm → a five-second countdown the user
+  can still cancel. Works for both roles. A chef deleting their account
+  deletes the company and its employees' accounts, which the confirmation
+  text states.
+
+BUSINESS MODEL — NO IN-APP PURCHASE
+- CASPROD is sold to construction companies, not to individuals. A company is
+  invoiced directly by us, outside the app, like any B2B service.
+- Nothing can be bought in the app. There is no store, no plan selection, no
+  price and no link to a pricing page anywhere in the binary.
+- A new company gets 15 days of access. The chef sees a one-time welcome
+  screen stating the number of days. After that, if we have not activated the
+  company's access, the chef sees a screen asking him to call or write to us
+  so we can reactivate it. That screen also lets him carry on for one more
+  day, three times, without contacting anyone. Employees are never gated by
+  this.
+- The phone number and e-mail address on those screens are for account
+  activation and support. They are the only outbound links in the app.
+- The demo chef account above has an active access, so the reviewer never
+  meets that screen.
 
 PUSH NOTIFICATIONS
 - Used only to tell an employee that a presence check is due. Permission is
@@ -56,6 +96,9 @@ PUSH NOTIFICATIONS
 
 The app is in French with an English switch on the account screen.
 ```
+
+If the reviewer should also see the access screen, say so explicitly and give
+a second chef account that is locked — never leave it to chance.
 
 Fill in the four credential placeholders before submitting. The demo
 employee must already have accepted the presence notice OR the notes must say
@@ -106,7 +149,25 @@ part of app functionality).
 - [ ] Age rating questionnaire (all "None"), category "Business", price Free.
 - [ ] Export compliance is already declared (`ITSAppUsesNonExemptEncryption: false`).
 
-## 4. Known non-blockers
+## 4. Guideline 3.1 — why no in-app purchase
+
+Worth knowing before anyone adds a "see our pricing" button back.
+
+A free app that is a companion to a paid service billed elsewhere is exempt
+from in-app purchase under **3.1.3(f)**, but only "provided there is no
+purchasing inside the app, or calls to action for purchase outside of the
+app." The second half is what gets apps rejected: a link to a pricing page,
+a plan name, a price, or a button that says "subscribe" is read as steering
+under **3.1.1**, and Morocco's storefront gets neither the US link-entitlement
+from the Epic injunction nor the EU DMA carve-out.
+
+So the app says what access a company has and where to write to change it,
+and says nothing at all about money. `SALES_EMAIL` in
+`SALES_PHONE` and `SALES_EMAIL` in `src/components/access-gate.tsx` are the
+only outbound links; the comment above them says why. The pricing page lives on the website, which is where a chef who
+wants prices will look anyway.
+
+## 5. Known non-blockers
 
 - Console warning "Can't perform a React state update on a component that
   hasn't mounted yet" from `expo-router/useLinking.native.js` on Android

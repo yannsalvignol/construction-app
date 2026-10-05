@@ -71,6 +71,7 @@ export function CodeInput({
       </View>
       {/* Transparent and on top: taps land on the boxes, the caret is ours. */}
       <TextInput
+        allowFontScaling={false}
         ref={input}
         style={styles.hidden}
         value={value}

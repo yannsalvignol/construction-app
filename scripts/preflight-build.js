@@ -273,9 +273,134 @@ function checkNativeIosConfigSync() {
   if (anyMissing) {
     console.log('    Fix: npx expo prebuild --platform ios   (safe -- ios/ is git-ignored)');
   }
+  // The maps key is not a permission string, so the loop above never looked
+  // for it — and a local ios/ generated before the key was configured builds
+  // happily, links no Google Maps SDK, and renders a map that loads for ever.
+  // No error, no crash, just a grey rectangle.
+  // react-native-maps is configured in app.config.js, not app.json, so there
+  // is no plugin entry here to look for — the key being set is the signal.
+  {
+    // Unconditional: app.config.js always hands react-native-maps an iOS key,
+    // so Info.plist must always carry it. Gating this on the environment
+    // variable made the check skip itself, since this script does not load
+    // .env the way the Expo CLI does — a check that quietly does nothing is
+    // worse than no check, because it reads as a pass.
+    const hasKey = plistContent.includes('GMSApiKey');
+    if (!hasKey) {
+      fail(
+        'app.json configures Google Maps for iOS, but local ios/Info.plist has no GMSApiKey.\n' +
+          '    The app will build and its maps will load for ever, with no error.\n' +
+          '    Fix: npx expo prebuild --platform ios   (safe -- ios/ is git-ignored)'
+      );
+      anyMissing = true;
+    } else if (hasKey) {
+      pass('Local ios/ project carries the Google Maps key.');
+    }
+  }
+
   if (!anyMissing && pluginNames.some((n) => PLUGIN_PERMISSION_KEYS[n])) {
     pass('Local ios/ project is in sync with app.json plugin config.');
   }
+}
+
+
+/**
+ * 4. A native dependency was added, or a config plugin changed, without
+ *    `version` being bumped in app.json.
+ *
+ *    The runtimeVersion policy is "appVersion": every build and every OTA
+ *    update of version 1.0.0 are declared compatible. That is what makes the
+ *    update reliable -- the runtime version is a literal string both sides
+ *    read from the same file, where the "fingerprint" policy would hash the
+ *    git-ignored ios/ and android/ directories, which EAS regenerates in the
+ *    cloud and this machine generated at some other time. A one-byte
+ *    difference there means a different runtime version and an update that
+ *    silently never arrives.
+ *
+ *    The price of that reliability is this rule: native changes MUST come
+ *    with a new `version`. Break it and `eas update` will happily publish JS
+ *    that calls into a native module the installed binary does not have,
+ *    which is a crash on launch for every user who takes the update -- with
+ *    no review process in the way to catch it.
+ *
+ *    So the native dependency list is recorded beside the version it shipped
+ *    with, and this compares the two.
+ */
+function checkRuntimeVersionBump() {
+  heading('Runtime version vs native dependencies');
+  const appJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8'));
+  const version = appJson.expo?.version;
+  const policy = appJson.expo?.runtimeVersion?.policy;
+  if (policy !== 'appVersion') {
+    warn(`runtimeVersion policy is "${policy}", not "appVersion" -- this check assumes appVersion.`);
+    return;
+  }
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  // Anything that can carry native code: an expo-* module, react-native-*, or
+  // a config plugin named in app.json.
+  const native = Object.keys(pkg.dependencies || {})
+    .filter((name) => /^(expo$|expo-|react-native-|@react-native)/.test(name))
+    .sort()
+    .map((name) => `${name}@${pkg.dependencies[name]}`);
+  // The plugins as they are actually resolved, arguments included, hashed
+  // rather than stored: an argument can be an API key, and a record file is
+  // not a place for one. Names alone were not enough — handing
+  // react-native-maps an iOS key rewrites Info.plist, which is as native a
+  // change as adding the module, and the name never moves.
+  let resolved = JSON.stringify(appJson.expo?.plugins ?? []);
+  try {
+    resolved = execFileSync('npx', ['expo', 'config', '--type', 'public', '--json'], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+      .split('\n')
+      .pop();
+    // Argument NAMES, never their values. Handing react-native-maps an
+    // `iosGoogleMapsApiKey` at all is a native change — Info.plist gains a
+    // key. Changing what that key's value is, or which environment variable
+    // it comes from, is not: the binary has the same shape and an OTA update
+    // is as safe as it was. Hashing the values made this fire on any machine
+    // whose environment differed, which is every machine, and a check that
+    // cries wolf gets bumped past.
+    resolved = JSON.stringify(
+      (JSON.parse(resolved).plugins ?? []).map((p) =>
+        Array.isArray(p) ? [p[0], Object.keys(p[1] ?? {}).sort()] : p
+      )
+    );
+  } catch {
+    warn('Could not resolve app config; comparing the plugin list as written.');
+  }
+  const plugins = require('crypto').createHash('sha256').update(resolved).digest('hex').slice(0, 16);
+  const fingerprint = JSON.stringify({ native, plugins });
+
+  const recordPath = path.join(ROOT, 'scripts', '.native-at-version.json');
+  let record = null;
+  try { record = JSON.parse(fs.readFileSync(recordPath, 'utf8')); } catch { /* first run */ }
+
+  if (!record) {
+    fs.writeFileSync(recordPath, JSON.stringify({ version, fingerprint }, null, 2) + '\n');
+    pass(`Recorded the native dependencies shipping with version ${version}.`);
+    return;
+  }
+
+  if (record.fingerprint === fingerprint) {
+    pass(`No native change since version ${record.version}; OTA updates stay compatible.`);
+    return;
+  }
+  if (record.version !== version) {
+    fs.writeFileSync(recordPath, JSON.stringify({ version, fingerprint }, null, 2) + '\n');
+    pass(`Native dependencies changed and version was bumped to ${version}.`);
+    return;
+  }
+  fail(
+    `Native dependencies or config plugins changed, but app.json "version" is still ${version}.\n` +
+      `    Every build and OTA update of ${version} are declared compatible, so an update\n` +
+      `    published now would reach binaries that lack the new native code.\n` +
+      `    Fix: bump "version" in app.json, then build. Updating the record alone is not enough.`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +408,7 @@ function checkNativeIosConfigSync() {
 checkLockfileSync();
 checkEasEnvVars();
 checkNativeIosConfigSync();
+checkRuntimeVersionBump();
 
 console.log(
   `\nNot automated (needs a human decision, and applies live changes): ` +

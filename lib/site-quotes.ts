@@ -171,7 +171,12 @@ export async function uploadSiteQuote(
  */
 export async function requestQuoteParse(quoteId: string) {
   const { error } = await supabase.functions.invoke('parse-quote', { body: { quoteId } });
-  if (error) console.error('[site-quotes] parse could not be started', error);
+  if (!error) return;
+  // Thrown rather than logged. A refusal here has a reason the chef can act on
+  // — he has read his five devis for today — and swallowing it left him
+  // watching an upload that quietly never became a reading.
+  const detail = await error.context?.json?.().catch(() => null);
+  throw new Error(detail?.error || error.message);
 }
 
 /** Removes the row and the bytes; a leftover file would never be reachable. */

@@ -1,8 +1,15 @@
 import { useEffect } from 'react';
+import { InteractionManager } from 'react-native';
+import { Image } from 'expo-image';
 
 import { useAuth } from '@/hooks/use-auth';
 import { prefetch } from '@/hooks/use-cached';
-import { employeesKey, loadEmployees, loadPlanning, loadSites, planningKey, sitesKey } from '@/lib/tab-data';
+import { fetchLiveTeam } from '@/lib/live-location';
+import { supabase } from '@/lib/supabase';
+import {
+  companyKey, dashboardKey, employeesKey, liveTeamKey, loadCompany, loadDashboard,
+  loadEmployees, loadPlanning, loadSites, planningKey, sitesKey,
+} from '@/lib/tab-data';
 
 /** Monday of the current week, in the plain-date form the tables store. */
 function weekBounds() {
@@ -16,6 +23,31 @@ function weekBounds() {
   };
   return { from: iso(0), to: iso(6) };
 }
+
+/**
+ * The screens whose JavaScript is worth evaluating before anybody asks for it.
+ *
+ * A route's module is only required the first time it is navigated to, and
+ * Employés is the largest of them — forms, the phone field, the swipe rows,
+ * the credential rules — so the first press paid for parsing and running all
+ * of it before a single pixel moved. Warming the data had made that the only
+ * delay left, and therefore the obvious one.
+ *
+ * Metro needs the path spelled out at the call site, so these are written
+ * literally rather than built from the tab names.
+ */
+const CHEF_SCREENS = [
+  () => import('@/app/(app)/(chef)/employees/index'),
+  () => import('@/app/(app)/(chef)/employees/[id]'),
+  () => import('@/app/(app)/(chef)/sites'),
+  () => import('@/app/(app)/(chef)/live'),
+];
+
+const EMPLOYEE_SCREENS = [
+  () => import('@/app/(app)/(employee)/instructions'),
+  () => import('@/app/(app)/(employee)/report'),
+  () => import('@/app/(app)/(employee)/account'),
+];
 
 /**
  * Loads what the tabs will show as soon as the signed-in area mounts, rather
@@ -34,12 +66,41 @@ export function useWarmTabs() {
   useEffect(() => {
     if (!companyId) return;
     const { from, to } = weekBounds();
-    prefetch(planningKey(companyId, from), () => loadPlanning(companyId, from, to));
+    void prefetch(planningKey(companyId, from), () => loadPlanning(companyId, from, to));
     // The chantier and employee lists are the chef's tabs; an employee has
     // neither, and their own day is owned by useWorkspace.
+    if (role === 'employee') {
+      // The Consignes tab: one read, and it is the only thing on that screen.
+      void prefetch('site-notes', async () => {
+        const { data, error } = await supabase.rpc('my_site_notes');
+        if (error) throw error;
+        return data ?? [];
+      });
+    }
     if (role === 'chef') {
-      prefetch(sitesKey(companyId), () => loadSites(companyId));
-      prefetch(employeesKey(companyId), () => loadEmployees(companyId));
+      void prefetch(sitesKey(companyId), () => loadSites(companyId));
+      void prefetch(companyKey(companyId), () => loadCompany(companyId));
+      void prefetch(dashboardKey(companyId), loadDashboard);
+      void prefetch(liveTeamKey(companyId), fetchLiveTeam);
+      // The faces too. Without this the list arrives instantly and then fills
+      // in one avatar at a time, which looks worse than waiting for all of it.
+      void prefetch(employeesKey(companyId), () => loadEmployees(companyId)).then((rows) => {
+        const faces = (rows ?? []).map((row) => row.avatar_url).filter((url): url is string => !!url);
+        if (faces.length) void Image.prefetch(faces).catch(() => {});
+      });
     }
   }, [companyId, role]);
+
+  useEffect(() => {
+    if (!role) return;
+    // After the screen the chef is actually looking at has settled: this is
+    // several hundred kilobytes of module evaluation, and doing it during the
+    // first paint would move the delay rather than remove it.
+    const task = InteractionManager.runAfterInteractions(() => {
+      for (const open of role === 'chef' ? CHEF_SCREENS : EMPLOYEE_SCREENS) {
+        void open().catch(() => {});
+      }
+    });
+    return () => task.cancel();
+  }, [role]);
 }

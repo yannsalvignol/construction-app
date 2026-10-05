@@ -961,6 +961,7 @@ export default function QuoteReviewScreen() {
                 somebody off never means finding them again. */}
             {team.length > 8 && (
               <TextInput
+                allowFontScaling={false}
                 value={teamSearch}
                 onChangeText={setTeamSearch}
                 placeholder={t.quoteReview.assignSearch}
@@ -1032,6 +1033,7 @@ export default function QuoteReviewScreen() {
           {picking?.label}
         </ThemedText>
         <TextInput
+          allowFontScaling={false}
           value={search}
           onChangeText={setSearch}
           placeholder={t.quoteReview.searchCode}
@@ -1227,6 +1229,7 @@ function LineRow({
 
       {editing ? (
         <TextInput
+          allowFontScaling={false}
           defaultValue={line.label}
           onEndEditing={(event) => onLabel(event.nativeEvent.text)}
           multiline
@@ -1241,6 +1244,7 @@ function LineRow({
       <View style={styles.row}>
         {editing ? (
           <TextInput
+            allowFontScaling={false}
             defaultValue={line.quantity == null ? '' : String(line.quantity)}
             onEndEditing={(event) => onQuantity(event.nativeEvent.text)}
             keyboardType="decimal-pad"
