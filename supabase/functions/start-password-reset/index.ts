@@ -15,7 +15,7 @@ const corsHeaders = {
 const CODE_TTL_MINUTES = 10;
 /** A fresh code cannot be asked for more often than this, per account. */
 const RESEND_COOLDOWN_SECONDS = 45;
-const FROM = 'CASPROD <no-reply@send.casprod.app>';
+const FROM = 'Casprod <no-reply@send.casprod.app>';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function json(body: unknown, status: number) {
@@ -47,13 +47,13 @@ function emailHtml(code: string, locale: 'fr' | 'en') {
   const copy = locale === 'en'
     ? {
         title: 'Reset your password',
-        intro: 'Enter this code in the CASPROD app, then choose a new password.',
+        intro: 'Enter this code in the Casprod app, then choose a new password.',
         expiry: `This code expires in ${CODE_TTL_MINUTES} minutes.`,
         ignore: 'If you did not ask to reset your password, ignore this message: nothing has changed.',
       }
     : {
         title: 'Réinitialisez votre mot de passe',
-        intro: 'Saisissez ce code dans l’application CASPROD, puis choisissez un nouveau mot de passe.',
+        intro: 'Saisissez ce code dans l’application Casprod, puis choisissez un nouveau mot de passe.',
         expiry: `Ce code expire dans ${CODE_TTL_MINUTES} minutes.`,
         ignore: 'Si vous n’avez pas demandé cette réinitialisation, ignorez ce message : rien n’a été modifié.',
       };
@@ -62,7 +62,7 @@ function emailHtml(code: string, locale: 'fr' | 'en') {
 <html lang="${locale}">
   <body style="margin:0;padding:24px;background:#F6F4FB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1B1626">
     <div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:18px;padding:36px 32px">
-      <div style="font-size:13px;font-weight:700;letter-spacing:2px;color:#7238CE;margin-bottom:22px">CASPROD</div>
+      <div style="font-size:13px;font-weight:700;letter-spacing:2px;color:#7238CE;margin-bottom:22px">Casprod</div>
       <div style="font-size:21px;font-weight:700;margin-bottom:10px">${copy.title}</div>
       <div style="font-size:15px;line-height:1.55;color:#5C5470;margin-bottom:26px">${copy.intro}</div>
       <div style="font-size:34px;font-weight:700;letter-spacing:10px;background:#F3F0FA;border-radius:12px;padding:18px 0;text-align:center">${code}</div>
@@ -76,8 +76,8 @@ function emailHtml(code: string, locale: 'fr' | 'en') {
 
 function emailText(code: string, locale: 'fr' | 'en') {
   return locale === 'en'
-    ? `Your CASPROD code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes. If you did not ask to reset your password, ignore this message.`
-    : `Votre code CASPROD est ${code}. Il expire dans ${CODE_TTL_MINUTES} minutes. Si vous n'avez pas demandé cette réinitialisation, ignorez ce message.`;
+    ? `Your Casprod code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes. If you did not ask to reset your password, ignore this message.`
+    : `Votre code Casprod est ${code}. Il expire dans ${CODE_TTL_MINUTES} minutes. Si vous n'avez pas demandé cette réinitialisation, ignorez ce message.`;
 }
 // -----------------------------------------------------------------------------
 
@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       from: FROM,
       to: [email],
-      subject: locale === 'en' ? 'Reset your CASPROD password' : 'Réinitialiser votre mot de passe CASPROD',
+      subject: locale === 'en' ? 'Reset your Casprod password' : 'Réinitialiser votre mot de passe Casprod',
       html: emailHtml(code, locale),
       text: emailText(code, locale),
     }),

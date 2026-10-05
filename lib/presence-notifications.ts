@@ -19,7 +19,7 @@ Notifications?.setNotificationHandler({ handleNotification: async () => ({ shoul
 export async function enablePresenceNotifications(locale: Locale, requestPermission = true): Promise<boolean> {
   if (!Device.isDevice || !Notifications) return false;
   try {
-    if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('presence', { name: 'CASPROD · Présence', importance: Notifications.AndroidImportance.HIGH });
+    if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('presence', { name: 'Casprod · Présence', importance: Notifications.AndroidImportance.HIGH });
     let permission = await Notifications.getPermissionsAsync();
     if (!permission.granted && requestPermission) permission = await Notifications.requestPermissionsAsync();
     if (!permission.granted) return false;
@@ -40,7 +40,7 @@ export async function enablePresenceNotifications(locale: Locale, requestPermiss
 export async function enableChefAlerts(locale: Locale): Promise<boolean> {
   if (!Device.isDevice || !Notifications) return false;
   try {
-    if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('presence', { name: 'CASPROD · Présence', importance: Notifications.AndroidImportance.HIGH });
+    if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('presence', { name: 'Casprod · Présence', importance: Notifications.AndroidImportance.HIGH });
     let permission = await Notifications.getPermissionsAsync();
     if (!permission.granted) permission = await Notifications.requestPermissionsAsync();
     if (!permission.granted) return false;

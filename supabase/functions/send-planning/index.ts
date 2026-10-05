@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(expoToken ? { Authorization: 'Bearer ' + expoToken } : {}) },
         body: JSON.stringify(batch.map((d) => ({
-          to: d.token, title: 'CASPROD', body: label(from, to, d.locale),
+          to: d.token, title: 'Casprod', body: label(from, to, d.locale),
           data: { type: 'planning', from, to }, sound: 'default', channelId: 'presence', ttl: 86_400,
         }))),
         signal: AbortSignal.timeout(15_000),

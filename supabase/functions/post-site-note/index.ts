@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
   const expoToken = Deno.env.get('EXPO_ACCESS_TOKEN');
   // The chantier is the title and the note is the body: a man on two of them
   // reads which one it is about from the lock screen, without opening anything.
-  const title = site_row?.name ?? 'CASPROD';
+  const title = site_row?.name ?? 'Casprod';
   let notified = 0;
   for (let offset = 0; offset < devices.length; offset += 100) {
     const batch = devices.slice(offset, offset + 100);

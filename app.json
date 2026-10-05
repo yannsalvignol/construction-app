@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "CASPROD",
+    "name": "Casprod",
     "slug": "construction-app",
     "version": "1.1.0",
     "orientation": "portrait",
@@ -53,21 +53,21 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "CASPROD accède à vos photos uniquement pour définir la photo de votre profil.",
-          "cameraPermission": "CASPROD utilise la caméra uniquement pour la photo de votre vérification de présence.",
+          "photosPermission": "Casprod accède à vos photos uniquement pour définir la photo de votre profil.",
+          "cameraPermission": "Casprod utilise la caméra uniquement pour la photo de votre vérification de présence.",
           "microphonePermission": false
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "CASPROD relève votre position une seule fois lorsque vous validez une vérification de présence.",
+          "locationWhenInUsePermission": "Casprod relève votre position une seule fois lorsque vous validez une vérification de présence.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true,
-          "motionUsagePermission": "CASPROD n'utilise pas les données de mouvement. Cette autorisation est demandée par le composant de localisation utilisé pour relever votre position pendant vos journées de travail déclarées.",
-          "locationAlwaysAndWhenInUsePermission": "CASPROD surveille votre position pendant vos journées déclarées pour la protection du travailleur isolé : si votre téléphone cesse de bouger et que vous ne répondez pas, une alerte part vers votre chef avec votre position. Si votre chef a activé la carte, votre position lui est aussi transmise pendant ces mêmes journées.",
-          "locationAlwaysPermission": "CASPROD surveille votre position pendant vos journées déclarées pour la protection du travailleur isolé : si votre téléphone cesse de bouger et que vous ne répondez pas, une alerte part vers votre chef avec votre position. Si votre chef a activé la carte, votre position lui est aussi transmise pendant ces mêmes journées."
+          "motionUsagePermission": "Casprod n'utilise pas les données de mouvement. Cette autorisation est demandée par le composant de localisation utilisé pour relever votre position pendant vos journées de travail déclarées.",
+          "locationAlwaysAndWhenInUsePermission": "Casprod surveille votre position pendant vos journées déclarées pour la protection du travailleur isolé : si votre téléphone cesse de bouger et que vous ne répondez pas, une alerte part vers votre chef avec votre position. Si votre chef a activé la carte, votre position lui est aussi transmise pendant ces mêmes journées.",
+          "locationAlwaysPermission": "Casprod surveille votre position pendant vos journées déclarées pour la protection du travailleur isolé : si votre téléphone cesse de bouger et que vous ne répondez pas, une alerte part vers votre chef avec votre position. Si votre chef a activé la carte, votre position lui est aussi transmise pendant ces mêmes journées."
         }
       ],
       "expo-notifications"

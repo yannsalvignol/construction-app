@@ -47,7 +47,7 @@ export function createPresenceHandler(dependencies: Dependencies) {
       if (!batch.length) continue;
       const tickets = await expo('send', batch.map(job => ({
         to: job.token,
-        title: 'CASPROD',
+        title: 'Casprod',
         body: job.locale === 'en' ? 'A presence check is ready. Open the app to respond.' : 'Une vérification de présence est disponible. Ouvrez l’application pour répondre.',
         data: { requestId: job.request_id },
         sound: 'default', channelId: 'presence',

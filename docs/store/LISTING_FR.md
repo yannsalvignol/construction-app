@@ -34,7 +34,7 @@ Photographiez votre devis. L'application le lit, le découpe en tâches, et votr
 Trois cents lignes en moins de deux minutes : les lots, les sous-lots, les postes, les quantités et les prix repris tels qu'ils sont écrits sur le papier. Vous relisez, vous corrigez ce qui doit l'être, vous validez. À partir de là, le devis n'est plus un document rangé dans un dossier : c'est la liste de travail de vos équipes.
 
 CE QUE ÇA CHANGE
-Un devis, c'est déjà votre planning, votre feuille de pointage et votre suivi d'avancement. Personne ne les recopie, parce que personne n'a le temps. CASPROD les en tire pour vous.
+Un devis, c'est déjà votre planning, votre feuille de pointage et votre suivi d'avancement. Personne ne les recopie, parce que personne n'a le temps. Casprod les en tire pour vous.
 
 • Importez le devis — PDF ou simple photo, même scanné de travers
 • L'IA le lit et reconstruit sa structure, lot par lot, poste par poste

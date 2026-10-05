@@ -16,7 +16,7 @@ const corsHeaders = {
 const CODE_TTL_MINUTES = 10;
 /** A fresh code cannot be asked for more often than this, per address. */
 const RESEND_COOLDOWN_SECONDS = 45;
-const FROM = 'CASPROD <no-reply@send.casprod.app>';
+const FROM = 'Casprod <no-reply@send.casprod.app>';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function json(body: unknown, status: number) {
@@ -53,22 +53,22 @@ function emailHtml(code: string, locale: 'fr' | 'en') {
   const copy = locale === 'en'
     ? {
         title: 'Confirm your email',
-        intro: 'Enter this code in the CASPROD app to finish creating your account.',
+        intro: 'Enter this code in the Casprod app to finish creating your account.',
         expiry: `This code expires in ${CODE_TTL_MINUTES} minutes.`,
-        ignore: 'If you did not ask to create a CASPROD account, you can ignore this message.',
+        ignore: 'If you did not ask to create a Casprod account, you can ignore this message.',
       }
     : {
         title: 'Confirmez votre e-mail',
-        intro: 'Saisissez ce code dans l’application CASPROD pour terminer la création de votre compte.',
+        intro: 'Saisissez ce code dans l’application Casprod pour terminer la création de votre compte.',
         expiry: `Ce code expire dans ${CODE_TTL_MINUTES} minutes.`,
-        ignore: 'Si vous n’avez pas demandé la création d’un compte CASPROD, ignorez ce message.',
+        ignore: 'Si vous n’avez pas demandé la création d’un compte Casprod, ignorez ce message.',
       };
 
   return `<!doctype html>
 <html lang="${locale}">
   <body style="margin:0;padding:24px;background:#F6F4FB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1B1626">
     <div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:18px;padding:36px 32px">
-      <div style="font-size:13px;font-weight:700;letter-spacing:2px;color:#7238CE;margin-bottom:22px">CASPROD</div>
+      <div style="font-size:13px;font-weight:700;letter-spacing:2px;color:#7238CE;margin-bottom:22px">Casprod</div>
       <div style="font-size:21px;font-weight:700;margin-bottom:10px">${copy.title}</div>
       <div style="font-size:15px;line-height:1.55;color:#5C5470;margin-bottom:26px">${copy.intro}</div>
       <div style="font-size:34px;font-weight:700;letter-spacing:10px;background:#F3F0FA;border-radius:12px;padding:18px 0;text-align:center">${code}</div>
@@ -82,8 +82,8 @@ function emailHtml(code: string, locale: 'fr' | 'en') {
 
 function emailText(code: string, locale: 'fr' | 'en') {
   return locale === 'en'
-    ? `Your CASPROD code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`
-    : `Votre code CASPROD est ${code}. Il expire dans ${CODE_TTL_MINUTES} minutes.`;
+    ? `Your Casprod code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`
+    : `Votre code Casprod est ${code}. Il expire dans ${CODE_TTL_MINUTES} minutes.`;
 }
 // -----------------------------------------------------------------------------
 
@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       from: FROM,
       to: [email],
-      subject: locale === 'en' ? 'Your CASPROD code' : 'Votre code CASPROD',
+      subject: locale === 'en' ? 'Your Casprod code' : 'Votre code Casprod',
       html: emailHtml(code, locale),
       text: emailText(code, locale),
     }),

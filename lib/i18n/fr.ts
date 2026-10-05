@@ -2,7 +2,7 @@ import type { Translations } from './en';
 
 const fr = {
   common: {
-    appName: 'CASPROD',
+    appName: 'Casprod',
     cancel: 'Annuler',
     signOut: 'Se déconnecter',
     notSignedIn: 'Non connecté',
@@ -141,7 +141,7 @@ const fr = {
     deleting: 'Suppression…',
     chef: {
       title: 'Dernière étape avant de commencer',
-      hiddenEmail: 'Vous vous êtes connecté avec Apple en masquant votre adresse e-mail. Si vous aviez déjà un compte CASPROD, celui-ci en est séparé : revenez en arrière et connectez-vous en partageant votre adresse pour le retrouver.',
+      hiddenEmail: 'Vous vous êtes connecté avec Apple en masquant votre adresse e-mail. Si vous aviez déjà un compte Casprod, celui-ci en est séparé : revenez en arrière et connectez-vous en partageant votre adresse pour le retrouver.',
       companyNamePlaceholder: "Nom de l'entreprise",
       firstNamePlaceholder: 'Votre prénom',
       lastNamePlaceholder: 'Votre nom',
@@ -490,7 +490,7 @@ const fr = {
   },
 
   trial: {
-    welcomeTitle: 'Bienvenue sur CASPROD',
+    welcomeTitle: 'Bienvenue sur Casprod',
     freeDaysUnit: (n: number) => (n > 1 ? "jours d'essai gratuit" : "jour d'essai gratuit"),
     noCard: 'Sans carte bancaire, sans engagement.',
     included: [
@@ -505,7 +505,7 @@ const fr = {
     lockedKept:
       'Aucune donnée n’a été supprimée : vos chantiers, vos devis et vos équipes sont conservés.',
     lockedBody:
-      'Nous espérons que CASPROD vous a été utile. Contactez-nous par téléphone ou par e-mail afin de convenir de la suite ; votre accès sera rétabli à l’issue de cet échange.',
+      'Nous espérons que Casprod vous a été utile. Contactez-nous par téléphone ou par e-mail afin de convenir de la suite ; votre accès sera rétabli à l’issue de cet échange.',
     mailSubject: 'Activer l’accès de mon entreprise',
     takeDay: 'Reporter d’une journée',
     daysLeftToTake: (n: number) =>

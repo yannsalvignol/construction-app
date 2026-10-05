@@ -29,7 +29,7 @@ Photograph your quote. The app reads it, breaks it into tasks, and your site is 
 Three hundred lines in under two minutes: the sections, the sub-sections, the line items, the quantities and the prices, taken exactly as they are written on the paper. You read it back, correct what needs correcting, and approve. From then on the quote is not a document in a folder — it is your crews' task list.
 
 WHAT THIS CHANGES
-A quote is already your schedule, your timesheet and your progress report. Nobody copies them out, because nobody has the time. CASPROD takes them from it for you.
+A quote is already your schedule, your timesheet and your progress report. Nobody copies them out, because nobody has the time. Casprod takes them from it for you.
 
 • Import the quote — PDF or a plain photograph, even scanned crooked
 • The AI reads it and rebuilds its structure, section by section, item by item

@@ -5,7 +5,7 @@
  */
 const en = {
   common: {
-    appName: 'CASPROD',
+    appName: 'Casprod',
     cancel: 'Cancel',
     signOut: 'Sign out',
     notSignedIn: 'Not signed in',
@@ -143,7 +143,7 @@ const en = {
     deleting: 'Deleting…',
     chef: {
       title: 'One last step before you start',
-      hiddenEmail: 'You signed in with Apple while hiding your email address. If you already had a CASPROD account, this one is separate from it: go back and sign in sharing your address to find it again.',
+      hiddenEmail: 'You signed in with Apple while hiding your email address. If you already had a Casprod account, this one is separate from it: go back and sign in sharing your address to find it again.',
       companyNamePlaceholder: 'Company name',
       firstNamePlaceholder: 'Your first name',
       lastNamePlaceholder: 'Your last name',
@@ -494,7 +494,7 @@ const en = {
   },
 
   trial: {
-    welcomeTitle: 'Welcome to CASPROD',
+    welcomeTitle: 'Welcome to Casprod',
     freeDaysUnit: (n: number): string => (n > 1 ? 'days of free trial' : 'day of free trial'),
     noCard: 'No card, no commitment.',
     included: [
@@ -509,7 +509,7 @@ const en = {
     lockedKept:
       'No data has been deleted: your sites, your devis and your crews are kept as they are.',
     lockedBody:
-      'We hope CASPROD has been useful to you. Please contact us by phone or e-mail to agree on what comes next; your access will be restored following that conversation.',
+      'We hope Casprod has been useful to you. Please contact us by phone or e-mail to agree on what comes next; your access will be restored following that conversation.',
     mailSubject: 'Activate my company’s access',
     takeDay: 'Postpone for one day',
     daysLeftToTake: (n: number): string =>
