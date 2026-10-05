@@ -1,20 +1,17 @@
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { QuoteTasks } from '@/components/quote-tasks';
+import { Disclosure } from '@/components/disclosure';
 import { ExtraTasks } from '@/components/extra-tasks';
 import { TaskForm } from '@/components/task-form';
 import { Action, Feedback, WorkPage } from '@/components/work-ui';
 import { ThemedText } from '@/components/themed-text';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { useI18n } from '@/hooks/use-i18n';
-import { useTheme } from '@/hooks/use-theme';
 import { workCopy } from '@/lib/work-copy';
 
 export default function TasksScreen() {
   const { t, locale } = useI18n();
-  const theme = useTheme();
   const copy = workCopy(locale);
   const { data, loading, error, refresh, now } = useWorkspace();
   const active = data?.day && !data.day.ended_at && Date.parse(data.day.planned_end_at) > now;
@@ -36,54 +33,26 @@ export default function TasksScreen() {
           behind a heading instead of competing with the real one. */}
       {data.day && <QuoteTasks dayId={data.day.id} onSaved={refresh} />}
 
-      {/* The heading is bare, not a card: TaskForm brings its own, and a card
-          inside a card reads as two objects where there is one. */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: otherOpen }}
-        onPress={() => setOtherOpen((current) => !current)}
-        style={({ pressed }) => [
-          { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-          pressed && { opacity: 0.6 },
-        ]}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <ThemedText type="smallBold">{t.quoteTasks.otherWork}</ThemedText>
-          {!otherOpen && (
-            <ThemedText type="small" themeColor="textSecondary">{t.quoteTasks.otherWorkHint}</ThemedText>
-          )}
-        </View>
-        <Ionicons
-          name={otherOpen ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color={theme.textSecondary}
-        />
-      </Pressable>
-      {otherOpen && <TaskForm data={data} onSaved={refresh} />}
+      {/* Two exceptions to the devis, each a heading that opens into itself:
+          the catalogue, for work the company does often enough to have named,
+          and a blank box for the week a chantier invents something new. */}
+      <Disclosure
+        icon="list-outline"
+        title={t.quoteTasks.otherWork}
+        hint={t.quoteTasks.otherWorkHint}
+        open={otherOpen}
+        onToggle={() => setOtherOpen((current) => !current)}>
+        <TaskForm data={data} onSaved={refresh} />
+      </Disclosure>
 
-      {/* And the third case: work that is in neither list. Last, because it
-          is the exception to both — but on the same page, because a man who
-          cannot find what he did will declare the nearest wrong thing. */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: extraOpen }}
-        onPress={() => setExtraOpen((current) => !current)}
-        style={({ pressed }) => [
-          { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-          pressed && { opacity: 0.6 },
-        ]}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <ThemedText type="smallBold">{copy.extraTitle}</ThemedText>
-          {!extraOpen && (
-            <ThemedText type="small" themeColor="textSecondary">{copy.extraHint}</ThemedText>
-          )}
-        </View>
-        <Ionicons
-          name={extraOpen ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color={theme.textSecondary}
-        />
-      </Pressable>
-      {extraOpen && data.day && <ExtraTasks dayId={data.day.id} onSaved={refresh} />}
+      <Disclosure
+        icon="create-outline"
+        title={copy.extraTitle}
+        hint={copy.extraHint}
+        open={extraOpen}
+        onToggle={() => setExtraOpen((current) => !current)}>
+        {data.day && <ExtraTasks dayId={data.day.id} onSaved={refresh} />}
+      </Disclosure>
     </> : <ThemedText themeColor="textSecondary">{copy.startForTasks}</ThemedText>)}
   </WorkPage>;
 }

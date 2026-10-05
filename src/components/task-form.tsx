@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Keyboard, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { Action, Card, Feedback, Field, NumberWheel, Select } from './work-ui';
+import { Action, Feedback, Field, NumberWheel, Select } from './work-ui';
 import { ThemedText } from './themed-text';
 import { useI18n } from '@/hooks/use-i18n';
 import { supabase } from '@/lib/supabase';
@@ -60,9 +60,9 @@ export function TaskForm({ data, onSaved }: { data: Workspace; onSaved: () => Pr
     } catch { setError(copy.failed); }
     finally { lock.current = false; setBusy(false); }
   }
-  return <Card>
-    <ThemedText style={{ fontSize: 22, fontWeight: '700' }}>{copy.taskTitle}</ThemedText>
-    <ThemedText themeColor="textSecondary" type="small">{copy.taskHint}</ThemedText>
+  // No card and no heading of its own: it is opened from one, and repeating
+  // the title under the title it was opened from says nothing twice.
+  return <>
     <Select label={copy.category} value={category} options={data.categories.map(c => ({ value: c.code, label: c[label] }))} onChange={next => { setCategory(next); setCode(''); reset(); }} />
     <Select label={copy.chooseTask} value={code} options={data.codes.filter(c => c.category_code === category).map(c => ({ value: c.code, label: c[label] }))} onChange={chooseCode} />
     {task && <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(140)}
@@ -88,5 +88,5 @@ export function TaskForm({ data, onSaved }: { data: Workspace; onSaved: () => Pr
     <Feedback message={error} /><Feedback message={saved ? copy.taskSaved : null} success />
     <Action label={copy.save} busy={busy} disabled={!task || !amount} onPress={save} />
     <DeclaredTasks data={data} />
-  </Card>;
+  </>;
 }

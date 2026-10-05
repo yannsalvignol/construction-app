@@ -4,7 +4,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { ThemedText } from './themed-text';
-import { Action, Card } from './work-ui';
+import { Action } from './work-ui';
 import { useAuthPalette } from '@/hooks/use-auth-palette';
 import { useI18n } from '@/hooks/use-i18n';
 import { useTheme } from '@/hooks/use-theme';
@@ -70,7 +70,7 @@ export function ExtraTasks({ dayId, onSaved }: { dayId: string; onSaved?: () => 
     onSaved?.();
   }
 
-  return <Card>
+  return <>
     {entries.map((entry) => (
       <View
         key={entry.id}
@@ -113,5 +113,5 @@ export function ExtraTasks({ dayId, onSaved }: { dayId: string; onSaved?: () => 
       placeholderTextColor={theme.textPlaceholder}
     />
     <Action label={copy.extraAdd} busy={busy} disabled={!draft.trim()} onPress={() => { void add(); }} />
-  </Card>;
+  </>;
 }
