@@ -265,8 +265,10 @@ export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, 
 
 const styles = StyleSheet.create({
   page: { padding: 20, paddingBottom: 100, gap: 20, width: '100%', maxWidth: 800, alignSelf: 'center' },
-  /** Air between the status bar and a heading with no tab container above it. */
-  pageBelowStatusBar: { paddingTop: 44 },
+  /** Air between the status bar and a heading with no tab container above it.
+   *  Enough that the heading is not part of the status bar, not so much that
+   *  the page looks as though it has slipped down. */
+  pageBelowStatusBar: { paddingTop: 32 },
   heading: { fontSize: 30, lineHeight: 38, fontWeight: '700', letterSpacing: -0.8 },
   card: { borderRadius: 20, borderWidth: 1, padding: 22, gap: 16 },
   action: { minHeight: 52, borderRadius: 999, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
