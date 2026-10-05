@@ -8,7 +8,7 @@ already bilingual either way.
 ## Promotional text (170 max)
 
 ```
-Your sites, your crews, and the work actually done. Presence verified with everyone's consent, and an alert if a worker is left alone and motionless.
+Photograph your quote: the AI reads it, breaks it into tasks and shares them out. What took an evening takes two minutes.
 ```
 
 ---
@@ -16,7 +16,7 @@ Your sites, your crews, and the work actually done. Presence verified with every
 ## Subtitle (30 max)
 
 ```
-Sites, crews, presence
+The quote becomes the site
 ```
 
 ---
@@ -24,21 +24,29 @@ Sites, crews, presence
 ## Description
 
 ```
-CASPROD is for construction companies that want to know what was done today, and by whom, without telephoning anyone.
+Photograph your quote. The app reads it, breaks it into tasks, and your site is ready.
 
-THE SITE MANAGER
-• Sites and crews in one place
-• The quote imported as a photo or a PDF, read and broken into tasks automatically
-• Tasks assigned to whoever has to do them, line by line or section by section
-• Hours declared, quantities laid, progress against the quote
+Three hundred lines in under two minutes: the sections, the sub-sections, the line items, the quantities and the prices, taken exactly as they are written on the paper. You read it back, correct what needs correcting, and approve. From then on the quote is not a document in a folder — it is your crews' task list.
+
+WHAT THIS CHANGES
+A quote is already your schedule, your timesheet and your progress report. Nobody copies them out, because nobody has the time. CASPROD takes them from it for you.
+
+• Import the quote — PDF or a plain photograph, even scanned crooked
+• The AI reads it and rebuilds its structure, section by section, item by item
+• It proposes each line broken into concrete sub-tasks
+• You assign an item, a section or the whole quote to whoever has to do it
+• Each employee opens the app and sees what is expected of him
+• What he ticks comes back as progress, in money, in real time
+
+Nothing counts until you have approved it. The AI proposes, you decide.
+
+ON SITE
+• The day declared in two taps, with the right site
+• The tasks expected of him, taken from the quote
+• What was in no list: a redo, a wait, something unforeseen
+• Two or three presence checks a day, photograph and position taken on the spot
 • A message addressed to a site, read by everyone working on it
 • A map of the employees who agreed to share their position
-
-THE EMPLOYEE
-• Declares his day and his site in two taps
-• Sees the tasks expected of him, taken from the quote
-• Writes down what was in no list: a redo, a wait, something unforeseen
-• Answers two or three presence checks a day, a photo and a position, taken on the spot
 
 LONE WORKER PROTECTION
 A man alone on a site who falls from scaffolding cannot call anyone. During his declared day, if his position has not moved for twenty-five minutes, the app asks whether he is all right. If he does not answer, his site manager is alerted with the last known position.
