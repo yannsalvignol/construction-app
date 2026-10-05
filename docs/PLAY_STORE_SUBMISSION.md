@@ -145,7 +145,53 @@ Ephemeral processing: No (data is stored). Independent security review: No.
 - **Category**: Business. **Tags**: optional.
 - **Contact**: `contact@casprod.app`, website `https://casprod.app`.
 
-## 7. Release path
+## 7. Submitting without the browser
+
+The **first** upload has to be manual — Google refuses an API upload to an app
+that has never had a build. Everything after it can be one command.
+
+**Once, to set it up:**
+
+1. Play Console → **Users and permissions → Invite new users**, or an existing
+   Google Cloud project: create a **service account** with the *Release
+   manager* role (Play Console → Setup → API access, link a Cloud project,
+   then grant the account access to this app).
+2. Download its **JSON key**. Put it anywhere outside the repo, or at
+   `google-play-service-account.json`, which is gitignored. It can publish to
+   your listing — treat it like a password.
+3. Hand it to EAS so it is not a file you have to carry:
+
+```bash
+npx eas-cli credentials --platform android
+# → Google Service Account → Manage your Google Service Account Key for Play Store submissions
+# → upload the JSON
+```
+
+**Then, every release:**
+
+```bash
+npm run preflight
+npx eas-cli build --platform android --profile production --auto-submit
+```
+
+`--auto-submit` submits the build the moment it finishes, with the `submit`
+profile in `eas.json`. To submit a build that already exists:
+
+```bash
+npx eas-cli submit --platform android --latest
+```
+
+The profile sends to the **internal** track as a **draft**, deliberately: the
+upload is automatic, the decision to release is not. Promote it in the console
+when you have looked at it. Change `track` to `production` and `releaseStatus`
+to `completed` once you trust the pipeline, and add `"rollout": 0.1` if you
+want a staged roll-out.
+
+iOS is the same command with `--platform ios`; `ascAppId` is already in the
+profile, and App Store Connect needs an API key the first time
+(`npx eas-cli credentials --platform ios`).
+
+## 8. Release path
 
 1. Internal testing: install on your own Android phone via the opt-in link,
    run through sign-in, day, presence check, live map, account deletion.
