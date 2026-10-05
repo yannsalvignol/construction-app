@@ -33,12 +33,15 @@ type Task = { label_fr: string | null; label_en: string | null; unit: string | n
 type Check = { captured_at: string; on_site: boolean | null };
 /** A photo the chef required before the day could start. */
 type Proof = { kind: 'equipment' | 'clock_in'; path: string; captured_at: string };
+/** Work in neither the devis nor the catalogue, written by the man who did it. */
+type Note = { id: string; description: string; declared_at: string };
 type Day = {
   work_date: string;
   site_name: string | null;
   hours: number;
   open: boolean;
   tasks: Task[];
+  notes?: Note[];
   photos?: Proof[];
   checks: Check[];
 };
@@ -219,6 +222,17 @@ export default function EmployeeActivityScreen() {
                     <ThemedText type="smallBold" themeColor="accentText">
                       {task.quantity} {task.unit ?? ''}
                     </ThemedText>
+                  </View>
+                ))}
+
+                {/* In his own words, so it reads as a sentence and not as a
+                    row with a missing quantity. Wrapped, not truncated: the
+                    whole point is the part the codes could not carry. */}
+                {(day.notes ?? []).map((note) => (
+                  <View key={note.id} style={styles.entry}>
+                    <View style={[styles.rail, { backgroundColor: theme.backgroundSelected }]} />
+                    <Ionicons name="create-outline" size={16} color={theme.textSecondary} />
+                    <ThemedText type="small" style={{ flex: 1 }}>{note.description}</ThemedText>
                   </View>
                 ))}
 

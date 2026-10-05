@@ -102,6 +102,45 @@ test('employee activity', async t => {
     assert.ok(Number(a.days[0].hours) < 1, 'hours counted from started_at, not planned_end_at');
   });
 
+  await t.test('work the catalogue has no word for is written down anyway', async () => {
+    await as(ids.worker, 'select public.declare_extra($1, $2) as e',
+      [day, '  Coffrage refait, premier coulage raté  ']);
+    await as(ids.worker, 'select public.declare_extra($1, $2)',
+      [day, 'Demi-journée perdue à attendre la grue']);
+
+    // The chef reads them on the day, in his own words, beside the codes.
+    const seen = await activity(ids.chef, ids.worker);
+    const notes = seen.days.find((d) => d.open).notes;
+    assert.equal(notes.length, 2);
+    assert.equal(notes[0].description, 'Coffrage refait, premier coulage raté');
+
+    // Nothing empty, nothing endless, and not somebody else's day.
+    await assert.rejects(as(ids.worker, 'select public.declare_extra($1, $2)', [day, '   ']),
+      /Write what you did/);
+    await assert.rejects(as(ids.worker, 'select public.declare_extra($1, $2)', [day, 'x'.repeat(501)]),
+      /under 500 characters/);
+    await assert.rejects(as(ids.mate, 'select public.declare_extra($1, $2)', [day, 'pas la mienne']),
+      /Start a work day/);
+
+    // Another company sees none of it, by the policy and not by the screen.
+    assert.equal((await as(ids.otherChef, 'select * from public.extra_declarations')).length, 0);
+    assert.equal((await as(ids.chef, 'select * from public.extra_declarations')).length, 2);
+
+    // A mistake is correctable while the day is open, and only by its author.
+    const entry = (await as(ids.worker, 'select id from public.extra_declarations order by declared_at desc limit 1'))[0].id;
+    await as(ids.mate, 'select public.delete_extra($1)', [entry]).catch(() => {});
+    assert.equal((await as(ids.chef, 'select * from public.extra_declarations')).length, 2);
+    await as(ids.worker, 'select public.delete_extra($1)', [entry]);
+    assert.equal((await as(ids.chef, 'select * from public.extra_declarations')).length, 1);
+
+    // The table is never written directly.
+    await assert.rejects(
+      as(ids.worker, `insert into public.extra_declarations(work_day_id, employee_id, company_id, site_id, description)
+                      values ($1, $2, $3, $4, 'x')`, [day, ids.worker, ids.company, ids.site]),
+      /permission denied/
+    );
+  });
+
   await t.test('a day carries the proofs the chef asked for', async () => {
     // The two switches on the employee's card: the day is refused without
     // them, which is the whole point of their existing.
