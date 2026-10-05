@@ -22,6 +22,12 @@ export function WorkPage({ title, subtitle, titleAccessory, topInset = false, ch
    * For a page shown outside the tabs, which has nothing above it to hold the
    * heading clear of the status bar. Inside the tabs the native container
    * already does, and asking for it twice would push the page down.
+   *
+   * Clearing the notch is not the same as looking right under it: the safe
+   * area stops the heading being covered, and leaves it pressed against the
+   * top of the screen reading as part of the status bar. These pages add some
+   * air on top of the inset, which is what the tabs' own container gives
+   * every other page.
    */
   topInset?: boolean;
   children: React.ReactNode;
@@ -32,7 +38,8 @@ export function WorkPage({ title, subtitle, titleAccessory, topInset = false, ch
   return <SafeAreaView
     edges={topInset ? ['top', 'left', 'right'] : ['left', 'right']}
     style={{ flex: 1, backgroundColor: theme.background }}>
-    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.page}>
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+      contentContainerStyle={[styles.page, topInset && styles.pageBelowStatusBar]}>
       <View style={{ gap: 8, marginBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <ThemedText style={[styles.heading, { flex: 1 }]}>{title}</ThemedText>
@@ -258,6 +265,8 @@ export function NumberWheel({ label, value, values, min = 0, max = 0, step = 1, 
 
 const styles = StyleSheet.create({
   page: { padding: 20, paddingBottom: 100, gap: 20, width: '100%', maxWidth: 800, alignSelf: 'center' },
+  /** Air between the status bar and a heading with no tab container above it. */
+  pageBelowStatusBar: { paddingTop: 44 },
   heading: { fontSize: 30, lineHeight: 38, fontWeight: '700', letterSpacing: -0.8 },
   card: { borderRadius: 20, borderWidth: 1, padding: 22, gap: 16 },
   action: { minHeight: 52, borderRadius: 999, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
