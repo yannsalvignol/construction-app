@@ -24,6 +24,30 @@ DEMO ACCOUNTS (already linked to the same company, with one site created):
   Employee: username <username>  /  <password>
   (Employees sign in with a username, not an email.)
 
+PROTECTION DU TRAVAILLEUR ISOLÉ (lone-worker protection)
+- This is the safety feature the background location mode exists for, and the
+  reason the app is used on sites where a man works out of sight of anyone
+  else. French and Moroccan employers owe a duty of care to a worker alone on
+  a chantier; a fall from a scaffold, a trench collapse or an electric shock
+  leaves nobody to call for help.
+- How it works: while an employee has a declared work day open and has agreed
+  to the notice, his phone reports its position in the background. If the
+  position has not moved more than 35 m for 25 minutes, the app asks him
+  whether he is all right. If he does not answer within 3 minutes, his site
+  manager is alerted by push notification with the last known position, so
+  somebody can go and look. Moving again answers the question by itself.
+- It is per company, switched on by us in the database
+  (`companies.lone_worker_enabled`), so an employer who does not want it has
+  nothing of it in the app at all — no watch, no alert button, nothing to
+  see. It is OFF by default.
+- The thresholds are server-side and adjustable per deployment; the employee
+  can switch his own watch off, and the whole feature stops with the declared
+  day.
+- The demo company for this review has it ENABLED so the reviewer can see it.
+  To exercise it: sign in as the demo employee, start a work day, accept the
+  notice, and leave the phone still — or press the alert button on the day
+  screen, which raises the same alert immediately.
+
 LOCATION USE
 - Presence checks read the location ONCE, only when the employee taps to
   answer a check. No background access is involved.
@@ -35,6 +59,11 @@ LOCATION USE
   when the employee ends the day or withdraws consent. Only the latest
   position is stored; no movement history is kept. The employee can withdraw
   at any time from the day screen and can sign out at any time.
+- The SAME background stream feeds lone-worker protection above, which is the
+  safety reason the background mode is requested: a position that stops
+  moving is what raises the alarm. Without background location a worker who
+  has fallen cannot be noticed, because a phone in a pocket on a stationary
+  body stops reporting the moment the screen locks.
 - To see it: sign in as the chef → Employees → open the demo employee →
   enable "Live location". Then sign in as the employee, accept the notice,
   start a work day. The chef's "Live" tab shows the pin.

@@ -17,6 +17,14 @@ you need on a Tuesday afternoon when a customer phones.
 
 **Off by default.** A company gets the watch when it asks for it.
 
+**But it is declared to both stores**, because it is what justifies
+`ACCESS_BACKGROUND_LOCATION` and `UIBackgroundModes: location` — see
+`docs/PLAY_STORE_SUBMISSION.md` §0 and the review notes in
+`docs/APP_STORE_SUBMISSION.md`. A reviewer who cannot exercise a declared
+feature treats it as absent, and Google asks for a video of it working. So
+**the demo company used for review must have it switched on** before either
+submission, whatever the other companies have.
+
 ```sql
 -- give it to one company
 update public.companies set lone_worker_enabled = true where name = '...';

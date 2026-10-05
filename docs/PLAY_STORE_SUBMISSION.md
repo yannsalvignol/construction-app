@@ -6,21 +6,46 @@ screenshots). Play Console: https://play.google.com/console
 
 ## 0. Before anything: background location
 
-`app.json` requests `ACCESS_BACKGROUND_LOCATION` for live sharing. Google
-reviews this permission much more strictly than Apple: the *App content →
-Sensitive permissions* form requires a **video (YouTube link) showing the
-in-app prominent disclosure, the permission prompt, and the feature working**,
-and rejections are common on a first pass. Two options:
+`app.json` requests `ACCESS_BACKGROUND_LOCATION`. The justification Google
+cares about is **protection du travailleur isolé** — lone-worker protection —
+not the chef's map. Google weighs a safety use far more kindly than a
+visibility one, and this is a safety use: a man alone on a chantier who falls
+from a scaffold, is caught in a trench collapse or takes a shock has nobody to
+call for help, and his employer owes him a duty of care. A phone in the pocket
+of a body that has stopped moving is the only thing that can notice.
 
-- **Keep it.** Record a 30–60 s screen capture: employee opens the day screen
-  → live-sharing notice → accepts → Android's "Allow all the time" prompt →
-  chef's Live tab shows the pin. Upload unlisted on YouTube, paste the link in
-  the form. Justification text is in section 4.
-- **Drop it for v1.** Live sharing then only works while the app is open (a
-  foreground service with a persistent notification still counts as "open" on
-  Android). One-line change in `app.json` plus removing
-  `requestBackgroundPermissionsAsync` in `lib/live-location.ts`; presence checks
-  are unaffected. Faster approval, no video; ask Claude to make the change.
+How it works, in the words the forms want:
+
+> While an employee has a declared work day open and has agreed to the notice,
+> his position is reported in the background. If it has not moved more than
+> 35 m for 25 minutes, the app asks whether he is all right; if he does not
+> answer within 3 minutes, his site manager is alerted by push notification
+> with the last known position so somebody can go and look. Moving again
+> answers the question by itself. The watch stops with the declared day.
+
+The same background stream also powers optional live sharing for the chef's
+map, which is secondary and is described as such.
+
+Google requires a **video (YouTube link) showing the in-app prominent
+disclosure, the permission prompt, and the feature working**, and rejections
+are common on a first pass. Record 30–60 s: employee opens the day screen →
+reads the notice → accepts → Android's "Allow all the time" prompt → phone
+left still → "Êtes-vous d'accord ?" appears → unanswered → chef's phone shows
+the alert. Upload unlisted, paste the link in the form.
+
+**Before recording, and before submitting, the feature has to be ON for the
+demo company.** It is off by default for every company and switched on by us
+in the database — a feature a reviewer cannot exercise is a feature Google
+assumes does not exist:
+
+```sql
+update public.companies set lone_worker_enabled = true where name = '<demo company>';
+```
+
+(The fallback of dropping background location for v1 is still available —
+`app.json` plus `requestBackgroundPermissionsAsync` in `lib/live-location.ts`
+— but it removes lone-worker protection, not just the map, so it is a safety
+decision and not a packaging one.)
 
 ## 1. Google Play Console account
 
@@ -74,14 +99,20 @@ SHA-1** printed by `npx eas-cli credentials --platform android`.
   *Compte → Supprimer mon compte*, web URL `https://casprod.app/support`
   (section "Supprimer son compte"). Data deleted: identity, contact, photos,
   location; retained: anonymised declared work (company records).
-- **Sensitive permissions → Location (background)** — only if kept:
-  *Core feature*: "Live position sharing during a declared work day, enabled
-  by the employer per employee and started only after the employee's explicit
-  in-app consent. Position is sent every ~2 minutes while the declared day is
-  open, including in background, so the site manager can see who is on site.
-  Stops automatically at end of day or when consent is withdrawn. Only the
-  latest position is stored." + YouTube link.
-- **Foreground service**: type *location*, same justification.
+- **Sensitive permissions → Location (background)** — *Core feature*:
+  "Lone-worker safety protection on construction sites. While an employee has
+  a declared work day open and has given explicit in-app consent, his position
+  is reported in the background. If it has not moved more than 35 m for 25
+  minutes the app asks whether he is all right; if he does not answer within 3
+  minutes his site manager is alerted with the last known position, so somebody
+  can go and look — a worker alone on a chantier who has fallen cannot call for
+  help himself. The same stream optionally shows the site manager who is on
+  site. Both stop automatically at the end of the declared day or when consent
+  is withdrawn, and only the latest position is stored; no trail is kept."
+  + YouTube link.
+- **Foreground service**: type *location*, same justification. The persistent
+  notification tells the employee the watch is running, which is also the
+  prominent disclosure Google asks for.
 - **Photo and video permissions**: the app uses the system photo picker /
   camera intent (expo-image-picker), no `READ_MEDIA_IMAGES` — declare *not
   used* if asked.
@@ -96,7 +127,7 @@ Collects data: **Yes**. Encrypted in transit: **Yes**. Deletion request: **Yes**
 | Email (chef) | Yes | No | Yes | Account management |
 | Phone | Yes | No | Optional | App functionality |
 | User IDs | Yes | No | Yes | Account management |
-| Precise location | Yes | No | Optional (consent) | App functionality |
+| Precise location | Yes | No | Optional (consent) | App functionality, **safety** |
 | Photos | Yes | No | Optional (consent) | App functionality |
 | Device / other IDs (push token) | Yes | No | Yes | App functionality |
 
