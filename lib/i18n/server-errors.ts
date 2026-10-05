@@ -30,6 +30,8 @@ const FRENCH_SERVER_ERRORS: Record<string, string> = {
   'Only a chef can import a devis': 'Seul un chef peut importer un devis.',
   'This account needs to be unlocked before it can be used':
     "Votre période d'essai est terminée. Écrivez à melanie@casprod.app pour débloquer votre compte.",
+  'Weekly address search limit reached':
+    'Vous avez atteint le nombre de recherches d’adresse de la semaine. Saisissez l’adresse à la main, ou demandez-nous de relever la limite.',
   'Daily devis reading limit reached':
     "Vous avez atteint le nombre de devis lisibles aujourd'hui. Réessayez demain, ou demandez à relever la limite.",
   'Only a chef can validate a devis': 'Seul un chef peut valider un devis.',

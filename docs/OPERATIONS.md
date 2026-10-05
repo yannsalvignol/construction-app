@@ -57,6 +57,30 @@ update public.companies
  where name = '...';
 ```
 
+## Ce que l'app peut dépenser
+
+Two ceilings, both per company and both adjustable without a deploy.
+
+| | column | default | what it is |
+|---|---|---|---|
+| Devis read by the AI | `companies.daily_parse_limit` | 5 / day | OpenAI, a few cents to a few euros each |
+| Address lookups | `companies.weekly_place_search_limit` | 50 / week | Google Places, billed per session |
+
+```sql
+update public.companies set weekly_place_search_limit = 200 where name = '...';
+update public.companies set daily_parse_limit = 20 where name = '...';
+-- 0 means no ceiling at all
+```
+
+A lookup is a session, which is what Google bills: the keystrokes of one
+address and the resolve that follows count once between them. Fifty a week is
+a company registering a chantier most working days. When it runs out the chef
+is told to type the address by hand, which still works — the map pin is what
+he loses, not the chantier.
+
+Neither of these is a global cap. If one customer is spending alarmingly,
+these columns are where you stop them; there is nothing above them.
+
 ## Protection du travailleur isolé
 
 **Off by default.** A company gets the watch when it asks for it.

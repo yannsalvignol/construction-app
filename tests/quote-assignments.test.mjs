@@ -590,6 +590,28 @@ test('handing out devis work', async t => {
     assert.equal((await access(ids.chef)).notice_seen, true);
   });
 
+  await t.test('a company searches fifty addresses a week, and the fifty-first is refused', async () => {
+    const left = async (session) =>
+      (await as(ids.chef, 'select public.claim_place_search($1) as n', [session]))[0].n;
+    // The keystrokes and the resolve of one lookup share a session, and cost
+    // one between them however many requests they take.
+    assert.equal(await left('session-1'), 49);
+    assert.equal(await left('session-1'), 49);
+    for (let i = 2; i <= 50; i++) await left('session-' + i);
+    await assert.rejects(as(ids.chef, 'select public.claim_place_search($1)', ['session-51']),
+      /Weekly address search limit reached/);
+    // A week later the oldest fall away and the count starts again.
+    await db.query(`update public.place_search_sessions set created_at = now() - interval '8 days'
+                    where company_id = $1`, [ids.company]);
+    assert.equal(await left('session-51'), 49);
+    // Nobody else spends it, and a limit of zero is no limit at all.
+    await assert.rejects(as(ids.worker, 'select public.claim_place_search($1)', ['x']),
+      /Only a chef can search addresses/);
+    await db.query('update public.companies set weekly_place_search_limit = 0 where id = $1', [ids.company]);
+    assert.equal(await left('session-99'), -1);
+    await db.query('update public.companies set weekly_place_search_limit = 50 where id = $1', [ids.company]);
+  });
+
   await t.test('nobody reads another company\'s assignments', async () => {
     assert.equal((await as(ids.otherChef, 'select * from public.quote_assignments')).length, 0);
     assert.ok((await as(ids.chef, 'select * from public.quote_assignments')).length > 0);
