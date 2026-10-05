@@ -58,7 +58,9 @@ export default function SitesScreen() {
     {adding ? <Card>
       {/* Labelled rather than placeheld: a placeholder is gone the moment you
           type, and these two fields sat next to each other looking the same —
-          one naming the chantier, the other finding it on a map. */}
+          one naming the chantier, the other finding it on a map. The name is
+          the bigger of the two because it is the one being invented; the
+          address is being looked up. */}
       <View style={{ gap: 8 }}>
         <ThemedText type="smallBold">{copy.siteName}</ThemedText>
         <Field
@@ -66,8 +68,8 @@ export default function SitesScreen() {
           placeholder={copy.siteNameExample}
           value={name}
           onChangeText={setName}
+          style={{ minHeight: 60, fontSize: 19 }}
           maxLength={120} />
-        <ThemedText type="small" themeColor="textSecondary">{copy.siteNameHint}</ThemedText>
       </View>
       <SitePicker onChange={setLocated} />
       <Action label={copy.save} busy={busy} disabled={!name.trim() || !located} onPress={save} />
