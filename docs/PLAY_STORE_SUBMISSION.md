@@ -33,10 +33,9 @@ reads the notice → accepts → Android's "Allow all the time" prompt → phone
 left still → "Êtes-vous d'accord ?" appears → unanswered → chef's phone shows
 the alert. Upload unlisted, paste the link in the form.
 
-**Before recording, and before submitting, the feature has to be ON for the
-demo company.** It is off by default for every company and switched on by us
-in the database — a feature a reviewer cannot exercise is a feature Google
-assumes does not exist:
+**Internal, not for any form:** check the watch is running on the demo company
+before recording and before submitting. A feature a reviewer cannot exercise is
+one Google assumes does not exist.
 
 ```sql
 update public.companies set lone_worker_enabled = true where name = '<demo company>';

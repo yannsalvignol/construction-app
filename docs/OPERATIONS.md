@@ -17,13 +17,17 @@ you need on a Tuesday afternoon when a customer phones.
 
 **Off by default.** A company gets the watch when it asks for it.
 
-**But it is declared to both stores**, because it is what justifies
-`ACCESS_BACKGROUND_LOCATION` and `UIBackgroundModes: location` — see
+**It is what justifies the background location to both stores** —
+`ACCESS_BACKGROUND_LOCATION` and `UIBackgroundModes: location`; see
 `docs/PLAY_STORE_SUBMISSION.md` §0 and the review notes in
-`docs/APP_STORE_SUBMISSION.md`. A reviewer who cannot exercise a declared
-feature treats it as absent, and Google asks for a video of it working. So
-**the demo company used for review must have it switched on** before either
-submission, whatever the other companies have.
+`docs/APP_STORE_SUBMISSION.md`. Neither document mentions this switch, and
+neither should: how a feature is provisioned is nobody's business but ours,
+and the store texts describe only what the app does.
+
+What that costs us is a step to remember. A reviewer who cannot exercise a
+feature treats it as absent, and Google asks for a video of it working, so
+**the demo company handed to the reviewers must have the watch on** before
+either submission — whatever the other companies have.
 
 ```sql
 -- give it to one company

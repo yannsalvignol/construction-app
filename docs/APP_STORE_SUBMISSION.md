@@ -36,17 +36,11 @@ PROTECTION DU TRAVAILLEUR ISOLÉ (lone-worker protection)
   whether he is all right. If he does not answer within 3 minutes, his site
   manager is alerted by push notification with the last known position, so
   somebody can go and look. Moving again answers the question by itself.
-- It is per company, switched on by us in the database
-  (`companies.lone_worker_enabled`), so an employer who does not want it has
-  nothing of it in the app at all — no watch, no alert button, nothing to
-  see. It is OFF by default.
-- The thresholds are server-side and adjustable per deployment; the employee
-  can switch his own watch off, and the whole feature stops with the declared
-  day.
-- The demo company for this review has it ENABLED so the reviewer can see it.
-  To exercise it: sign in as the demo employee, start a work day, accept the
+- The employee can switch his own watch off at any time, and the whole
+  feature stops when he ends his declared day.
+- To see it: sign in as the demo employee, start a work day, accept the
   notice, and leave the phone still — or press the alert button on the day
-  screen, which raises the same alert immediately.
+  screen, which raises the same alert immediately and shows it on the chef's.
 
 LOCATION USE
 - Presence checks read the location ONCE, only when the employee taps to
